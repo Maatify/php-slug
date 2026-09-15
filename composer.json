@@ -1,0 +1,64 @@
+{
+  "name": "maatify/php-slug",
+  "description": "Scoped slug lifecycle and canonicalization for PHP applications.",
+  "keywords": [
+    "slug",
+    "canonicalization",
+    "lifecycle",
+    "php",
+    "maatify"
+  ],
+  "homepage": "https://github.com/Maatify/php-slug",
+  "type": "library",
+  "license": "proprietary",
+  "authors": [
+    {
+      "name": "Maatify",
+      "email": "support@maatify.com",
+      "homepage": "https://maatify.dev"
+    }
+  ],
+  "support": {
+    "issues": "https://github.com/Maatify/php-slug/issues",
+    "source": "https://github.com/Maatify/php-slug"
+  },
+  "autoload": {
+    "psr-4": {
+      "Maatify\\Slug\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Maatify\\Slug\\Tests\\": "tests/"
+    }
+  },
+  "require": {
+    "ext-intl": "*",
+    "ext-mbstring": "*",
+    "ext-pdo": "*",
+    "ext-pdo_mysql": "*",
+    "maatify/exceptions": "^1.0",
+    "maatify/persistence": "^1.1",
+    "maatify/shared-common": "^1.0",
+    "php": "^8.4"
+  },
+  "require-dev": {
+    "friendsofphp/php-cs-fixer": "^3.94",
+    "phpstan/phpstan": "^2.1",
+    "phpunit/phpunit": "^11.5"
+  },
+  "scripts": {
+    "analyse": "phpstan analyse",
+    "format": "php-cs-fixer fix",
+    "test": "phpunit --configuration phpunit.xml.dist"
+  },
+  "config": {
+    "optimize-autoloader": true,
+    "sort-packages": true,
+    "platform": {
+      "php": "8.4.0"
+    }
+  },
+  "minimum-stability": "stable",
+  "prefer-stable": true
+}
