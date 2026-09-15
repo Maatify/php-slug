@@ -732,9 +732,9 @@ Transfer يقفل source/target Scope ثم source/target Binding وفق هذا �
 
 ## 28. Revision وCAS
 
-Revision يبدأ `0` ويرتفع مرة واحدة في كل successful state mutation لكل Binding. Natural no-op وidempotent replay لا يرفعانه. كل mutation على Binding موجود يتطلب `expectedRevision` مساويًا للقيمة المقروءة؛ assign الأول وtarget bootstrap يقبلان `null` لأن Binding غير موجود.
+Revision يبدأ `0` ويرتفع مرة واحدة في كل successful state mutation لكل Binding. Natural no-op وidempotent replay لا يرفعانه. `expectedRevision = null` يعني assertion صريح بأن Binding غير موجود؛ لذلك لا يستخدم إلا في مسارات الإنشاء التي تثبت غياب الصف. إذا كان الصف موجودًا بأي status، بما فيها `RELEASED`، يجب إرسال revision الحالية صراحةً، وتفشل القيمة القديمة بـ`SlugRevisionConflictException`. إعادة فتح `RELEASED` لا تقبل `null`؛ تستعمل revision الحالية ثم ترفعها عند mutation الناجحة.
 
-Transfer يتطلب source وtarget expected revisions عندما يكونان موجودين، ويرفع كل طرف مرة واحدة. Transition يتطلب source revision ويفرض target absent. فشل CAS أو اختلاف revision يرمى `SlugRevisionConflictException` قبل أي committed partial state.
+Transfer يتطلب source وtarget expected revisions لأن كليهما Binding موجود، ويرفع كل طرف مرة واحدة. Transition يتطلب source revision ويفرض target absent؛ غياب target هو الحالة الوحيدة التي يكون فيها target bootstrap بلا revision. فشل CAS أو اختلاف revision يرمى `SlugRevisionConflictException` قبل أي committed partial state.
 
 ## 29. Replay وidempotency
 
@@ -781,11 +781,11 @@ Inactive binding يبقى قابلًا للمطابقة ويفيد Host بأن s
 
 | العملية | Binding غير موجود | Binding `RELEASED` | Binding `ACTIVE` أو `INACTIVE` | Registry role والحالة الناتجة |
 |---|---|---|---|---|
-| `adoptCurrent` | ينشئ Binding revision `0` ثم current؛ لا current سابق | يعيد فتح Binding بلا claims؛ لا يعيد كتابة تاريخ قديم | يرفض إذا كان له current؛ لا يجوز استبدال current بالـadoption | `CURRENT_CANONICAL`، status `ACTIVE`، revision `1` (أو revision السابق + 1 عند reopen)، event `ADOPTED_CURRENT` |
-| `adoptHistorical` | يرفض؛ لا يمكن إنشاء historical بلا current anchor | يرفض؛ يجب أولًا adoption لـcurrent | يقبل فقط إذا كان له current؛ يضيف claim تاريخيًا | `HISTORICAL_CANONICAL`، status لا يتغير، revision + 1، event `ADOPTED_HISTORICAL` |
-| `adoptAlias` | يرفض؛ alias يتطلب Binding قائمًا وcurrent | يرفض؛ RELEASED لا يملك alias حيًا | يقبل فقط إذا كان له current؛ يضيف alias | `ACTIVE_ALIAS`، status لا يتغير، revision + 1، event `ADOPTED_ALIAS` |
+| `adoptCurrent` | `expectedRevision=null`؛ ينشئ Binding revision `0` ثم current؛ لا current سابق | `expectedRevision` يساوي revision الحالية صراحةً؛ يعيد فتح Binding بلا claims؛ لا يعيد كتابة تاريخ قديم | يرفض إذا كان له current؛ لا يجوز استبدال current بالـadoption | `CURRENT_CANONICAL`، status `ACTIVE`، revision `1` (أو revision السابق + 1 عند reopen)، event `ADOPTED_CURRENT` |
+| `adoptHistorical` | يرفض؛ لا يمكن إنشاء historical بلا current anchor، ولا يقبل `null` revision | يرفض؛ يجب أولًا adoption لـcurrent، ولا يقبل `null` revision | يقبل فقط إذا كان له current، مع `expectedRevision` الحالية؛ يضيف claim تاريخيًا | `HISTORICAL_CANONICAL`، status لا يتغير، revision + 1، event `ADOPTED_HISTORICAL` |
+| `adoptAlias` | يرفض؛ alias يتطلب Binding قائمًا وcurrent، ولا يقبل `null` revision | يرفض؛ RELEASED لا يملك alias حيًا، ولا يقبل `null` revision | يقبل فقط إذا كان له current، مع `expectedRevision` الحالية؛ يضيف alias | `ACTIVE_ALIAS`، status لا يتغير، revision + 1، event `ADOPTED_ALIAS` |
 
-في `adoptCurrent` لا يقبل التنفيذ `expectedRevision` إلا `null` لـBinding غير الموجود أو `RELEASED`. في `adoptHistorical` و`adoptAlias` يجب أن يساوي `expectedRevision` revision المقروء للـBinding الموجود. كل عملية تتحقق من canonical claim/profile، uniqueness، reservation عند إنشاء ownership جديدة، وownership الحالية لنفس Binding؛ conflict مع Binding آخر يرفض ولا يحرر ownership ضمنيًا. replay المطابق هو الاستثناء الوحيد للسماح بوجود نفس النتيجة السابقة، ويعيد `AdoptionResultDTO` المحفوظ.
+في `adoptCurrent` يكون `expectedRevision = null` فقط إذا أثبت lookup عدم وجود Binding؛ أما `RELEASED` الموجود فيتطلب revision الحالية صراحةً ولا يسمح بإعادة فتحه مع `null`. في `adoptHistorical` و`adoptAlias` يجب أن يساوي `expectedRevision` revision المقروء للـBinding الموجود، ولا يسمحان بـ`null` أو بBinding absent/RELEASED. كل عملية تتحقق من canonical claim/profile، uniqueness، reservation عند إنشاء ownership جديدة، وownership الحالية لنفس Binding؛ conflict مع Binding آخر يرفض ولا يحرر ownership ضمنيًا. replay المطابق هو الاستثناء الوحيد للسماح بوجود نفس النتيجة السابقة، ويعيد `AdoptionResultDTO` المحفوظ.
 
 التاريخ المستورد (`originalOccurredAt`) يجب أن يكون UTC-aware `DateTimeImmutable` ويكتب بدقة microsecond؛ لا يقبل تاريخًا نصيًا overflow أو timezone غير محدد. إذا كان `null`، يستخدم Clock وقت adoption. Registry هي مصدر ownership الحية، وHistory تسجل snapshot الحدث، وBinding revision يرتفع كما في الجدول. legacy semantics المختلفة تتطلب custom/legacy versioned Profile أو mapping صريح قبل الإدخال. لا يوجد generic ETL أو bulk/dry-run API في RC1؛ يكرر Host command ضمن transaction مناسبة.
 
@@ -832,6 +832,16 @@ RC1 runtime contracts المباشرة:
 | `maatify/persistence` | `^1.1` | stable pagination API |
 
 هذه minimum versions هي الإصدارات المستقرة التي يذكرها Standards baseline للواجهات المستخدمة. لا تعتمد الحزمة على transitive dependency أو ambient extension. `composer.json` لاحقًا يجب أن يصرح بها مباشرة؛ لا ينشأ هنا.
+
+ولتوفير أدلة RC1، يثبت package foundation أيضًا أدوات التطوير المباشرة التالية في `require-dev` قبل أي Runtime WU:
+
+| أداة الدليل | القيد | الاستخدام الملزم |
+|---|---:|---|
+| `phpstan/phpstan` | `^2.1` | PHPStan `level: max` على `src` و`tests` |
+| `phpunit/phpunit` | `^11.5` | PHPUnit bootstrap وunit/integration/system evidence |
+| `friendsofphp/php-cs-fixer` | `^3.94` | style dry-run عندما يكون gate مفعّلًا |
+
+هذه أدوات `require-dev` وليست Runtime API؛ لا يجوز استبدالها بأدوات ambient أو تأجيل تعريفها إلى آخر WU.
 
 construction public يكون عبر `SlugEngineFactory` final framework-neutral ويستقبل `PDO`, `SlugProfileRegistryInterface`, `ReservedSlugPolicyInterface`, و`ClockInterface`. لا يقرأ `.env` ولا ينشئ Host connection ولا يستخدم Service Locator. built-in profiles تسجل تلقائيًا، وcustom profiles تسجل صراحةً قبل lifecycle use.
 
@@ -920,7 +930,7 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
         ) {}
     }
 
-في intent يكون value source text عند GENERATED وexact candidate عند EXACT؛ لا يفسر التنفيذ القيمة عكس mode. expectedRevision هو ?int فقط في commands التي تسمح بBinding absent/released، وغير سالب دائمًا؛ int في بقية commands ومطابق لقيمة الصف المقفول.
+في intent يكون value source text عند GENERATED وexact candidate عند EXACT؛ لا يفسر التنفيذ القيمة عكس mode. `expectedRevision` هو `?int` فقط في Commands التي تسمح بإنشاء Binding غير موجود، وغير سالب دائمًا: `null` يثبت غياب الصف فقط، و`int` يطابق revision الحالية لأي صف موجود، بما فيه `RELEASED`. لا يجوز إعادة فتح `RELEASED` مع `null`.
 
 ### 35.2 Commands
 
@@ -928,8 +938,8 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
 
 | Command | exact constructor signature | validation والدلالة |
 |---|---|---|
-| AssignExactCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?int $expectedRevision, AuditContextDTO $audit) | exact candidate يمر canonicalizeClaim؛ null revision مسموح فقط عند absent/RELEASED، وint عند existing ACTIVE/INACTIVE؛ ينشئ أو يعيد current. |
-| AssignGeneratedCommand | __construct(BindingIdentityDTO $binding, string $sourceText, ?int $expectedRevision, AuditContextDTO $audit) | source غير فارغ؛ generation bounded إلى base ثم -2..-1000؛ نفس preconditions والحالة. |
+| AssignExactCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?int $expectedRevision, AuditContextDTO $audit) | exact candidate يمر canonicalizeClaim؛ `null` يثبت Binding absent فقط، وint يساوي revision الحالية عند ACTIVE/INACTIVE/RELEASED؛ ينشئ أو يعيد current، وإعادة فتح RELEASED مع null مرفوضة. |
+| AssignGeneratedCommand | __construct(BindingIdentityDTO $binding, string $sourceText, ?int $expectedRevision, AuditContextDTO $audit) | source غير فارغ؛ generation bounded إلى base ثم -2..-1000؛ `null` للـabsent فقط، وint للـexisting بأي status بما فيها RELEASED. |
 | ChangeExactCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | Binding ACTIVE/INACTIVE وله current؛ يستبدل current ويحفظ السابق historical. |
 | ChangeGeneratedCommand | __construct(BindingIdentityDTO $binding, string $sourceText, int $expectedRevision, AuditContextDTO $audit) | مثل ChangeExact مع generated candidate وsame-binding restore. |
 | RestoreHistoricalCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | requested slug historical لنفس Binding؛ يرقّيه إلى current ولا ينقل ownership. |
@@ -943,7 +953,7 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
 | RetireAliasCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | ACTIVE_ALIAS فقط؛ يحوله RETIRED_ALIAS دون release. |
 | ReactivateAliasCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | RETIRED_ALIAS فقط؛ يعيده ACTIVE_ALIAS. |
 | PromoteAliasToCurrentCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | ACTIVE_ALIAS فقط؛ previous current historical والalias current. |
-| AdoptCurrentCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?DateTimeImmutable $originalOccurredAt, ?int $expectedRevision, AuditContextDTO $audit) | Binding absent/RELEASED فقط، revision null في هاتين الحالتين؛ ينشئ CURRENT_CANONICAL وACTIVE، event ADOPTED_CURRENT. |
+| AdoptCurrentCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?DateTimeImmutable $originalOccurredAt, ?int $expectedRevision, AuditContextDTO $audit) | Binding absent/RELEASED فقط؛ `null` للـabsent فقط، وint يساوي revision الحالية عند RELEASED؛ ينشئ أو يعيد `CURRENT_CANONICAL` و`ACTIVE`، event `ADOPTED_CURRENT`. |
 | AdoptHistoricalCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?DateTimeImmutable $originalOccurredAt, int $expectedRevision, AuditContextDTO $audit) | Binding ACTIVE/INACTIVE وله current؛ يضيف HISTORICAL_CANONICAL، ولا يسمح absent/RELEASED؛ null timestamp يستخدم Clock. |
 | AdoptAliasCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?DateTimeImmutable $originalOccurredAt, int $expectedRevision, AuditContextDTO $audit) | Binding ACTIVE/INACTIVE وله current؛ يضيف ACTIVE_ALIAS، ولا يسمح absent/RELEASED؛ null timestamp يستخدم Clock. |
 | PurgeBindingCommand | __construct(BindingIdentityDTO $binding, int $expectedRevision, AuditContextDTO $audit) | RELEASED بلا claims فقط؛ audit.idempotencyKey يجب أن يكون null لأن purge يمحو evidence ويُنهي replay guarantee؛ النتيجة void. |
@@ -1347,7 +1357,7 @@ main
 
 ## 48. إغلاق معماري قبل التنفيذ
 
-لا يبدأ Runtime implementation قبل مراجعة هذا المستند مقابل Discussion Draft والمعايير المثبتة، ولا يعاد فتح invariants المقفولة هنا. أي تغيير في profile identity أو DB driver أو public contract أو ownership model يحتاج owner-approved architectural change منفصلًا، وليس تفسيرًا داخل Work Unit.
+لا يبدأ Runtime implementation قبل إنشاء package foundation القابلة للتحميل والاختبار (`composer.json`، PHP `^8.4`، direct requirements/extensions، PSR-4 production autoload، وPHPStan/PHPUnit configuration) وفق Plan WU-00، ثم مراجعة هذا المستند مقابل Discussion Draft والمعايير المثبتة. لا يعاد فتح invariants المقفولة هنا. أي تغيير في profile identity أو DB driver أو public contract أو ownership model يحتاج owner-approved architectural change منفصلًا، وليس تفسيرًا داخل Work Unit.
 
 ## 49. Architectural Invariants المحفوظة
 
@@ -1438,12 +1448,12 @@ main
 | 21 | alias operations role transitions المحددة؛ retired لا يحرر ownership؛ generated retired same-binding restore محدد | §20، §22 |
 | 22 | transition ينشئ target Binding؛ MOVE source INACTIVE، PARALLEL source unchanged؛ لا scope rewrite | §23 |
 | 23 | `atomicTransfer` same Scope؛ كل roles قابلة؛ current يحتاج replacement؛ reservation على target؛ atomic history/revision/idempotency و`AtomicTransferResultDTO` source/target aggregate | §24، §35.4، Gate R2 |
-| 24 | expectedRevision لكل existing mutation، row locks، CAS، deterministic order §27 | §27–§28 |
+| 24 | `expectedRevision = null` للـBinding absent فقط؛ كل Binding موجود، بما فيه `RELEASED`، يتطلب revision الحالية صراحةً؛ row locks وCAS وdeterministic order §27 | §27–§28، §35.1–§35.2 |
 | 25 | package-owned BEGIN/COMMIT؛ caller-owned savepoint فقط؛ fail before mutation عند فقد nested guarantee | §26، Gate R6 |
 | 26 | operations evidence مستقل: operation identity/type، participant lookup، SHA-256 fingerprint، versioned result snapshot، replay بعد تغير live state، retention/purge؛ correlation audit-only، وno key = natural idempotency فقط | §12.5، §29، §35.6 |
 | 27 | كل public interface signature، وCommand/Criteria/DTO fields/types/nullability/validation، وScopeProfileRequestDTO، وtransition/transfer result aggregates، وEnums محددة دون design decision أثناء التنفيذ | §5.1.1، §35.1–§35.6، Gate R7 |
 | 28 | adoptCurrent/adoptHistorical/adoptAlias exact commands مع preconditions منفصلة لـabsent/RELEASED/ACTIVE/INACTIVE، current requirement، Registry role، status/revision/history، reservation/profile، وUTC timestamp؛ لا generic ETL | §31، §35.2، Gate R7 |
-| 29 | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1`، مع PHP/extensions §34 | §34، Plan §2 |
+| 29 | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1`، وأدوات evidence `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94`، مع PHP/extensions §34 | §34، Plan §2، Plan §3.3 |
 | 30 | schema/index/operations evidence plan §12–§13، real MySQL/concurrency matrix Plan §9–§10 | §12–§13، Plan §8–§10 |
 | 31 | Clock-derived UTC `DATETIME(6)` لكل package timestamp؛ imported timestamp explicit | §33، §31 |
 | 32 | adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28` وManifest المحلي الحالي؛ Standards Freeze أثناء train | §3، §47، Plan §11 |

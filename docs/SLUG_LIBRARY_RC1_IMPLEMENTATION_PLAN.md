@@ -14,7 +14,8 @@
 إنتاج RC1 مكتملة العقد التالية، مع إبقاء الحزمة مستقلة وHost-agnostic:
 
 ```text
-Profile/Text
+Package Foundation (Composer/autoload/PHPStan/PHPUnit)
+→ Profile/Text
 → Scope + EntityReference
 → PDO MySQL persistence
 → Registry ownership/allocation
@@ -71,34 +72,61 @@ Branch التنفيذ المقترحة لا تُنشأ في هذه المهمة.
 ### 3.1 الرسم
 
 ```text
-WU-01 Contracts/Identity/Profile SPI/Exceptions
+WU-00 Package Foundation (Composer/autoload/PHPStan/PHPUnit)
         │
-        ├── WU-02 Built-in Profiles/Unicode/Security/Length
-        │
-        └── WU-03 MySQL Schema/PDO/Scope Bootstrap/Transactions
-                 │
-                 └── WU-04 Registry Claim/Allocation/Availability
-                          │
-                          └── WU-05 Lifecycle/Alias/History/Release/Transfer
-                                   │
-                                   ├── WU-06 Transition/Adoption/Resolution/Management
-                                   │
-                                   └── WU-07 System/Concurrency/Transaction test evidence
-                                            │
-                                            └── WU-08 Harness/Package Gates/Full Integration Gate
+        └── WU-01 Contracts/Identity/Profile SPI/Exceptions
+                 ├── WU-02 Built-in Profiles/Unicode/Security/Length ──┐
+                 └── WU-03 MySQL Schema/PDO/Scope Bootstrap/Transactions ──┴── WU-04 Registry Claim/Allocation/Availability
+                                                                                         │
+                                                                                         └── WU-05 Lifecycle/Alias/History/Release/Transfer
+                                                                                                  ├── WU-06 Transition/Adoption/Resolution/Management ──┐
+                                                                                                  └── WU-07 System/Concurrency/Transaction test evidence ─┴── WU-08 Consumer Harness/CI Aggregation/Full Integration Gate
 ```
 
 ### 3.2 Waves
 
-- **Wave 1:** `WU-01` ثم `WU-02`؛ profile contracts لازمة قبل persistence.
+- **Wave 0:** `WU-00` ينشئ package foundation قبل أي Runtime WU: `composer.json`، PHP `^8.4`، direct runtime requirements/extensions من Blueprint §34، PSR-4 production autoload، `require-dev` evidence tools، PHPStan level-max configuration، وPHPUnit bootstrap/configuration.
+- **Wave 1:** `WU-01` بعد WU-00 ثم `WU-02`؛ public contracts وprofile contracts تصبح قابلة للتحميل والاختبار قبل persistence.
 - **Wave 2:** `WU-03` بعد WU-01؛ WU-03 لا يبدأ قبل تثبيت type/exception/identity contracts.
 - **Wave 3:** `WU-04` بعد WU-02 وWU-03؛ claim يعتمد profile canonicalization وschema uniqueness.
 - **Wave 4:** `WU-05` بعد WU-04؛ lifecycle يعتمد claim primitives وregistry roles/history sequences.
 - **Wave 5:** `WU-06` بعد WU-05؛ transition/adoption/resolve/management يعتمد live model المكتمل.
 - **Wave 6:** `WU-07` يتحرك مع كل WU في صورة evidence vertical، ويغلق بعد WU-06 بمصفوفة كاملة.
-- **Wave 7:** `WU-08` بعد كل runtime وtest behavior؛ يثبت consumer وpackage/CI gates.
+- **Wave 7:** `WU-08` بعد كل runtime وtest behavior؛ يثبت Consumer Verification Harness وCI aggregation وFull Integration Gate.
 
-لا يوجد توازٍ داخل WUs هنا: جميعها تشترك في public contracts وschema وtransaction semantics. إذا أثبت التنفيذ ownership مستقلة لاحقًا، يجوز للمساعد القائد إعادة توزيع جزء صغير داخل Batch مع الحفاظ على نفس gates؛ لا يغير ذلك Blueprint.
+يوجد توازٍ dependency-level فقط بين WU-02 وWU-03 بعد WU-01، وبين WU-06 وWU-07 بعد WU-05؛ لا يتداخل ownership داخل WU نفسها. جميعها تشترك في public contracts وschema وtransaction semantics. إذا أثبت التنفيذ ownership مستقلة لاحقًا، يجوز للمساعد القائد إعادة توزيع جزء صغير داخل Batch مع الحفاظ على نفس gates؛ لا يغير ذلك Blueprint.
+
+### 3.3 Work Unit WU-00 — Package bootstrap foundation
+
+#### 3.3.1 Owned paths
+
+```text
+composer.json
+phpstan.neon
+phpunit.xml.dist
+tests/bootstrap.php
+.php-cs-fixer.php
+```
+
+هذه هي package foundation المطلوبة قبل أول Runtime WU. لا ينفذ WU-00 domain behavior أو schema أو production tests، ولا ينشئ `composer.lock` لحزمة library القابلة للنشر.
+
+#### 3.3.2 المسؤولية
+
+ينشئ `composer.json` مستقلًا باسم الحزمة مع PHP `^8.4`، direct Runtime requirements/extensions المقفولة في Blueprint §34، PSR-4 production autoload `Maatify\\Slug\\` إلى `src/`، وPSR-4 autoload-dev إلى `tests/`. يثبت `require-dev` المباشر لـ`phpstan/phpstan ^2.1` و`phpunit/phpunit ^11.5` و`friendsofphp/php-cs-fixer ^3.94`، ويضيف scripts قابلة للتشغيل لـPHPUnit وPHPStan.
+
+ينشئ أيضًا `phpstan.neon` على `level: max` ليشمل `src` و`tests` دون baseline أو `ignoreErrors`، و`phpunit.xml.dist` مع bootstrap `tests/bootstrap.php` وtest suites قابلة للتشغيل، و`.php-cs-fixer.php` للـdry-run عند تفعيله. كل foundation file يظل framework-neutral ولا يضيف custom repository أو Host autoload.
+
+#### 3.3.3 Acceptance criteria
+
+- `composer validate --strict` ينجح، وdependency resolution يثبت كل direct runtime/dev requirement من Blueprint وPlan.
+- `composer dump-autoload --no-interaction` ينتج production PSR-4 autoload، ويكون smoke check قادرًا على تحميل namespace `Maatify\\Slug\\` دون `require` يدوي لـ`src`.
+- `vendor/bin/phpstan analyse -c phpstan.neon src tests --level=max` قابل للتشغيل من foundation، بلا baseline أو silent suppression.
+- `vendor/bin/phpunit --configuration phpunit.xml.dist` قابل للتشغيل من bootstrap نظيف، وتبقى real MySQL/integration requirements في WUs اللاحقة.
+- لا يبدأ WU-01 أو أي Runtime WU قبل تحقق هذا القبول.
+
+#### 3.3.4 Evidence
+
+سجل `composer validate --strict`، dependency resolution latest/lowest ضمن gates اللاحقة، production autoload smoke، PHPStan max، وPHPUnit bootstrap/configuration run. هذه الأدلة تثبت قابلية تشغيل الأساس فقط؛ لا تستبدل evidence السلوكية أو Consumer Verification Harness النهائية.
 
 ## 4. Work Unit WU-01 — Public domain contracts
 
@@ -130,6 +158,7 @@ tests/Unit/Exception/
 - nullable locale/context يميز بين `null` وempty string وفق §9.
 - Commands الموجودة لا تقبل internal IDs بدل domain identity إلا حيث نص Blueprint.
 - expected revision وidempotency/audit fields لها validation محددة.
+- `expectedRevision = null` يثبت Binding absent فقط؛ كل Binding موجود، بما فيه `RELEASED`، يتطلب revision الحالية صراحةً، وإعادة فتح RELEASED مع null مرفوضة.
 - `ScopeProfileRequestDTO` وBinding identity وall result aggregates لها fields/types/nullability محددة، ولا توجد operation أو public type تُترك لقرار أثناء التنفيذ.
 - `transitionScope` و`atomicTransfer` يعيدان aggregates المحددة في §35 مع source/target before/after/revision/result.
 - exception parent لكل package family محدد باسم exact published class في `maatify/exceptions` كما في §36.
@@ -279,6 +308,7 @@ tests/System/Transfer/
 - transfer يكتب out/in snapshots في transaction واحدة وبـ`operation_key` واحدة، ولا تظهر unowned gap.
 - history sequence وrevision يزدادان بشكل صحيح، وresult aggregate يحفظ source/target before-after states والـrevisions والـevents.
 - idempotency key/fingerprint والـresult snapshot تُحفظ في operations evidence؛ transfer/transition يستخدمان operation واحدًا ومشاركي SOURCE/TARGET، ولا يكتفيان بإعادة قراءة current state.
+- `assignExact` و`assignGenerated` يطبقان قاعدة CAS الموحدة: `null` للـBinding absent فقط، وrevision الحالية صراحةً لأي Binding موجود، بما فيه `RELEASED`؛ لا إعادة فتح مع `null`.
 
 ### 8.4 Evidence
 
@@ -313,6 +343,7 @@ tests/System/Transition/
 - transition result هو `ScopeTransitionResultDTO` وفيه participant results وsource/target before-after/revisions والـHistory؛ transfer result هو `AtomicTransferResultDTO` بنفس الصراحة.
 - target profile يطبق على target claim، وprofile mismatch يفشل قبل mutation.
 - adoptCurrent/adoptHistorical/adoptAlias لها preconditions منفصلة للـabsent/RELEASED/ACTIVE/INACTIVE وrole/status/revision/history في Blueprint §31، وتمر بنفس canonical/profile/ownership/reservation rules وتتحقق من UTC timestamp.
+- `adoptCurrent` يقبل `null` revision فقط عند غياب Binding؛ إعادة فتح Binding `RELEASED` تتطلب revision الحالية، و`adoptHistorical` و`adoptAlias` يتطلبان revision صريحة لBinding موجود.
 - resolve يفصل `matchKind`, `bindingStatus`, `inputFormCanonicality` ويشير إلى current مباشرة.
 - released claim لا تحل، وretained history لا تظهر كlive ownership.
 - Criteria page/perPage/sort limits ثابتة، count/data predicates متطابقة، tie-breaker `id ASC`.
@@ -332,7 +363,6 @@ tests/Integration/
 tests/System/
 tests/Fixtures/
 tests/Support/
-phpunit.xml.dist
 ```
 
 تظل كل test في WU المالكة للسلوك عند الإمكان؛ WU-07 يملك cross-cutting orchestration وfixtures وreal-race runners فقط، ولا يفصل Runtime/tests إلى PRs مصطنعة.
@@ -380,6 +410,7 @@ adopt current/historical/alias
 - two exact claimers for one `(scope,slug)`؛
 - two generated allocators؛
 - two same-binding mutations with same revision؛
+- assign/adoptCurrent على Binding absent مقابل Binding `RELEASED` يثبتان أن `null` لا يعيد فتح الصف الموجود وأن revision الحالية هي شرط CAS؛
 - same idempotency key with same/different fingerprint، بعد تغير live state، يعيد snapshot أو conflict دون mutation جديدة؛
 - multi-binding replay يتحقق من source/target participants وaggregate snapshot الواحد؛
 - first-use same profile and conflicting profile؛
@@ -400,25 +431,21 @@ adopt current/historical/alias
 4. Host outer rollback يمحو package mutation ضمن نفس transaction.
 5. driver/savepoint failure قبل mutation يترك schema state بلا تغيير.
 
-## 11. Work Unit WU-08 — Composer/CI/Harness gates
+## 11. Work Unit WU-08 — Consumer Verification Harness/CI Aggregation/Full Integration Gate
 
 ### 11.1 Owned paths لاحقًا
 
 ```text
-composer.json
-phpstan.neon
-.php-cs-fixer.php
-phpunit.xml.dist
 tools/
 .github/workflows/
 tests/Consumer/
 ```
 
-لا تُنشأ هذه الملفات في مهمة Blueprint الحالية.
+هذه هي ملفات WU-08 النهائية؛ package foundation files أنشأها WU-00 قبل Runtime. لا تُنشأ هذه الملفات في مهمة Blueprint الحالية.
 
 ### 11.2 Composer contract
 
-عند تنفيذ WU-08 يضاف مباشرة:
+يتحقق WU-08 من foundation التي أنشأها WU-00، ولا يؤجل إنشاء `composer.json` أو autoload أو PHPStan/PHPUnit configuration:
 
 ```text
 php ^8.4
@@ -431,11 +458,19 @@ maatify/shared-common ^1.0
 maatify/persistence ^1.1
 ```
 
+ويتحقق أيضًا من `require-dev` المقفولة في Blueprint §34:
+
+```text
+phpstan/phpstan ^2.1
+phpunit/phpunit ^11.5
+friendsofphp/php-cs-fixer ^3.94
+```
+
 يستخدم `maatify/persistence` فقط للـpagination stable API، ولا يضاف package-local replacement. لا يضاف `composer.lock` أو `version` أو custom repository في الحزمة القابلة للنشر. `composer validate --strict` و`composer check-platform-reqs` إلزاميان.
 
 ### 11.3 PHPStan max
 
-يكون `phpstan.neon` على `level: max` ويشمل `src` و`tests` عند وجودها. الأمر المطلوب:
+يكون `phpstan.neon` الذي أنشأه WU-00 على `level: max` ويشمل `src` و`tests`. WU-08 يعيد تشغيل الأمر كـgate نهائي:
 
 ```bash
 vendor/bin/phpstan analyse src tests --level=max
@@ -495,7 +530,8 @@ Composer install/resolve
 
 لا تغلق Batch إلا إذا تحققت جميع الشروط الآتية:
 
-- كل WU من WU-01 إلى WU-08 مكتملة وفق acceptance الخاصة بها أو لها تصنيف evidence دقيق.
+- كل WU من WU-00 إلى WU-08 مكتملة وفق acceptance الخاصة بها أو لها تصنيف evidence دقيق.
+- package foundation من WU-00 موجود وقابل للتشغيل قبل أول Runtime WU، ثم يُعاد التحقق منه في WU-08.
 - كل public contract في Blueprint موجود بلا تغيير غير معتمد.
 - risk gates R1 إلى R7 في Blueprint §39 لها evidence مستقل.
 - unit/integration/system/concurrency/transaction tests ناجحة؛ لا يعتبر unrun أو blocked نجاحًا.
@@ -547,7 +583,7 @@ Composer install/resolve
 | 5 | WU-02 وWU-06 | lookup invalid/non-lossy system tests |
 | 6 | WU-02 | NFC vectors |
 | 7 | WU-02 وWU-08 | ICU major guard وextension gate |
-| 8 | WU-08 | Composer direct requirements وplatform checks |
+| 8 | WU-00 وWU-08 | Composer direct requirements وplatform checks؛ foundation مبكر ثم verification نهائي |
 | 9 | WU-02 | security invalid-input suite |
 | 10 | WU-02 وWU-04 | length/suffix/collision tests |
 | 11 | WU-03 | collation/equality integration assertions |
@@ -563,17 +599,17 @@ Composer install/resolve
 | 21 | WU-05 | alias role transition and generated restore tests |
 | 22 | WU-06 | MOVE/PARALLEL source-target atomic tests |
 | 23 | WU-05 وWU-07 | current/non-current transfer race matrix وAtomicTransferResultDTO source/target evidence |
-| 24 | WU-03 وWU-05 وWU-07 | lock order/CAS stale writer tests |
+| 24 | WU-01 وWU-03 وWU-05 وWU-07 | absent-vs-existing/RELEASED expectedRevision validation، lock order/CAS stale writer tests |
 | 25 | WU-03 وWU-07 | owned transaction/savepoint/outer rollback tests |
 | 26 | WU-01 وWU-03 وWU-05 وWU-06 | operations evidence schema، fingerprint، participant lookup، immutable result snapshot، replay بعد تغير live state، وretention/purge tests |
 | 27 | WU-01 | exact interface signatures، Command/Criteria/DTO fields/types/nullability، multi-binding aggregates، وpublic contract review في §5.1.1 و§35.1–§35.6 |
 | 28 | WU-06 | explicit adoptCurrent/adoptHistorical/adoptAlias preconditions لكل Binding status، role/status/revision/history، timestamp/profile compatibility، وAdoptionResultDTO |
-| 29 | WU-08 | direct dependency resolution against stable constraints |
+| 29 | WU-00 وWU-08 | direct runtime/dev dependency resolution against stable constraints؛ foundation مبكر ثم latest/lowest verification نهائي |
 | 30 | WU-03 وWU-07 | schema/index وoperations evidence وreal concurrency proof |
 | 31 | WU-03 وWU-05 | Clock UTC microsecond snapshot tests |
 | 32 | §2.2 و§15 | exact adoption SHA and no mid-train refresh |
 | 33 | WU-03 وWU-04 وWU-07 | first-use same/mismatch profile race |
-| 34 | WU-01..WU-08 و§15 | Preparation closure، updated `phase-draft/rc-1` source، Implementation Batch/PR topology، Batch acceptance وPhase Integration Gate |
+| 34 | WU-00..WU-08 و§15 | Preparation closure، updated `phase-draft/rc-1` source، Implementation Batch/PR topology، Batch acceptance وPhase Integration Gate |
 
 ## 17. ما لا يدخل RC1 Implementation Batch
 
