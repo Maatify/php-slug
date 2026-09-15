@@ -556,7 +556,7 @@ INDEX ix_operation_binding_role (operation_id, participant_role)
 CHECK(participant_role IN ('SINGLE','SOURCE','TARGET'))
 ```
 
-لا توجد صفوف في `maa_slug_operations` أو `maa_slug_operation_bindings` عند غياب `audit.idempotencyKey`. عند وجوده، يُخزن مرة واحدة لكل Binding مشارك؛ العملية متعددة الـBinding تشترك في صف `maa_slug_operations` واحد وصف `SOURCE` و`TARGET` في جدول المشاركين. لذلك تبقى `idempotency_key NOT NULL` صحيحة: الجدول لا يمثل natural mutations بلا key. `request_fingerprint` هو lowercase hexadecimal SHA-256 بطول 64، و`operation_key` هو lowercase hexadecimal بطول 32. `result_snapshot` هو serialization canonical للـDTO العام بعد نجاح mutation، ويحتوي discriminator `result_type` و`result_schema_version` وجميع الحقول المحددة في §35. لا يجوز أن يكون snapshot ناقصًا أو يعاد تركيبه من الحالة الحالية.
+لا توجد صفوف في `maa_slug_operations` أو `maa_slug_operation_bindings` عند غياب `audit.idempotencyKey`. عند وجوده، يُخزن مرة واحدة لكل Binding مشارك؛ العملية متعددة الـBinding تشترك في صف `maa_slug_operations` واحد وصف `SOURCE` و`TARGET` في جدول المشاركين. لذلك تبقى `idempotency_key NOT NULL` صحيحة: الجدول لا يمثل natural mutations بلا key. `request_fingerprint` هو lowercase hexadecimal SHA-256 بطول 64، و`operation_key` هو lowercase hexadecimal بطول 32. `result_snapshot` هو **Result Snapshot JSON v1** المحدد حرفيًا في §35.6: object canonical يحمل `result_type` و`result_schema_version` و`result`، ويمثل DTO النتيجة الأصلية بعد نجاح mutation مع `replayed = false`. لا يجوز أن يكون snapshot ناقصًا أو يعاد تركيبه من الحالة الحالية، ولا يجوز تخزين replay DTO بدل النتيجة الأصلية.
 
 ينشئ التنفيذ صف العملية بحالة `IN_PROGRESS` وصفوف المشاركين داخل نفس transaction قبل mutation؛ لا يراه أي قارئ ملتزم، ولا يُسمح بتركه ملتزمًا. بعد نجاح live state وHistory يبني snapshot مرة واحدة، ثم ينفذ انتقالًا وحيدًا إلى `COMMITTED` يملأ `result_snapshot` و`completed_at`؛ لا يجوز تعديل snapshot بعد ذلك. أي failure يعمل rollback ويمحو صف العملية والمشاركين والحالة الجزئية. يحتفظ RC1 بالـoperation snapshot بلا انتهاء زمني ما دام صف العملية موجودًا؛ لا يوجد automatic time-based purge. عند purge تُزال participant rows الخاصة بالـBinding؛ يبقى operation evidence ما دام مشارك آخر يحتاجها، وتحذف العملية بعد حذف آخر participant. بذلك يكون purge هو الحد الصريح لانتهاء ضمان replay لذلك الـBinding.
 
@@ -886,7 +886,7 @@ Transfer يتطلب source وtarget expected revisions لأن كليهما Bindi
 3. يفتح transaction/savepoint، ثم ينفذ identity/bootstrap: `ensureScope()` لكل Scope مطلوبة؛ يقفل Scopes؛ ويقرأ أو يدرج Binding placeholder `RELEASED`, pointer NULL, revision 0, sequence 0 فقط لمسارات assign/adoption التي تسمح absent وtarget transition. `atomicTransfer` لا يدخل هذا المسار لأن target موجود precondition. إذا أعاد إدراج Binding المسموح به duplicate على `uk_binding_identity`، فهذه first-create race متوقعة وليست infrastructure failure: تعتبر `INSERT` statement نفسها failed، ولا ينشئ هذا المسار savepoint خاصة بالإدراج ولا يعمل rollback لها؛ يستمر التنفيذ داخل package transaction أو savepoint الحالية، ثم يعيد قراءة الصف الفائز تحت `SELECT ... FOR UPDATE`. إذا وجدت `idempotencyKey`، يفحص participant/operation evidence لذلك الـBinding: نفس key و`requestFingerprint` مع operation `COMMITTED` يعيد replay snapshot، ونفس key مع fingerprint مختلف يرمى `SlugIdempotencyConflictException`. إذا لم يوجد evidence مطابق، فقد فشل شرط الغياب؛ يرمى `SlugRevisionConflictException` كـsemantic/CAS conflict ولا تبدأ mutation إضافية. تنطبق هذه القاعدة على `assignExact` و`assignGenerated` و`adoptCurrent` وtarget `transitionScope` فقط.
 4. بعد أن يوجد كل Binding ID ويُقفل، ينشئ participant reservation داخل نفس transaction **فقط إذا وجدت `idempotencyKey`**: `SINGLE` للـBinding الواحد أو `SOURCE`/`TARGET` للعمليات متعددة الـBinding. الـFK في `maa_slug_operation_bindings.binding_id` لا يُلمس قبل هذه النقطة. إذا سبق تنفيذ آخر على نفس key، ينتظر unique conflict ثم يقرأ الصف الملتزم: نفس key وfingerprint المطابق مع `COMMITTED` يعيد snapshot الأصلي، ونفس key مع fingerprint مختلف يرمى `SlugIdempotencyConflictException`؛ وإذا لم يوجد evidence فتبقى القاعدة semantic/CAS الخاصة بالـBinding ولا يتحول الأمر إلى infrastructure failure.
 5. بعد participant reservation فقط ينفذ mutation/lifecycle وCAS وRegistry changes، ثم يكتب History. كل keyed mutation تظل `IN_PROGRESS` مع snapshot/completed_at null إلى أن تنجح كل الكتابات.
-6. يبني aggregate immutable من before/after وHistory، يكتب `result_type + result_schema_version + result_snapshot` مرة واحدة، ثم يغير status إلى `COMMITTED` ويملأ `completed_at` قبل commit/release savepoint. لا يجوز للمشارك أن يرى IN_PROGRESS ملتزمة.
+6. يبني aggregate immutable من before/after وHistory، يثبت `replayed = false` للنتيجة الأصلية، ثم يمررها إلى Result Snapshot Encoder v1 كما هو محدد في §35.6. يكتب `result_type + result_schema_version + result_snapshot` مرة واحدة، ثم يغير status إلى `COMMITTED` ويملأ `completed_at` قبل commit/release savepoint. لا يجوز للمشارك أن يرى IN_PROGRESS ملتزمة. عند replay، يقرأ decoder الـsnapshot الملتزم فقط، يتحقق من `result_type` و`result_schema_version` والـshape والقيم، ثم يعيد نفس aggregate بعد ضبط `replayed = true` في DTO جديد داخل الذاكرة فقط؛ لا يعدل JSON المخزن، ولا operation row، ولا Registry أو Binding أو History الحالية، ولا يقرأها لإعادة بناء النتيجة.
 7. إذا فشل أي جزء، ي rollback transaction كاملة أو إلى savepoint ويعاد original/semantic Throwable؛ تزول operations وparticipants وplaceholder وRegistry وHistory الجزئية معًا. إذا سباقا first-create بنفس key، يفوز أول transaction تلتزم؛ الثاني، بعد إعادة قراءة `uk_binding_identity` تحت lock ثم فحص evidence، يعيد snapshot المطابق أو `SlugIdempotencyConflictException` أو `SlugRevisionConflictException` عند غياب evidence. وإذا اختلفت مفاتيح idempotency، فلا يوجد deduplication بينهما: يتنافسان طبيعيًا ويخضعان لـCAS/unique.
 
 لـ`transitionScope` يحفظ operation صفًا واحدًا مع مشاركي source وtarget عند وجود key؛ و`atomicTransfer` يحفظ source وtarget بالطريقة نفسها بعد إثبات target الموجود، مع `operation_key` واحد وsnapshot aggregate يضم source/target states/revisions/results. أما mutation الأحادي فيستخدم `SINGLE`. Reservation وrevision checks لا تُتجاوز بإعادة التشغيل، و`replayed` جزء من DTO المعاد ولا يغير الـsnapshot الأصلي. عند غياب key لا توجد operation أو participant evidence لأي من هذه العمليات، بما فيها first-create. `ensureScope()` لا يملك audit semantics ولا evidence مستقلة؛ participant reservation لا يبدأ إلا بعد اكتمال كل Binding identity كما في الخطوتين 3–4، وإعادة قراءة duplicate `uk_binding_identity` في المسارات المحددة أعلاه إلزامية قبل تصنيف النتيجة.
@@ -1215,9 +1215,153 @@ Slug لا يملك public constructor؛ public caller والـpackage internal �
 SlugEngine هو aggregate عام نهائي ينفذ SlugTextServiceInterface وSlugProfileRegistryInterface وSlugScopeRegistryInterface وSlugLifecycleServiceInterface وSlugQueryServiceInterface وSlugManagementQueryInterface، ولا يضيف contract آخر. `SlugTextServiceFactory` يعيد خدمة text فقط ولا يعيد `SlugEngine`.
 لا يملك SlugEngine public constructor؛ إنشاؤه الوحيد هو return value من SlugEngineFactory::create، ولا يحق للمستهلك إنشاء PDO أو repositories داخلية من خلاله.
 
-### 35.6 قاعدة result وreplay
+### 35.6 Result Snapshot JSON v1 وقاعدة result وreplay
 
-الـresult snapshot version 1 يطابق DTO discriminator الآتي: mutation أحادي يطابق SlugMutationResultDTO، transition يطابق ScopeTransitionResultDTO، transfer يطابق AtomicTransferResultDTO، adoption يطابق AdoptionResultDTO. BindingStateResultDTO داخل aggregates ليس اختيارًا بديلًا؛ هو participant contract لازم يصف before/after/mutated/revision/events. decoder يرفض discriminator أو schema version غير المعروف كـSlugPersistenceInvariantException، ولا يبني DTO من current state.
+هذا القسم هو العقد الوحيد لترميز `maa_slug_operations.result_snapshot`. لا يختار المنفذ أسماء مفاتيح أو ترتيبًا أو تمثيلًا بديلًا. `result_snapshot` ليس dump لـRegistry أو Binding، وليس projection يمكن إعادة توليده؛ هو serialization canonical للـDTO العام الذي خرج من العملية الأصلية.
+
+#### 35.6.1 Discriminators وtop-level shape
+
+القيم الأربع exact case-sensitive ASCII tokens، ولا توجد aliases أو tokens إضافية:
+
+| `result_type` | DTO المقابل | operation types المسموح بها في هذا الـaggregate |
+|---|---|---|
+| `mutation` | `SlugMutationResultDTO` | كل `OperationTypeEnum` أحادي الـBinding باستثناء `TRANSITION_SCOPE` و`ATOMIC_TRANSFER` و`ADOPT_CURRENT` و`ADOPT_HISTORICAL` و`ADOPT_ALIAS` |
+| `transition` | `ScopeTransitionResultDTO` | `TRANSITION_SCOPE` فقط |
+| `transfer` | `AtomicTransferResultDTO` | `ATOMIC_TRANSFER` فقط |
+| `adoption` | `AdoptionResultDTO` | `ADOPT_CURRENT` أو `ADOPT_HISTORICAL` أو `ADOPT_ALIAS` فقط |
+
+القيمة الوحيدة المقبولة لـ`result_schema_version` هي JSON integer `1`. الشكل العلوي وترتيب مفاتيحه عند encoding هما بالضبط:
+
+```json
+{
+  "result_type": "mutation",
+  "result_schema_version": 1,
+  "result": {}
+}
+```
+
+`result` object يطابق DTO الذي يحدده `result_type`. لا توجد أي مفاتيح أخرى في المستوى العلوي، ولا توجد metadata مثل `operation_id` أو `created_at` داخل snapshot؛ تلك أعمدة evidence وليست جزءًا من DTO. `operation_key` يبقى داخل DTO في موضعه المحدد أدناه.
+
+الـEncoder يبني associative arrays صراحةً بالترتيب أعلاه وبالترتيب المحدد لكل object أدناه، ثم يستعمل:
+
+```text
+JSON_UNESCAPED_UNICODE
+| JSON_UNESCAPED_SLASHES
+| JSON_PRESERVE_ZERO_FRACTION
+| JSON_THROW_ON_ERROR
+```
+
+يُمنع استعمال `JSON_PRETTY_PRINT` أو `JSON_NUMERIC_CHECK` أو `JSON_PARTIAL_OUTPUT_ON_ERROR` أو `JSON_INVALID_UTF8_SUBSTITUTE` أو `JSON_FORCE_OBJECT`. JSON هو UTF-8 compact بلا BOM أو whitespace زائد. لا توجد أرقام عشرية أو floats في Snapshot v1؛ كل revision/id/version integer JSON، وكل boolean JSON boolean، وكل string JSON string.
+
+#### 35.6.2 Exact result object shapes
+
+مفاتيح كل `result` object وترتيبها canonical كما يلي؛ وجود `null` لا يسقط المفتاح:
+
+```text
+mutation:
+  operation_type, operation_key, replayed, before, after, affected_claims,
+  previous_slug, current_slug, change_type, revision, history_events
+
+transition:
+  operation_type, operation_key, replayed, mode, target_created,
+  source_result, target_result, source_before, source_after, target_before,
+  target_after, source_claim, target_claim, source_revision, target_revision,
+  history_events
+
+transfer:
+  operation_type, operation_key, replayed, source_result, target_result,
+  transferred_claim, source_replacement_result, source_revision,
+  target_revision, history_events
+
+adoption:
+  operation_type, operation_key, replayed, before, after, adopted_claim,
+  history_event
+```
+
+في كل result أصلي يُخزن `replayed: false` فقط. لا يُعاد ترميز DTO replay ولا يُكتب فوق snapshot؛ decoder ينشئ DTO جديدًا ويضبط `replayed: true` بعد نجاح decode. `operation_key` lowercase hexadecimal بطول 32 أو JSON `null` فقط. `operation_type` و`change_type` و`mode` هي strings مساوية حرفيًا لقيم Enums المنشورة في §35.5؛ لا تُخزن أسماء PHP أو أرقام enum.
+
+#### 35.6.3 Nested value objects وDTOs
+
+القواعد التالية هي shapes exact، وبنفس ترتيب المفاتيح. `Slug` و`SlugProfileKey` يترمزان كـJSON string scalar، لا كـobject:
+
+```text
+Slug                         = canonical UTF-8 JSON string
+SlugProfileKey               = profile-key ASCII JSON string
+SlugScope                    = { namespace, locale_key, context_key }
+EntityReference              = { entity_type, entity_key }
+ScopeProfileRequestDTO       = { scope, expected_profile_key }
+BindingIdentityDTO           = { scope_profile, entity }
+```
+
+`SlugScope` هو object بالمفاتيح `namespace` ثم `locale_key` ثم `context_key`؛ `locale_key` و`context_key` JSON string أو JSON `null` فقط. `EntityReference` هو object بالمفتاحين `entity_type` ثم `entity_key`، وكلاهما string opaque كما حفظهما Host. `ScopeProfileRequestDTO` يضع `scope` أولًا ثم `expected_profile_key` كـstring. `BindingIdentityDTO` يضع `scope_profile` أولًا ثم `entity`. لا تدخل `profile_key` داخل `SlugScope`؛ يظهر فقط في `ScopeProfileRequestDTO`.
+
+الأشكال المتداخلة التي تستخدمها result DTOs هي:
+
+```text
+BindingStateDTO = {
+  status, current_slug, revision, history_sequence
+}
+
+BindingDTO = {
+  id, identity, state, current_claim, created_at, updated_at
+}
+
+RegistryClaimDTO = {
+  id, binding, slug, role, claimed_at, updated_at
+}
+
+BindingStateResultDTO = {
+  before, after, mutated, revision, history_events
+}
+
+HistoryEventDTO = {
+  id, binding_id, sequence_no, event_type, scope_snapshot,
+  entity_snapshot, slug_snapshot, previous_slug_snapshot,
+  claim_role_snapshot, previous_claim_role_snapshot, related_scope,
+  related_entity, operation_key, actor_key, reason, correlation_key,
+  occurred_at, original_occurred_at
+}
+```
+
+كل object أعلاه يستخدم exact snake_case field names المبينة، ولا يستخدم camelCase أو أسماء database columns بديلة. `BindingStateDTO.current_slug` و`BindingDTO.current_claim` يلتزمان بقواعد nullability في §35.4؛ `before` و`target_before` و`source_replacement_result` وحقول Slug/Scope/Entity الاختيارية تكون JSON `null` حيث ينص §35.4، لكن المفتاح يبقى موجودًا. `HistoryEventDTO` يحافظ على role applicability والـnullable rules في §12.4 و§35.4، ولا يستنتج role من Registry الحالية.
+
+#### 35.6.4 Enums وDateTimeImmutable وnullable values
+
+- كل Enum يترمز إلى JSON string يساوي exact backed token المنشور في §35.5 و§21؛ unknown token أو تغيير case أو numeric token مرفوض. `result_type` وحده يستخدم tokens lowercase الأربعة أعلاه.
+- كل `DateTimeImmutable` في DTOs (`created_at`, `updated_at`, `claimed_at`, `occurred_at`, `original_occurred_at`) يتحول إلى UTC ويترمز كسلسلة exact بالشكل `Y-m-d\\TH:i:s.u\\Z`؛ يجب أن توجد ستة أرقام microseconds دائمًا، ولا يسمح offset أو timezone name أو حذف `.u`. المجال الشامل هو `1000-01-01T00:00:00.000000Z` إلى `9999-12-31T23:59:59.999999Z`.
+- كل nullable field موجود دائمًا في object وقيمته JSON `null` عند غيابه؛ لا يستعمل encoder omission أو empty string أو sentinel. decoder يطبق بعد ذلك invariant rules الخاصة بالـDTO، مثل `currentSlug/currentClaim` وrole applicability.
+- كل integer يبقى JSON integer دون stringification؛ كل boolean يبقى JSON boolean؛ لا يقبل decoder `"1"` بدل `1` أو `0/1` بدل boolean.
+
+#### 35.6.5 Lists وترتيبها
+
+كل `list<T>` هو JSON array، وليس object مرقمًا، ويُكتب `[]` عند الفراغ. الترتيب deterministic وملزم:
+
+- `affected_claims`: ascending by `RegistryClaimDTO.id`.
+- `history_events`: داخل result أحادي الـBinding، ascending by `(sequence_no, id)`؛ داخل transition أو transfer، source participant أولًا ثم target participant، وداخل كل participant ascending by `(sequence_no, id)`.
+- أي `history_events` داخل `BindingStateResultDTO` أو `SlugMutationResultDTO` يتبع نفس قاعدة participant الخاصة به.
+
+لا يوجد deduplication أو sorting أثناء decode؛ decoder يتحقق من الترتيب ويعتبر duplicate أو out-of-order أو non-array mismatch. جميع objects داخل القوائم تمر بنفس exact nested encoding، ولا يجوز إسقاط عنصر أو إضافة عنصر غير متوقع.
+
+#### 35.6.6 Full validation وexception contract
+
+يستخدم decoder strict JSON parse مع `JSON_THROW_ON_ERROR`، ويتحقق من أن root object ليس scalar أو array، ومن عدم وجود duplicate keys، ومن key set exact لكل object ومن types exact لكل قيمة ومن ترتيب المفاتيح canonical الذي ينتجه الـEncoder. التخزين في MySQL JSON قد يعيد ترتيب object members داخليًا؛ لذلك يعيد decoder بناء canonical key order من key set المعروف قبل المقارنة/الـDTO hydration، لكن أي missing أو extra أو duplicate key أو key غير معروف أو shape مختلف يرفض. لا يسمح decoder بأي forward-compatible unknown fields في version 1.
+
+يتحقق decoder بالترتيب من:
+
+1. `result_type` token ومن mapping إلى DTO الصحيح؛
+2. `result_schema_version === 1`؛
+3. top-level keys وresult keys وnested keys exact؛
+4. enum tokens، integer/boolean/string/null types، UTC timestamps ذات 6 microseconds؛
+5. DTO nullability، role applicability، list ordering، و`operation_type` المتوافق مع `result_type`؛
+6. أن snapshot الملتزم يحمل `replayed === false` قبل إنشاء DTO replay.
+
+أي JSON parse failure أو missing/extra/duplicate key أو unknown `result_type` أو unknown `result_schema_version` أو type/enum/timestamp/list/DTO invariant mismatch يرمى `SlugPersistenceInvariantException`. لا يحول decoder الفشل إلى validation أو conflict exception، ولا يسأل Registry أو Binding أو History لإكمال قيمة ناقصة.
+
+#### 35.6.7 Immutable original result وreplay
+
+الـsnapshot المكتوب في أول نجاح هو النتيجة الأصلية الكاملة: before/after، participant results، revisions، claims، وHistory DTO snapshots كما خرجت من العملية، مع `replayed = false`. بعد انتقال operation إلى `COMMITTED` لا يوجد UPDATE مسموح لـ`result_snapshot` أو `result_type` أو `result_schema_version`؛ أي محاولة تغييرها مخالفة invariant.
+
+عند replay المطابق لـ`idempotencyKey` و`requestFingerprint`، يقرأ التنفيذ الصف الملتزم والـsnapshot فقط، يفككه بالـdecoder أعلاه، ثم يعيد DTO يحمل نفس كل الحقول والقيم الأصلية مع `replayed = true`. هذا التغيير في DTO المعاد داخل الذاكرة فقط؛ لا يعدل الـJSON المخزن، ولا `completed_at`، ولا `operation_key`، ولا live Registry/Binding/History، ولا يضيف revision أو History event. لا يجوز لأي replay path تنفيذ `getCurrent` أو إعادة hydration أو حساب claim من Registry/Binding الحالية؛ تغير live state بعد العملية الأصلية لا يغير نتيجة replay. بعد purge تنتهي ضمانة replay كما هو محدد في §12.5 و§29.
 
 ### 35.7 فهرس أسماء Commands
 
@@ -1627,7 +1771,7 @@ main
 | 23 | `atomicTransfer` same Scope إلى target Binding موجودة فقط؛ role target يساوي `originalSourceRole`؛ current يحتاج replacement مختلفًا، والجديد يطبق `CHANGED` والـhistorical `RESTORED` وactive/retired alias يرفض؛ exact مساوي للمنقول يرفض قبل mutation وgenerated يستبعده؛ target current لا يُقبل إلا لـRELEASED؛ reservation على target؛ atomic history/revision/idempotency و`AtomicTransferResultDTO` source/target aggregate | §24، §35.2، §35.4، Gate R2 |
 | 24 | `expectedRevision = null` للـBinding absent فقط؛ كل Binding موجود، بما فيه `RELEASED`، يتطلب revision الحالية صراحةً؛ row locks وCAS وdeterministic order §27 | §27–§28، §35.1–§35.2 |
 | 25 | package-owned BEGIN/COMMIT؛ caller-owned savepoint فقط؛ fail before mutation عند فقد nested guarantee | §26، Gate R6 |
-| 26 | operations evidence مستقل عند وجود idempotency key فقط: participant lookup، canonical request JSON version 1، SHA-256 fingerprint، versioned immutable result snapshot، replay بعد تغير live state، وfirst-create duplicate `uk_binding_identity` lock/read classification؛ retention/purge؛ correlation/audit fields خارج fingerprint، وno key = natural mutation بلا evidence | §11.1، §12.5، §29، §35.4–§35.6 |
+| 26 | operations evidence مستقل عند وجود idempotency key فقط: participant lookup، canonical request JSON version 1، SHA-256 fingerprint، Result Snapshot JSON v1 exact `result_type`/DTO mapping وfield order/flags/nested encoding، immutable original result بـ`replayed=false`، replay decoder يعيد DTO نفسه مع `replayed=true` بعد تغير live state دون current-state reconstruction، وfirst-create duplicate `uk_binding_identity` lock/read classification؛ retention/purge؛ correlation/audit fields خارج fingerprint، وno key = natural mutation بلا evidence | §11.1، §12.5، §29، §35.4–§35.6 |
 | 27 | كل public interface signature، stateless/persisted construction paths، وCommand/Criteria/DTO fields/types/nullability/validation، وScopeProfileRequestDTO، وtransition/transfer result aggregates، وEnums محددة دون design decision أثناء التنفيذ | §5.1، §5.1.1، §35.1–§35.6، Gate R7 |
 | 28 | adoptCurrent/adoptHistorical/adoptAlias exact commands مع preconditions منفصلة لـabsent/RELEASED/ACTIVE/INACTIVE، current requirement، Registry role، status/revision/history، reservation/profile، وDateTimeImmutable بأي timezone يتحول إلى UTC مع microseconds ومدى DATETIME(6)؛ لا generic ETL | §31، §33، §35.2، Gate R7 |
 | 29 | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1`، وأدوات evidence `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94`، مع PHP/extensions §34 | §34، Plan §2، Plan §3.3 |

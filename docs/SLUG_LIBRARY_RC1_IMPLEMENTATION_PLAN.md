@@ -164,12 +164,14 @@ tests/Unit/Exception/
 - بعد إنشاء source وtests المملوكة لـWU-01 يبدأ أول Runtime PHPUnit run وأول `vendor/bin/phpstan analyse` على المسارات الموجودة؛ لا يسبق ذلك أي gate في WU-00.
 - `ScopeProfileRequestDTO` وBinding identity وall result aggregates لها fields/types/nullability محددة، ولا توجد operation أو public type تُترك لقرار أثناء التنفيذ.
 - `transitionScope` و`atomicTransfer` يعيدان aggregates المحددة في §35 مع source/target before/after/revision/result.
+- كل result aggregate يطبق Result Snapshot JSON v1 في Blueprint §35.6 حرفيًا: `result_type` tokens الأربعة، top-level/result key order، snake_case nested shapes، enum/date/list/null rules، flags، ورفض missing/extra/unknown keys؛ لا توجد صيغة serialization بديلة أو قرار متروك للمنفذ.
+- encoder/decoder pure tests تثبت round-trip encode/decode لـ`mutation` و`transition` و`transfer` و`adoption`، وتثبت أن encoder يحفظ النتيجة الأصلية بـ`replayed=false` وأن replay DTO وحده يغيرها إلى `true` دون mutation للـsnapshot.
 - exception parent لكل package family محدد باسم exact published class في `maatify/exceptions` كما في §36.
 - Exceptions تستند إلى stable `maatify/exceptions` hierarchy ولا تبتلع Throwable.
 
 ### 4.4 Evidence
 
-Unit tests لكل validation boundary، JSON snapshots لكل DTO، واختبارات أن Criteria ليست DTO وأن Commands لا تنفذ persistence. لا يُقبل WU-01 إذا احتاج WU لاحقة إلى إعادة تسمية public type.
+Unit tests لكل validation boundary، JSON snapshots لكل DTO، وResult Snapshot JSON v1 fixtures لكل result type وnested type، مع round-trip encode/decode، ورفض missing/extra/duplicate keys وunknown discriminator/schema version وwrong scalar/enum/date/list types بـ`SlugPersistenceInvariantException`. تثبت الاختبارات أن Criteria ليست DTO وأن Commands لا تنفذ persistence. لا يُقبل WU-01 إذا احتاج WU لاحقة إلى إعادة تسمية public type أو اختيار field/order/encoding.
 
 ## 5. Work Unit WU-02 — Built-in profiles
 
@@ -223,10 +225,14 @@ src/Infrastructure/Persistence/PDO/Connection/
 src/Infrastructure/Persistence/PDO/Scope/
 src/Infrastructure/Persistence/PDO/Schema/
 src/Internal/Transaction/
+src/Internal/ResultSnapshot/
 src/Persistence/Contract/
+src/Infrastructure/Persistence/PDO/Operations/
 src/Scope/Persistence/
 tests/Integration/Schema/
+tests/Integration/Persistence/Operations/
 tests/Integration/Persistence/Scope/
+tests/Unit/ResultSnapshot/
 tests/Unit/Persistence/Scope/
 ```
 
@@ -244,7 +250,8 @@ tests/Unit/Persistence/Scope/
 - `current_marker` يفرض current claim واحدة لكل Binding، و`uk_registry_scope_slug` authority نهائية.
 - `maa_slug_operations` يحتفظ بـoperation identity وoperation type وfingerprint وversioned result snapshot، و`maa_slug_operation_bindings` يثبت participants وunique replay lookup للـsingle/source/target. participant FK لا يُدرج إلا بعد أن يوجد Binding ID؛ first-create sequencing هو §29.
 - keyed operations تنفذ identity/bootstrap ثم participant reservation داخل transaction بحالة `IN_PROGRESS` غير المرئية للقراء، ثم mutation وHistory ثم تنتقل مرة واحدة إلى `COMMITTED` مع snapshot؛ لا يبقى `IN_PROGRESS` ملتزمًا ولا يقبل snapshot تعديلًا بعد commit، وفشل أي خطوة يمحو الصفوف وplaceholder الجزئية.
-- replay يقرأ snapshot الأصلي ولا يعيد بناء DTO من current state؛ retention وpurge يطبقان §12.5 و§29، مع FK/index names المحددة.
+- Result Snapshot Encoder/Decoder الداخلي يطبق §35.6 حرفيًا داخل حدود WU-03: `result_type` يطابق DTO، `result_schema_version = 1`، exact top-level/nested shape وfield order، flags، UTC `DateTimeImmutable` بستة microseconds، nullable/list/enum rules، ورفض أي missing/extra/duplicate/unknown key أو mismatch بـ`SlugPersistenceInvariantException`.
+- كل successful keyed operation يكتب snapshot النتيجة الأصلية الكاملة مرة واحدة بـ`replayed=false` بعد live state وHistory؛ أي UPDATE لاحق لـ`result_snapshot` أو discriminator/version مرفوض invariantيًا. replay يقرأ snapshot الملتزم ويفككه فقط، يعيد نفس DTO مع `replayed=true` في الذاكرة دون تعديل snapshot أو live state، ولا يستعمل Registry/Binding الحالية لإعادة البناء؛ retention وpurge يطبقان §12.5 و§29، مع FK/index names المحددة.
 - driver يرفض أي DB غير MySQL 8.0.36 بعقد واضح، ولا يضيف SQLite fallback.
 - PDO config وunique placeholders وint LIMIT/OFFSET وmixed-row annotations مطبقة.
 - duplicate conversion محصورة في MySQL `errorInfo[1] === 1062` مع constraint context؛ duplicate `uk_binding_identity` في first-create لمسارات `assignExact`/`assignGenerated`/`adoptCurrent` وtarget `transitionScope` race متوقع لا infrastructure failure: تعتبر `INSERT` statement نفسها failed، ولا يوجد savepoint خاص بالإدراج ولا rollback له، ويستمر التنفيذ داخل package transaction أو savepoint الحالية؛ ثم يعاد قراءة Binding الفائزة تحت `SELECT ... FOR UPDATE`، ويطبق §29 و§26.3: نفس key وfingerprint مع evidence `COMMITTED` يعيد replay snapshot، ونفس key مع fingerprint مختلف `SlugIdempotencyConflictException`، وغياب evidence `SlugRevisionConflictException` كـsemantic/CAS conflict. إذا انتهت classification بفشل semantic أو فشل لاحق، يطبق rollback العام في §26 على مستوى العملية كاملة، وليس rollback خاصًا ببيان `INSERT`. أي duplicate آخر يتبع تصنيفه المحدد في Blueprint §11.1 و§29.
@@ -321,6 +328,7 @@ tests/System/Transfer/
 - transfer ينقل الأدوار الأربع إلى Binding target موجودة فقط؛ role target يساوي role source حرفيًا، وcurrent يحتاج source replacement مختلفًا. replacement الجديد يطبق `CHANGED`، والـhistorical لنفس المصدر يطبق `RESTORED`، وactive/retired alias يرفض وفق matrix §20، وexact replacement المساوي للمنقول يرفض قبل mutation، وgenerated replacement يستبعد المنقول؛ لا يوجد تفسير `replacement retained`. target `RELEASED` مسموح للـcurrent فقط، وtarget ACTIVE/INACTIVE ذي current مسموح لغير current.
 - transfer يطبق ترتيب lock/demote/replacement/delete/insert/history المحدد في Blueprint §24، ويحفظ `originalSourceRole` قبل أي transient demotion؛ transfer-out/in يسجلان الدور نفسه والهدف يستلمه حرفيًا، ويكتب out/in snapshots وrole snapshots في transaction واحدة وبـ`operation_key` واحدة عند وجود idempotency key، ولا تظهر unowned gap؛ عند غياب key لا توجد operations evidence ويكون operationKey في النتيجة null.
 - history sequence يزيد لكل row، وrevision مرة واحدة لكل participant mutated، وresult aggregate يحفظ source/target participant results مع before/after states والـrevisions والـevents بما فيها source replacement؛ لا توجد حقول before/after مباشرة بديلة في `AtomicTransferResultDTO`.
+- كل single mutation و`AtomicTransferResultDTO` يبنيان result DTO الأصلي مرة واحدة بترتيب §35.6، ويُشفّران قبل commit بـ`result_type = mutation|transfer` و`result_schema_version = 1`؛ transfer snapshot واحد يضم source/target participant results ولا يعاد تجميعه من live rows عند replay.
 - عند وجود idempotency key فقط تُحفظ key/fingerprint والـresult snapshot في operations evidence؛ transfer/transition يستخدمان operation واحدًا ومشاركي SOURCE/TARGET، ولا يكتفيان بإعادة قراءة current state. في first-create، duplicate `uk_binding_identity` يعاد معه lock/read وفحص evidence قبل تصنيف النتيجة؛ نفس key/fingerprint replay، المختلف `SlugIdempotencyConflictException`، وبدون evidence `SlugRevisionConflictException`. بدون key لا تُنشأ operation أو participant rows.
 - `assignExact` و`assignGenerated` يقبلان Binding absent أو `RELEASED` فقط؛ `null` للـabsent فقط، وrevision الحالية صراحةً لـ`RELEASED`؛ `ACTIVE/INACTIVE` يرفضان بـ`SlugAssignmentNotPermittedException` قبل أي mutation، ولا إعادة فتح مع `null`.
 - History `claim_role_snapshot` و`previous_claim_role_snapshot` وnullable/event applicability checks مطابقة §12.4 و`HistoryEventDTO`؛ release/transfer events لا تعتمد على Registry لاحقة.
@@ -360,6 +368,7 @@ tests/System/Transition/
 - transition result هو `ScopeTransitionResultDTO` وفيه participant results وsource/target before-after/revisions والـHistory؛ transfer result هو `AtomicTransferResultDTO` بنفس الصراحة، وتكون before/after في transfer داخل `sourceResult` و`targetResult` فقط.
 - target profile يطبق على target claim، وprofile mismatch يفشل قبل mutation.
 - target first-create duplicate على `uk_binding_identity` يعاد معه target Binding تحت lock وفحص operation participant evidence قبل التصنيف: نفس key/fingerprint replay، fingerprint مختلف `SlugIdempotencyConflictException`، وغياب evidence `SlugRevisionConflictException`؛ لا يُعاد تشغيل mutation تلقائيًا.
+- `ScopeTransitionResultDTO` و`AdoptionResultDTO` يطبقان `result_type = transition|adoption` وshapes §35.6 كاملة؛ transition يستخدم aggregate واحدًا source/target، adoption يحفظ `adopted_claim` و`history_event` الأصليين، وكلاهما يعاد من snapshot فقط عند replay دون current-state reconstruction.
 - adoptCurrent/adoptHistorical/adoptAlias لها preconditions منفصلة للـabsent/RELEASED/ACTIVE/INACTIVE وrole/status/revision/history في Blueprint §31، وتمر بنفس canonical/profile/ownership/reservation rules؛ `originalOccurredAt` يقبل timezone-aware `DateTimeImmutable` بأي timezone، يتحول إلى UTC، يحفظ 6 microseconds دون rounding، ويرفض فقط خارج مدى MySQL `DATETIME(6)` دون future/past comparison.
 - `adoptCurrent` يقبل `null` revision فقط عند غياب Binding؛ إعادة فتح Binding `RELEASED` تتطلب revision الحالية، و`adoptHistorical` و`adoptAlias` يتطلبان revision صريحة لBinding موجود.
 - resolve يفصل `matchKind`, `bindingStatus`, `inputFormCanonicality` ويشير إلى current مباشرة.
@@ -395,12 +404,14 @@ tests/System/Transactions/
 - `Slug` private construction عبر Profile validation، stateless factory path، وحدود `actorKey/reason/correlationKey/idempotencyKey` المطابقة لـschema، ومصفوفة same-binding operation×role في Blueprint §20.
 - Pure reservation and availability classification.
 - DTO serialization وEnum mappings، بما فيها `HistoryEventDTO` role snapshots وdependency `PageRequest/PageResult/SortDirectionEnum` دون local pagination DTO/enum.
+- Result Snapshot JSON v1: round-trip encode/decode لكل `mutation` و`transition` و`transfer` و`adoption`، مع exact `result_type`/DTO mapping، field order، nested `Slug`/`SlugScope`/`EntityReference`/DTO encodings، enum/date/null/list validation، والـflags المحددة؛ malformed JSON، missing/extra/duplicate keys، unknown discriminator/schema version، wrong type، invalid timestamp، وout-of-order list كلها ترفض بـ`SlugPersistenceInvariantException`.
 
 ### 10.3 Integration evidence
 
 مع اتصال PDO حقيقي إلى MySQL 8.0.36:
 
 - schema creation/constraints/indexes/collations، بما فيها `maa_slug_operations` و`maa_slug_operation_bindings` وresult snapshots؛
+- insert/read-back لـResult Snapshot JSON v1 يثبت أن كل result type round-trips عبر MySQL JSON دون فقد field أو null أو microseconds، وأن snapshot الأصلي يبقى ثابتًا بعد replay؛
 - scope first use/profile mismatch/current-pointer bootstrap؛
 - Registry roles and uniqueness؛
 - Clock UTC `DATETIME(6)` وHistory snapshots/sequences/role applicability وoperation evidence/replay retention؛
@@ -435,6 +446,8 @@ adopt current/historical/alias
 - assign/adoptCurrent على Binding absent مقابل Binding `RELEASED` يثبتان أن `null` لا يعيد فتح الصف الموجود وأن revision الحالية هي شرط CAS؛
 - adoption timestamps تقبل أي timezone-aware `DateTimeImmutable`، تتحول إلى UTC، تحفظ microseconds الست، وترفض فقط خارج مدى MySQL `DATETIME(6)`؛ لا توجد قاعدة future/past بالنسبة إلى Clock.
 - same idempotency key with same/different fingerprint، بعد تغير live state، يعيد snapshot أو conflict دون mutation جديدة؛
+- كل result type (`mutation`, `transition`, `transfer`, `adoption`) يُعاد replay له بعد تغيير live Registry/Binding/History، ويثبت الاختبار أن DTO المعاد مطابق للأصل عدا `replayed=true` وأن decoder لا يستدعي current-state reconstruction؛
+- malformed/unknown `result_type` أو `result_schema_version`، missing/extra/duplicate key، wrong nested shape/type، timestamp غير UTC أو دون 6 microseconds، وlist غير مرتبة ترفض بـ`SlugPersistenceInvariantException`؛
 - mutation بلا idempotency key لا تنشئ operations/participants وتعيد `operationKey = null`، بينما mutation مع key تحفظ وتعيد snapshot immutable.
 - multi-binding replay يتحقق من source/target participants وaggregate snapshot الواحد؛
 - first-use same profile and conflicting profile؛
@@ -607,7 +620,7 @@ Composer install/resolve
 | 23 | WU-05 وWU-07 | existing-target-only transfer، `originalSourceRole` preservation، new/historical/active-alias/retired-alias replacement matrix، exact/generated replacement exclusion، deterministic lock/demote/delete/insert order، current/non-current race matrix و`AtomicTransferResultDTO` nested source/target evidence |
 | 24 | WU-01 وWU-03 وWU-05 وWU-07 | absent-vs-existing/RELEASED expectedRevision validation، lock order/CAS stale writer tests |
 | 25 | WU-03 وWU-07 | owned transaction/savepoint/outer rollback tests |
-| 26 | WU-01 وWU-03 وWU-05 وWU-06 | evidence عند وجود key فقط، canonical JSON request version 1 وSHA-256، first-create participant-after-binding sequencing، immutable result snapshot، no-key natural mutation، replay بعد تغير live state، وretention/purge tests |
+| 26 | WU-01 وWU-03 وWU-05 وWU-06 وWU-07 | evidence عند وجود key فقط، canonical JSON request version 1 وSHA-256، first-create participant-after-binding sequencing، Result Snapshot JSON v1 exact result_type/DTO mapping وnested field order/flags، round-trip لكل mutation/transition/transfer/adoption، malformed/unknown schema rejection، immutable original snapshot، replay بعد تغير live state مع replayed=true دون current-state reconstruction، no-key natural mutation، وretention/purge tests |
 | 27 | WU-01 وWU-02 وWU-06 | exact interface/factory/Engine signatures، internal Slug creation، Command/Criteria/DTO fields/types/nullability، shared PageRequest/PageResult types، multi-binding aggregates، وpublic contract review في §5.1.1 و§35.1–§35.6 |
 | 28 | WU-06 | explicit adoptCurrent/adoptHistorical/adoptAlias preconditions لكل Binding status، role/status/revision/history، timezone-to-UTC/microsecond/range validation، profile compatibility، وAdoptionResultDTO |
 | 29 | WU-00 وWU-08 | direct runtime/dev dependency resolution against stable constraints؛ foundation مبكر ثم latest/lowest verification نهائي |
