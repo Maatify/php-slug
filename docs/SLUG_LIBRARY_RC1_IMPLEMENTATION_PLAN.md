@@ -114,19 +114,19 @@ tests/bootstrap.php
 
 ينشئ `composer.json` مستقلًا باسم الحزمة مع PHP `^8.4`، direct Runtime requirements/extensions المقفولة في Blueprint §34، PSR-4 production autoload `Maatify\\Slug\\` إلى `src/`، وPSR-4 autoload-dev إلى `tests/`. يثبت `require-dev` المباشر لـ`phpstan/phpstan ^2.1` و`phpunit/phpunit ^11.5` و`friendsofphp/php-cs-fixer ^3.94`، ويضيف scripts قابلة للتشغيل لـPHPUnit وPHPStan.
 
-ينشئ أيضًا `phpstan.neon` على `level: max` ليشمل `src` و`tests` دون baseline أو `ignoreErrors`، و`phpunit.xml.dist` مع bootstrap `tests/bootstrap.php` وtest suites قابلة للتشغيل، و`.php-cs-fixer.php` للـdry-run عند تفعيله. كل foundation file يظل framework-neutral ولا يضيف custom repository أو Host autoload.
+ينشئ أيضًا `phpstan.neon` على `level: max` ليشمل `src` و`tests` دون baseline أو `ignoreErrors`، و`phpunit.xml.dist` مع bootstrap `tests/bootstrap.php` وconfiguration لا تتطلب وجود Runtime test paths قبل WU-01، و`.php-cs-fixer.php` للـdry-run عند تفعيله. كل foundation file يظل framework-neutral ولا يضيف custom repository أو Host autoload.
 
 #### 3.3.3 Acceptance criteria
 
 - `composer validate --strict` ينجح، وdependency resolution يثبت كل direct runtime/dev requirement من Blueprint وPlan.
-- `composer dump-autoload --no-interaction` ينتج production PSR-4 autoload، ويكون smoke check قادرًا على تحميل namespace `Maatify\\Slug\\` دون `require` يدوي لـ`src`.
-- `vendor/bin/phpstan analyse -c phpstan.neon src tests --level=max` قابل للتشغيل من foundation، بلا baseline أو silent suppression.
-- `vendor/bin/phpunit --configuration phpunit.xml.dist` قابل للتشغيل من bootstrap نظيف، وتبقى real MySQL/integration requirements في WUs اللاحقة.
+- `composer dump-autoload --no-interaction` ينتج production PSR-4 autoload، ويفحص الـsmoke check خريطة `Maatify\\Slug\\` إلى `src/` في Composer autoload metadata فقط؛ لا يحاول تحميل production class ولا يفترض وجود `src/`.
+- `vendor/bin/phpstan diagnose -c phpstan.neon` و`vendor/bin/phpstan --version` يتحققان من الأداة وقراءة configuration فقط؛ لا ينفذ WU-00 `analyse` على `src` أو `tests`.
+- `vendor/bin/phpunit --configuration phpunit.xml.dist --list-tests --do-not-cache-result` يتحقق من configuration وbootstrap دون الادعاء بتشغيل Runtime tests؛ لا يشترط WU-00 وجود Runtime test paths.
 - لا يبدأ WU-01 أو أي Runtime WU قبل تحقق هذا القبول.
 
 #### 3.3.4 Evidence
 
-سجل `composer validate --strict`، dependency resolution latest/lowest ضمن gates اللاحقة، production autoload smoke، PHPStan max، وPHPUnit bootstrap/configuration run. هذه الأدلة تثبت قابلية تشغيل الأساس فقط؛ لا تستبدل evidence السلوكية أو Consumer Verification Harness النهائية.
+سجل `composer validate --strict`، و`composer dump-autoload` مع تحقق PSR-4 metadata، وPHPStan version/configuration diagnose، وPHPUnit configuration/bootstrap listing. لا يتضمن WU-00 PHPStan Runtime analysis أو Runtime PHPUnit tests، ولا ينشئ `.gitkeep` أو production placeholder class لمجرد تمرير القبول. هذه الأدلة تثبت قابلية تشغيل الأساس فقط؛ لا تستبدل evidence السلوكية أو Consumer Verification Harness النهائية.
 
 ## 4. Work Unit WU-01 — Public domain contracts
 
@@ -159,6 +159,7 @@ tests/Unit/Exception/
 - Commands الموجودة لا تقبل internal IDs بدل domain identity إلا حيث نص Blueprint.
 - expected revision وidempotency/audit fields لها validation محددة.
 - `expectedRevision = null` يثبت Binding absent فقط؛ كل Binding موجود، بما فيه `RELEASED`، يتطلب revision الحالية صراحةً، وإعادة فتح RELEASED مع null مرفوضة.
+- بعد إنشاء source وtests المملوكة لـWU-01 يبدأ أول Runtime PHPUnit run وأول `vendor/bin/phpstan analyse` على المسارات الموجودة؛ لا يسبق ذلك أي gate في WU-00.
 - `ScopeProfileRequestDTO` وBinding identity وall result aggregates لها fields/types/nullability محددة، ولا توجد operation أو public type تُترك لقرار أثناء التنفيذ.
 - `transitionScope` و`atomicTransfer` يعيدان aggregates المحددة في §35 مع source/target before/after/revision/result.
 - exception parent لكل package family محدد باسم exact published class في `maatify/exceptions` كما في §36.
