@@ -14,5 +14,3 @@ All notable changes to `maatify/php-slug` are documented here.
 ### Scope
 
 - No Runtime, Schema, Tests, CI, Composer implementation, Tag, Release, Packagist publication, or Stable support claim is included in this closure.
-
-[Unreleased]: https://github.com/Maatify/php-slug/compare/main...work/rc-1-preparation-closure
