@@ -6,6 +6,10 @@
 
 `docs/php-engineering-standards/STANDARDS_MANIFEST.md`
 
+ويجب على الوكيل قراءة الملف كاملًا قبل التخطيط أو التنفيذ أو المراجعة:
+
+`docs/php-engineering-standards/standards/ai/AI_COLLABORATION_WORKFLOW_AR.md`
+
 واتبع مجموعة المعايير المنطبقة النهائية المسجلة فيه فقط. عند تنفيذ Adoption أو Upgrade أو Manifest Validation، اتبع آلية الاعتماد في النسخة المحلية المثبتة من:
 
 `docs/php-engineering-standards/standards/STANDARDS_ADOPTION_STANDARD_AR.md`
