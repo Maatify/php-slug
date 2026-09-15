@@ -1065,7 +1065,7 @@ The first RC must explicitly declare which database drivers its persistence adap
 
 # 27. Concurrency Protection
 
-Two independent race classes must be protected.
+Three independent race classes must be protected.
 
 ## 27.1 Competing bindings for the same slug
 
@@ -1958,7 +1958,7 @@ Unless review identifies a concrete defect, the Blueprint should preserve these 
 14. Versioned profiles define stable observable generation/canonicalization/lookup behavior.
 15. Canonicalization is idempotent for canonical inputs.
 16. Current canonical, historical canonical, active alias, and retired alias ownership share one authoritative scope-local registry.
-17. Normal lifecycle changes do not release ownership.
+17. Normal lifecycle operations other than explicit release/transfer retain ownership. Canonical change, alias retirement, and deactivation do not release ownership; explicit release is an intentional ownership-ending mechanism, and explicit atomic transfer is an intentional ownership-reassignment exception.
 18. Historical canonical slugs remain owned by the same binding under normal lifecycle.
 19. Retired aliases remain owned under normal lifecycle.
 20. The same binding can restore its historical canonical slug.
