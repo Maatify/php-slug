@@ -131,6 +131,7 @@ The RC foundation should own:
 - binding activation/deactivation;
 - explicit scope transition/rebinding semantics;
 - explicit ownership release;
+- atomic cross-binding ownership transfer;
 - explicit destructive purge/erasure when required;
 - immutable retained normal-lifecycle history;
 - legacy adoption;
@@ -1882,7 +1883,7 @@ A fixed regression must receive regression protection at the appropriate behavio
 | Identity | Host-provided opaque entity reference |
 | Allocation | exact claim + automatic allocation |
 | Availability | advisory ownership/policy classification |
-| Ownership | authoritative scope-local registry + explicit release |
+| Ownership | authoritative scope-local registry + explicit release AND atomic transfer |
 | Lifecycle | assign/change/restore/deactivate/reactivate/release/transition/transfer |
 | Alias | add/retire/reactivate/promote |
 | Resolution | match kind + binding state + input-form canonicality |
@@ -1892,7 +1893,7 @@ A fixed regression must receive regression protection at the appropriate behavio
 | Management | supported queries + shared pagination |
 | Persistence | package-owned PDO infrastructure over Host-injected connection for declared drivers |
 | Transactions | owned transaction + documented caller-transaction participation |
-| Concurrency | unique-claim races + same-binding revision protection |
+| Concurrency | competing same-slug claims + same-binding mutation protection + coordinated multi-binding mutation protection |
 | Maintenance | explicit destructive erasure contract |
 | Exceptions | stable semantic taxonomy |
 | Clock | shared `ClockInterface` as lifecycle time source |
@@ -2039,7 +2040,8 @@ The architectural direction is intentionally broad, but the following items cann
 30. Exact schema/index plan and real concurrency proof strategy.
 31. Exact Clock timestamp storage precision/timezone contract.
 32. Exact standards adoption snapshot/manifest for the repository.
-33. Exact RC execution plan and acceptance criteria.
+33. Exact scope profile establishment / first-use semantics; mismatch behavior; concurrency/locking requirements; and exact public/internal registration or lookup contract.
+34. Exact RC execution plan and acceptance criteria.
 
 These are Blueprint decisions, not reasons to reopen the core package boundary.
 
