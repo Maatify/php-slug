@@ -8,7 +8,7 @@
 > **Baseline التصميم للتأليف:** `006ca7c62b4defc62c8ef2b16374b6f60d48a8dc` على `work/rc-1-preparation`
 > **مصدر التنفيذ اللاحق:** HEAD المحدث لـ`phase-draft/rc-1` بعد إغلاق Preparation ودمج PR #2
 
-هذا المستند ينقل القرارات المقبولة من `docs/SLUG_LIBRARY_RC_CONCEPT_DISCUSSION.md` إلى عقد تنفيذ محدد. تظل مسودة النقاش مدخلًا معماريًا مقبولًا، لكنها ليست مصدرًا بديلًا عن هذا الـBlueprint عند التنفيذ. لا يثبت هذا المستند وجود Runtime أو Schema أو Tests؛ تلك نتائج يجب إنتاجها والتحقق منها وفق خطة التنفيذ.
+هذا المستند نقل القرارات المقبولة من مسودة النقاش المؤقتة إلى عقد تنفيذ محدد، ثم أُغلقت المسودة ضمن Preparation Closure. لا يكون هذا الـBlueprint مصدرًا بديلًا عن Package Reference للحالة package-facing، ولا يثبت وجود Runtime أو Schema أو Tests؛ تلك نتائج يجب إنتاجها والتحقق منها وفق خطة التنفيذ.
 
 ## 1. الغرض والنطاق
 
@@ -1674,7 +1674,7 @@ stateless path يستخدم `SlugProfileRegistryFactory::createBuiltIn()` ثم `
 
 ## 46. Implementation Plan reference
 
-ترتيب Work Units والـdependency graph والـowned paths والـevidence والـPhase Integration Gate موثق في `docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`. ذلك المستند لا يغير أي قرار هنا؛ يحدد طريقة إنتاجه والتحقق منه. بعد قبول هذا العقد وقبل حذف Discussion، يكون `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة هو المرجع canonical package-facing للتثبيت والاستعمال والحالة المدعومة، بينما يبقى هذا الـBlueprint supporting architecture contract وتبقى الخطة execution source.
+ترتيب Work Units والـdependency graph والـowned paths والـevidence والـPhase Integration Gate موثق في `docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`. ذلك المستند لا يغير أي قرار هنا؛ يحدد طريقة إنتاجه والتحقق منه. بعد إكمال Preparation Closure، يكون `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة هو المرجع canonical package-facing للتثبيت والاستعمال والحالة المدعومة، بينما يبقى هذا الـBlueprint supporting architecture contract وتبقى الخطة execution source.
 
 ## 47. Standards وPhase model
 
@@ -1686,7 +1686,7 @@ main
     └── work/rc-1-preparation
 ```
 
-تنتهي Preparation فقط بعد قبول Blueprint وImplementation Plan، ونقل القرارات الدائمة إلى مواضعها، وإنشاء/تحديث `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة كـPackage Reference canonical وفق Package Building/Library Presentation Standards، وتحديث `README.md` و`CHANGELOG.md` و`SECURITY.md` release-facing عند لزوم RC1، ثم حذف Discussion Draft في خطوة الإغلاق المناسبة، ثم دمج PR #2 إلى `phase-draft/rc-1`. لا تنشئ هذه الوثائق الحالية تلك artifacts؛ الخطة تسجلها كـclosure gate قبل الحذف. بعد نجاح ذلك الإغلاق والتحقق من HEAD الجديد فقط تُنشأ Work Branch/Execution Batch للتنفيذ من `phase-draft/rc-1` المحدث، وتستهدف Implementation PR تلك Phase Draft نفسها؛ لا تستهدف `work/rc-1-preparation` ولا تستخدمها كـimplementation base. `RC1 Implementation` هو Roadmap Phase و`Phase != Branch != PR`، و`main` merge owner-only.
+تنتهي Preparation فقط بعد قبول Blueprint وImplementation Plan، ونقل القرارات الدائمة إلى مواضعها، وإنشاء/تحديث `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة كـPackage Reference canonical وفق Package Building/Library Presentation Standards، وتحديث `README.md` و`CHANGELOG.md` و`SECURITY.md` release-facing عند لزوم RC1، ثم حذف Discussion Draft في خطوة الإغلاق المناسبة، ثم دمج PR #2 إلى `phase-draft/rc-1`. يثبت Package Reference حالة RC1 الحالية دون ادعاء تنفيذ أو نشر، وتبقى هذه الوثائق closure artifacts لا بديلًا عن Runtime evidence. بعد نجاح ذلك الإغلاق والتحقق من HEAD الجديد فقط تُنشأ Work Branch/Execution Batch للتنفيذ من `phase-draft/rc-1` المحدث، وتستهدف Implementation PR تلك Phase Draft نفسها؛ لا تستهدف `work/rc-1-preparation` ولا تستخدمها كـimplementation base. `RC1 Implementation` هو Roadmap Phase و`Phase != Branch != PR`، و`main` merge owner-only.
 
 ## 48. إغلاق معماري قبل التنفيذ
 

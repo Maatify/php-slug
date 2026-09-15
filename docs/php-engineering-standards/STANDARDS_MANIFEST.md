@@ -12,11 +12,11 @@
 - **Composer Package:** `maatify/php-slug`
 - **Namespace:** `Maatify\\Slug\\`
 
-هذا السجل هو Local Resolver Record لنتيجة Selective Pinned Adoption. لا يضيف قواعد هندسية، ولا يدّعي إنشاء Blueprint أو تنفيذًا أو توافقًا معاييريا لعمل لم يُنجز بعد.
+هذا السجل هو Local Resolver Record لنتيجة Selective Pinned Adoption كما أُنشئ في تاريخ الـAdoption. لا يضيف قواعد هندسية، ولا يغيّر نتيجة الاعتماد، ولا يصف وحده الحالة الحالية لكل Artifacts المستودع.
 
 ## حقائق الـArtifact ونطاق الحل
 
-تمت مطابقة الحقائق الآتية مع حالة المستودع ومسودة النقاش المقبولة `docs/SLUG_LIBRARY_RC_CONCEPT_DISCUSSION.md`:
+تمت مطابقة الحقائق الآتية عند إنشاء سجل الـAdoption مع حالة المستودع ومسودة النقاش المقبولة `docs/SLUG_LIBRARY_RC_CONCEPT_DISCUSSION.md` كما كانت موجودة حينها. لاحقًا نُقلت القرارات الدائمة إلى الـBlueprint والـImplementation Plan و`SLUG_PACKAGE_REFERENCE.md`، ثم حُذفت مسودة النقاش ضمن Preparation Closure.
 
 | الحقيقة | النتيجة |
 |---|---|
@@ -112,6 +112,6 @@
 ## حدود هذا الاعتماد
 
 - هذا السجل يثبت نتيجة حل المعايير فقط.
-- لم يُنشأ Blueprint أو schema أو API أو roadmap أو Work Unit implementation plan.
-- لم تُضف PHP أو SQL أو migrations أو tests أو CI أو runtime configuration.
-- تظل هذه الـAdoption بحاجة إلى independent review قبل دمج Draft PR.
+- كانت حدود عدم وجود Blueprint أو schema أو API أو roadmap أو Work Unit implementation plan تصف حالة Standards Adoption وقت إنشائها، ولا تصف الحالة الحالية للمستودع.
+- لم تُضف PHP أو SQL أو migrations أو tests أو CI أو runtime configuration ضمن نطاق الـAdoption وقت إنشائها.
+- كانت مسودة النقاش موجودة عند إنشاء الـAdoption، ثم نُقلت قراراتها الدائمة إلى الوثائق المرجعية اللاحقة وحُذفت ضمن Preparation Closure.
