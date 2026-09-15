@@ -5,7 +5,8 @@
 - **Upstream Repository:** `Maatify/php-engineering-standards`
 - **Adoption Commit:** `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`
 - **Adoption Date:** `2026-09-15`
-- **Resolution Status:** `VALID`
+- **Overall Resolution Status:** `VALID`
+- **Resolution Status Priority:** `INVALID > OWNER DECISION REQUIRED > VALID`
 - **Exception State:** `NONE`
 - **Repository:** `Maatify/php-slug`
 - **Composer Package:** `maatify/php-slug`
@@ -33,10 +34,12 @@
 
 ## Profile Activations
 
-| Profile ID | Profile Version | Scope | Extends |
-|---|---:|---|---|
-| `composer-package` | `1.0.0` | `/` | `None` |
-| `repository-governance` | `1.0.0` | `/` | `None` |
+| Profile ID | Profile Version | Scope | Extends | Resolution Status |
+|---|---:|---|---|---|
+| `composer-package` | `1.0.0` | `/` | `None` | `VALID` |
+| `repository-governance` | `1.0.0` | `/` | `None` | `VALID` |
+
+تُسجل `Resolution Status` لكل Profile Activation/Scope بصورة مستقلة. وتكون `Overall Resolution Status` هنا `VALID` بعد ثبوت عدم وجود أي Activation/Scope بحالة `INVALID` أو `OWNER DECISION REQUIRED`، وعدم وجود قرار Adoption غير محسوم؛ وتُطبق أولوية التجميع: `INVALID > OWNER DECISION REQUIRED > VALID`.
 
 ### Profiles الموروثة
 
