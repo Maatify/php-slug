@@ -51,9 +51,11 @@ Standards Adoption Standard
 Important consequences already reflected here:
 
 - new Maatify PHP packages use the PHP 8.4 baseline;
+- new package/repository identity follows the `php-{domain}` naming policy, therefore `maatify/php-slug` / `Maatify/php-slug`;
 - the package is standalone and Host-agnostic;
 - Host tables must not be joined or referenced by foreign key;
-- package-owned persistence uses the package's infrastructure boundary and direct PDO where persistence applies;
+- package-owned persistence uses direct PDO inside the package infrastructure boundary where persistence applies;
+- the Host owns connection/configuration/bootstrap and injects the configured PDO/infrastructure dependency; the package does not read Host `.env` or create hidden Host connections;
 - package-defined exceptions use `maatify/exceptions`;
 - package time uses `Maatify\SharedCommon\Contracts\ClockInterface` where a clock is required;
 - shared Maatify pagination capabilities must be reused rather than duplicated;
@@ -75,19 +77,20 @@ The intended package is:
 
 The first RC should contain the complete architectural foundation needed for professional slug use without forcing a later redesign of:
 
-- identity,
-- scope,
-- normalization,
-- allocation,
-- ownership,
-- persistence,
-- lifecycle,
-- aliases,
-- history,
-- resolution,
-- concurrency,
-- transactions,
-- migration/adoption,
+- identity;
+- scope;
+- generation/canonicalization;
+- allocation;
+- ownership;
+- persistence;
+- lifecycle;
+- aliases;
+- history;
+- resolution;
+- concurrency;
+- transactions;
+- scope transitions;
+- migration/adoption;
 - or public domain contracts.
 
 Future development should primarily be additive: new profiles, policies, adapters, strategies, or integrations should not require replacing the core model.
@@ -104,9 +107,9 @@ It does not own the complete URL, route, HTTP, SEO, framework, or Host-entity do
 
 The RC foundation should own:
 
-- slug generation;
-- slug normalization;
-- slug validation;
+- slug generation from source text;
+- canonical slug normalization/validation;
+- lookup canonicalization rules;
 - Unicode-aware slug behavior;
 - optional ASCII/transliteration behavior;
 - versioned slug profiles;
@@ -124,11 +127,12 @@ The RC foundation should own:
 - restoring historical canonical slugs;
 - alias promotion/reactivation/retirement;
 - current/historical/alias/retired lookup;
-- canonicality reporting;
+- input-form canonicality reporting;
 - binding activation/deactivation;
+- explicit scope transition/rebinding semantics;
 - explicit ownership release;
-- explicit destructive purge when required;
-- immutable normal-lifecycle history;
+- explicit destructive purge/erasure when required;
+- immutable retained normal-lifecycle history;
 - legacy adoption;
 - management queries;
 - package-owned persistence;
@@ -176,7 +180,7 @@ There must be no direct dependency between `maatify/php-slug` and `maatify/php-s
 
 A persisted/public slug value represents a **decoded canonical URL path-segment token**.
 
-Example:
+Examples:
 
 ```text
 iphone-17-pro
@@ -199,13 +203,78 @@ This boundary avoids mixing slug identity with URL serialization.
 
 ---
 
-# 6. Two Legitimate Usage Modes
+# 6. Three Different Text Operations
+
+A critical invariant is that generation, explicit-claim canonicalization, and runtime lookup canonicalization are **not automatically the same operation**.
+
+## 6.1 Source generation
+
+Generation accepts human/source text and may be intentionally lossy according to the selected profile.
+
+Example:
+
+```text
+Hello, World!
+→ hello-world
+```
+
+Generation may perform operations such as:
+
+- whitespace-to-separator conversion;
+- punctuation removal;
+- transliteration;
+- separator collapsing;
+- source-oriented cleanup.
+
+## 6.2 Canonicalization of an explicit slug claim
+
+An exact manually supplied slug is a slug candidate, not arbitrary source text.
+
+The profile must define what canonicalization is allowed before claiming it and what must instead be rejected.
+
+An exact-claim API must never silently turn a substantially different arbitrary source string into another slug and still call that an exact request.
+
+## 6.3 Runtime lookup canonicalization
+
+Lookup accepts a decoded URL-segment token from the Host/router.
+
+Lookup canonicalization must be deliberately narrower than generation unless a profile explicitly proves otherwise.
+
+It may apply equivalence rules required by the profile, for example a declared Unicode normalization or case policy, but it must not automatically apply generation-only lossy transforms merely to make arbitrary inputs resolve.
+
+Otherwise an input such as:
+
+```text
+hello!!!
+```
+
+could accidentally resolve to:
+
+```text
+hello
+```
+
+just because the source generator removes punctuation.
+
+The Blueprint must therefore define separate profile contracts for:
+
+```text
+source generation
+explicit-claim canonicalization
+runtime lookup canonicalization
+```
+
+These contracts may share primitives internally, but their accepted input surface and guarantees must remain explicit.
+
+---
+
+# 7. Two Legitimate Usage Modes
 
 The same package should support two usage levels.
 
-## 6.1 Stateless generation/normalization
+## 7.1 Stateless generation/canonicalization
 
-A consumer may use generation and normalization without configuring package persistence.
+A consumer may use generation and canonicalization without configuring package persistence.
 
 Example:
 
@@ -219,12 +288,12 @@ iphone-17-pro-max
 
 "Without persistence" means no database schema, connection, or lifecycle storage is required for this workflow. It does not promise that Composer will install no persistence-related runtime dependency if the single package contains persistent capabilities.
 
-## 6.2 Authoritative persisted lifecycle
+## 7.2 Authoritative persisted lifecycle
 
 A consumer may delegate the complete slug lifecycle to the package:
 
 ```text
-Generate
+Generate / Canonicalize
 → Claim
 → Current
 → Change
@@ -236,7 +305,7 @@ A Host using persisted lifecycle should not need to build a second authoritative
 
 ---
 
-# 7. Entity Identity
+# 8. Entity Identity
 
 The package must not assume Host entity IDs are integers, UUIDs, or database keys.
 
@@ -269,11 +338,11 @@ The package must not:
 
 The Host is responsible for supplying a stable canonical representation consistently.
 
-Exact length/character constraints for `entityType` and `entityKey` are Blueprint decisions.
+Exact length/character/case constraints for `entityType` and `entityKey` are Blueprint decisions.
 
 ---
 
-# 8. Slug Scope
+# 9. Slug Scope
 
 Slug uniqueness must not be globally hardcoded.
 
@@ -306,7 +375,7 @@ product / en / global / unicode-v2
 
 could accidentally become parallel ownership universes for the same logical route scope.
 
-## 8.1 `namespace`
+## 9.1 `namespace`
 
 Required logical namespace.
 
@@ -320,7 +389,7 @@ username
 global-content
 ```
 
-## 8.2 `localeKey`
+## 9.2 `localeKey`
 
 Optional Host-provided scope dimension.
 
@@ -342,7 +411,7 @@ The package must not assume it is:
 - the transliteration locale;
 - or any specific Host representation.
 
-## 8.3 `contextKey`
+## 9.3 `contextKey`
 
 Optional additional uniqueness dimension.
 
@@ -366,13 +435,13 @@ Possible uses include:
 
 The package treats the value as opaque. If a Host composes multiple concepts into one `contextKey`, stable composition/escaping is the Host's responsibility.
 
-## 8.4 Canonical empty dimensions
+## 9.4 Canonical empty dimensions
 
 Persistence must not rely on nullable uniqueness semantics for missing scope dimensions.
 
 The exact schema representation is a Blueprint decision, but "no locale" and "no context" must have one canonical identity and must not create duplicate scopes because of database `NULL` behavior.
 
-## 8.5 Scope identity invariant
+## 9.5 Scope identity invariant
 
 The logical persisted scope identity is:
 
@@ -386,7 +455,7 @@ Once a persisted scope owns claims, its profile must not silently change.
 
 ---
 
-# 9. Versioned Slug Profiles
+# 10. Versioned Slug Profiles
 
 Slug behavior must not be controlled by one globally mutable algorithm.
 
@@ -402,6 +471,9 @@ ascii-v1
 A profile defines observable behavior such as:
 
 ```text
+source generation rules
+explicit-claim canonicalization
+lookup canonicalization
 Unicode normalization form/policy
 case normalization
 separator policy
@@ -412,21 +484,21 @@ collision-suffix rules
 input validation rules
 ```
 
-## 9.1 Stability rule
+## 10.1 Stability rule
 
 A built-in versioned profile is a behavior contract.
 
-A future algorithm change that can alter output must use a new profile key rather than silently changing existing persisted scope semantics.
+A future algorithm change that can alter output, accepted lookup equivalence, or claim identity must use a new profile key rather than silently changing existing persisted scope semantics.
 
-## 9.2 Persisted-scope rule
+## 10.2 Persisted-scope rule
 
 A scope's `profileKey` becomes immutable once the scope has ownership data.
 
 New profile versions may be used by new scopes without rewriting existing scopes.
 
-Changing the profile of an existing populated scope is not a normal runtime operation because it can change public URLs and lookup semantics. Any future profile migration must be a separately designed, explicit migration with collision/rewrite proof; it must not happen implicitly.
+Changing the profile of an existing populated scope is not a normal runtime operation because it can change public URLs, uniqueness, or lookup semantics. Any future profile migration must be a separately designed, explicit migration with collision/rewrite proof; it must not happen implicitly.
 
-## 9.3 Custom profiles
+## 10.3 Custom profiles
 
 The RC should expose a clear extension contract for custom profiles.
 
@@ -434,17 +506,27 @@ A custom persisted profile must have a stable, versioned key and the consumer be
 
 If a persisted scope references an unavailable profile, operations requiring that profile must fail closed with a semantic configuration/profile error.
 
-## 9.4 Determinism requirement
+## 10.4 Determinism requirement
 
 A built-in profile must have canonical test vectors.
 
-A profile described as deterministic must not silently delegate observable output to environment-dependent transliteration/case behavior without defining and testing the compatibility contract.
+A profile described as deterministic must not silently delegate observable output to environment-dependent transliteration/case/Unicode behavior without defining and testing the compatibility contract.
 
 This is especially important for transliteration engines whose mappings may vary across dependency or runtime versions.
 
+## 10.5 Idempotent canonicalization
+
+For inputs already in canonical slug form, the profile's canonicalization contract must be idempotent:
+
+```text
+canonicalize(canonicalize(x)) = canonicalize(x)
+```
+
+The same principle applies to lookup canonicalization within its explicitly declared equivalence rules.
+
 ---
 
-# 10. Unicode and Transliteration
+# 11. Unicode, Runtime Extensions, and Transliteration
 
 Unicode is first-class RC scope.
 
@@ -468,9 +550,13 @@ The exact built-in profile names and exact normalization/transliteration algorit
 
 The language hint used by a transliteration strategy, if any, is separate from the scope's opaque `localeKey` unless an explicit caller/adapter deliberately maps them.
 
+The Blueprint must explicitly decide and declare every required runtime extension/dependency used to provide Unicode behavior, for example whether `ext-intl`, `ext-mbstring`, or a stable library dependency is required. The package must not rely on undeclared environment capabilities.
+
+If observable output depends on a runtime/library data version, that compatibility surface must be controlled by the profile contract and test vectors.
+
 ---
 
-# 11. Unicode Normalization and Security Policy
+# 12. Unicode Normalization and Security Policy
 
 Equivalent Unicode representations must not create accidental duplicate identities when the selected profile says they are equivalent.
 
@@ -483,7 +569,7 @@ invalid UTF-8
 NUL
 control characters
 path separators
-empty normalized results
+empty canonical results
 Unicode normalization equivalence
 format/bidi controls relevant to the selected profile
 ```
@@ -502,7 +588,7 @@ The exact default policy is a Blueprint decision and must be backed by test vect
 
 ---
 
-# 12. Reserved Slugs
+# 13. Reserved Slugs
 
 Reserved identifiers are RC scope.
 
@@ -532,13 +618,15 @@ pattern-based
 composite
 ```
 
-Reservation blocks new claims/allocations.
+Reservation is evaluated against the canonical claim identity and blocks new claims/allocations.
 
 A slug already legitimately owned before a reservation policy changes remains owned and resolvable until the Host explicitly changes/releases it. A configuration change must not silently invalidate persisted ownership.
 
+Restoring a historical slug already owned by the same binding is not a new cross-binding claim; the Blueprint must define whether any policy can intentionally forbid such a restore, but a later reservation must not silently destroy the existing ownership record.
+
 ---
 
-# 13. Generation Failure and Fallbacks
+# 14. Generation Failure and Fallbacks
 
 Automatic generation must not invent undocumented fallback values.
 
@@ -566,7 +654,7 @@ unless configured behavior explicitly defines that result.
 
 ---
 
-# 14. Length Handling
+# 15. Length Handling
 
 The final storage limit and profile limits are Blueprint/schema decisions.
 
@@ -582,24 +670,24 @@ the base must be shortened safely before appending the suffix.
 
 The final canonical slug must always satisfy the declared profile/storage limit.
 
-Length rules must operate safely on Unicode code points/grapheme policy as defined by the selected profile; byte-based truncation must not corrupt UTF-8.
+Length rules must operate safely on Unicode according to the explicitly selected code-point/grapheme policy; byte-based truncation must never corrupt UTF-8.
 
 ---
 
-# 15. Database Equality / Collation Contract
+# 16. Database Equality / Collation Contract
 
-Slug equality must be controlled by the package's canonical normalization contract, not by accidental database linguistic comparison.
+Slug equality must be controlled by the package's canonical identity contract, not by accidental database linguistic comparison.
 
 Conceptually:
 
 ```text
-raw input
-→ profile normalization
+input
+→ profile canonicalization
 → canonical slug identity
 → exact persisted uniqueness
 ```
 
-The schema must use comparison semantics compatible with exact canonical identity after normalization.
+The schema must use comparison semantics compatible with exact canonical identity after package-level canonicalization.
 
 The exact MySQL/MariaDB collation/column strategy, or equivalent strategy for any other declared driver, is a Blueprint decision and must be integration-tested.
 
@@ -607,7 +695,7 @@ The package must not rely on a case/accent-insensitive collation to perform norm
 
 ---
 
-# 16. Persistence Model — Conceptual Foundation
+# 17. Persistence Model — Conceptual Foundation
 
 The recommended persistent model contains four logical concepts:
 
@@ -630,9 +718,11 @@ No table may FK or JOIN Host tables.
 
 Package-local relationships/FKs, if used, are a schema/Blueprint decision.
 
+The Host owns the configured connection. Direct PDO belongs only inside the package infrastructure/persistence layer; domain/public contracts must not depend on Host framework internals.
+
 ---
 
-# 17. `maa_slug_scopes`
+# 18. `maa_slug_scopes`
 
 Represents logical ownership scopes and their immutable profile configuration.
 
@@ -659,7 +749,7 @@ A populated scope cannot silently switch profiles.
 
 ---
 
-# 18. `maa_slug_bindings`
+# 19. `maa_slug_bindings`
 
 Represents:
 
@@ -687,11 +777,11 @@ Required logical uniqueness:
 UNIQUE(scope_id, entity_type, entity_key)
 ```
 
-`current_registry_id` is conceptual: it expresses that the binding has one authoritative current canonical slug when active.
+`current_registry_id` is conceptual: it expresses that the binding has one authoritative current canonical slug under normal lifecycle.
 
 The exact bootstrap/nullability/constraint sequence for creating a new binding and its first registry claim must be resolved in the Blueprint so the schema does not depend on an impossible circular insert.
 
-## 18.1 Revision
+## 19.1 Revision
 
 `revision` provides optimistic concurrency protection against silent lost updates to the same binding.
 
@@ -705,9 +795,9 @@ The exact commands that require it are a Blueprint/public-API decision.
 
 ---
 
-# 19. `maa_slug_registry`
+# 20. `maa_slug_registry`
 
-The registry is the authoritative ownership set for slugs that are currently claimed/reserved by a binding.
+The registry is the authoritative ownership set for slug claims currently retained by bindings.
 
 Conceptually:
 
@@ -739,11 +829,13 @@ The exact column model is deliberately **not** reduced to a single boolean such 
 
 Currentness may be anchored by the binding's current pointer, with registry metadata retaining the information required for alias/history semantics. Exact redundancy and integrity rules are Blueprint decisions.
 
+Aliases and canonical slugs are always scope-local claims.
+
 ---
 
-# 20. `maa_slug_history`
+# 21. `maa_slug_history`
 
-History records immutable **normal lifecycle events**.
+History records immutable **retained normal lifecycle events**.
 
 It is a domain-specific history table, not a generic log/event sink.
 
@@ -759,6 +851,7 @@ alias_reactivated
 alias_promoted
 deactivated
 reactivated
+scope_transitioned
 ownership_released
 adopted
 ```
@@ -768,9 +861,10 @@ Conceptually it needs enough stable snapshot information to remain understandabl
 Possible data concepts:
 
 ```text
-id
+id / stable sequence
 binding identity/reference
 event_type
+scope snapshot/reference
 slug snapshot
 previous slug snapshot
 occurred_at
@@ -783,9 +877,29 @@ The history design must not depend exclusively on live registry-row references i
 
 No generic unbounded JSON dump is required for normal lifecycle semantics.
 
+Lifecycle history changes must participate in the same atomic transaction as the ownership/current-state mutation they describe.
+
 ---
 
-# 21. Ownership Invariant
+# 22. Time Source
+
+Lifecycle/audit timestamps are package behavior and must use:
+
+```text
+Maatify\SharedCommon\Contracts\ClockInterface
+```
+
+The package must not mutate PHP's global timezone.
+
+The Host owns application timezone configuration.
+
+The package should write lifecycle timestamps from the injected Clock rather than have database `CURRENT_TIMESTAMP` defaults silently become a competing behavioral time source.
+
+Exact storage timezone/format/precision is a Blueprint/schema decision and must be explicit and testable.
+
+---
+
+# 23. Ownership Invariant
 
 Default invariant:
 
@@ -806,27 +920,46 @@ Another entity cannot claim `foo` merely because it stopped being current.
 
 The original binding may restore `foo` without receiving `foo-2`.
 
+Allocation/change logic must therefore distinguish:
+
+```text
+owned by this binding
+owned by another binding
+not owned
+```
+
+A same-binding historical claim is not a normal collision and may be restored when the requested lifecycle operation allows it.
+
 This prevents old URLs from silently becoming identifiers for unrelated entities.
 
 ---
 
-# 22. Ownership Release vs Destructive Purge
+# 24. Ownership Release vs Destructive Purge
 
-The previous design used one ambiguous `purge` concept for two different requirements. They must be separated.
+The design must separate ownership reuse from data erasure.
 
-## 22.1 Ownership release
+## 24.1 Claim-level ownership release
 
-An explicit ownership-release operation means:
+An explicit release may surrender one or more specifically identified retained claims without implying that the entire binding is erased.
 
-- the binding intentionally surrenders its registered slug claims;
-- surrendered slugs may subsequently be claimed by another binding;
-- those slugs stop participating in authoritative runtime resolution for the released binding;
-- normal immutable audit/history may remain as historical evidence;
-- the operation must be explicit and strongly documented because it breaks the normal permanent-ownership invariant.
+Consequences:
 
-A release must never happen as a side effect of deactivation or alias retirement.
+- released slugs stop participating in authoritative runtime resolution for the old binding;
+- released slugs may subsequently be claimed by another binding;
+- retained audit/history may continue to record the old relationship;
+- the operation must be explicit because it breaks the default old-URL protection invariant.
 
-## 22.2 Destructive purge / erasure
+Normal deactivation, alias retirement, or canonical change must never release ownership as a side effect.
+
+Releasing the current canonical claim cannot leave the binding in an invalid state accidentally. The Blueprint must define whether it requires an atomic replacement, prior deactivation, or another explicit lifecycle transition.
+
+## 24.2 Whole-binding ownership release
+
+A maintenance/application workflow may explicitly release all retained claims for a binding while retaining non-authoritative audit/history according to policy.
+
+This is distinct from erasing the binding's data.
+
+## 24.3 Destructive purge / erasure
 
 A separate maintenance operation may be required to erase package-owned data for a binding, including audit/history where the erasure contract requires that.
 
@@ -834,33 +967,21 @@ This is outside normal lifecycle semantics and is intentionally destructive.
 
 The exact purge/erasure contract — including whether any non-identifying evidence may remain — is a Blueprint decision influenced by privacy/data-retention requirements.
 
-**Immutability therefore applies to retained normal-lifecycle history; it does not claim that an explicit data-erasure operation can never delete history.**
-
-This distinction removes the contradiction between "immutable history" and "destructive purge".
+**Immutability applies to retained normal-lifecycle history; it does not claim that an explicit data-erasure operation can never delete history.**
 
 ---
 
-# 23. Exact Claim vs Automatic Allocation
+# 25. Exact Claim vs Automatic Allocation
 
 The RC must model these as different intents.
 
-## 23.1 Exact claim
+## 25.1 Exact claim
 
-The caller requires one specific normalized slug.
-
-Example:
-
-```text
-iphone-pro
-```
+The caller requires one specific slug identity after the profile's explicit-claim canonicalization rules.
 
 If another binding owns it or policy rejects it, the operation fails.
 
-The package must not silently convert an exact request to:
-
-```text
-iphone-pro-2
-```
+The package must not silently convert an exact request to a suffixed alternative.
 
 Typical use cases:
 
@@ -870,9 +991,9 @@ Typical use cases:
 - migration/adoption;
 - external contract requiring a known value.
 
-## 23.2 Automatic allocation
+## 25.2 Automatic allocation
 
-The caller permits suffix allocation after generation/normalization.
+The caller permits suffix allocation after generation/canonicalization.
 
 Example:
 
@@ -888,7 +1009,7 @@ Exact claim and automatic allocation must not share an ambiguous public operatio
 
 ---
 
-# 24. Collision Handling
+# 26. Collision Handling
 
 Database uniqueness is the final concurrency authority.
 
@@ -924,11 +1045,11 @@ The first RC must explicitly declare which database drivers its persistence adap
 
 ---
 
-# 25. Concurrency Protection
+# 27. Concurrency Protection
 
 Two independent race classes must be protected.
 
-## 25.1 Competing bindings for the same slug
+## 27.1 Competing bindings for the same slug
 
 Example:
 
@@ -944,7 +1065,7 @@ The loser:
 - receives a semantic conflict for exact claim; or
 - advances to the next allowed candidate for auto allocation.
 
-## 25.2 Concurrent mutations of the same binding
+## 27.2 Concurrent mutations of the same binding
 
 Example:
 
@@ -966,11 +1087,29 @@ Both race classes require real concurrency verification, not only repository moc
 
 ---
 
-# 26. Transaction Model
+# 28. Replay / Idempotency Semantics
+
+Professional Host code may retry an operation after a timeout or uncertain caller-side outcome.
+
+The Blueprint must explicitly define replay semantics for mutation operations, including at least:
+
+- repeating an assignment already in the requested state;
+- repeating a change after it already succeeded;
+- repeating alias add/retire/promote operations;
+- whether a repeated command is a no-op, returns the existing state, or fails semantically;
+- whether `correlationKey` is audit-only or whether a distinct idempotency contract/key exists.
+
+No API should accidentally create duplicate history events merely because an identical request was retried, unless the public contract explicitly defines that behavior.
+
+Idempotency must not weaken optimistic concurrency or ownership checks.
+
+---
+
+# 29. Transaction Model
 
 Every lifecycle mutation spanning multiple persistence changes must be atomic.
 
-## 26.1 No caller transaction
+## 29.1 No caller transaction
 
 The package owns the transaction:
 
@@ -982,11 +1121,11 @@ COMMIT
 
 On failure it rolls back its owned transaction and rethrows the original/semantically converted failure according to the package exception contract.
 
-## 26.2 Caller-owned transaction already active
+## 29.2 Caller-owned transaction already active
 
 The package must not commit or roll back the Host transaction.
 
-For drivers where the package promises savepoint participation, the package should isolate its atomic operation using a collision-safe package-owned savepoint:
+For drivers where the package promises nested-operation participation, the package should isolate its atomic operation using a collision-safe package-owned savepoint:
 
 ```text
 SAVEPOINT
@@ -1004,11 +1143,11 @@ This prevents partial package state if the Host catches a slug exception and con
 
 Savepoint syntax/capability is driver-specific and therefore part of each supported persistence-adapter contract.
 
-If a declared driver cannot satisfy the promised nested-operation atomicity contract, that limitation must be explicit rather than silently weakening atomicity.
+For every driver declared as supporting caller-owned transaction participation, the promised nested atomicity must be proven. If a supported adapter cannot provide the required nested atomicity in a caller-owned transaction, it must fail before mutation rather than silently provide weaker semantics.
 
 ---
 
-# 27. Canonical Lifecycle
+# 30. Canonical Lifecycle
 
 Conceptual lifecycle operations should cover behavior equivalent to:
 
@@ -1021,7 +1160,8 @@ restoreHistorical
 
 deactivate
 reactivate
-releaseOwnership
+releaseClaim
+releaseAllOwnership
 ```
 
 Method/class names are not locked yet.
@@ -1030,9 +1170,11 @@ The package does not watch Host model fields. If the Host wants a slug to change
 
 If the Host wants immutable permalinks, it does not invoke a title-driven slug change.
 
+A generated change whose preferred candidate is already historically owned by the same binding must not automatically suffix solely because the registry contains that same-binding claim; the lifecycle contract may restore/reuse it according to the selected operation.
+
 ---
 
-# 28. Aliases
+# 31. Aliases
 
 Aliases are first-class and are not equivalent to canonical history.
 
@@ -1064,17 +1206,19 @@ promoteAliasToCurrent
 
 `retireAlias` is preferred conceptually over a misleading "delete alias" operation because normal retirement does not free ownership for another entity.
 
-Promotion must preserve history of the previous canonical slug and must not create ownership duplication.
+Promotion must preserve the previous canonical slug as canonical history, change the promoted claim's role consistently, and must not create ownership duplication.
+
+Adding an alias that is already owned by the same binding in another role must follow explicit role-transition semantics rather than insert a duplicate registry claim.
 
 ---
 
-# 29. Deactivation / Reactivation
+# 32. Deactivation / Reactivation
 
-Deactivation must not release slug ownership.
+Deactivation changes the binding's availability/status; it does **not** release or erase ownership and does not silently clear the current canonical claim.
 
 When a binding becomes inactive:
 
-- current ownership remains;
+- its current canonical claim remains owned and identified as current for that binding;
 - historical ownership remains;
 - active/retired alias ownership remains;
 - lifecycle history remains;
@@ -1089,11 +1233,44 @@ redirect
 other behavior
 ```
 
-Reactivation restores the binding's active status; exact rules for whether an inactive binding must retain a current slug are Blueprint decisions.
+Reactivation restores the binding's active status with its existing current canonical claim unless another explicit lifecycle operation changes that claim.
+
+If a consumer needs to surrender the current claim, that is an explicit release/replacement/erasure operation, not deactivation.
 
 ---
 
-# 30. Resolution Model
+# 33. Scope Transition / Rebinding
+
+Because `contextKey` may represent a parent, tenant, site, or another routing scope dimension, a real entity may need to move from one scope to another.
+
+Example:
+
+```text
+category:55
+parent:10 → parent:20
+```
+
+The package must not solve this by mutating `scope_id` on the existing binding in place, because that would rewrite the ownership context of historical/current claims.
+
+A binding's scope identity is immutable.
+
+A scope transition is an explicit lifecycle operation that conceptually:
+
+1. identifies the source binding/scope;
+2. creates or uses the target `EntityReference + SlugScope` binding;
+3. claims/restores/allocates the target-scope canonical slug according to explicit intent;
+4. preserves source-scope claims/history according to policy rather than rewriting them;
+5. deactivates or otherwise transitions the source binding when the operation represents a move rather than parallel multi-scope presence;
+6. records the transition in history;
+7. performs all package-owned changes atomically.
+
+The same Host entity may legitimately have multiple active bindings in different scopes, for example locale-specific slugs. Therefore the package must distinguish an explicit **move/transition** from legitimate **parallel scope presence**.
+
+The exact public API and target/source status rules are Blueprint decisions, but cross-scope lifecycle is RC architecture, not a later schema retrofit.
+
+---
+
+# 34. Resolution Model
 
 Resolution must not collapse independent facts into one ambiguous status enum.
 
@@ -1102,10 +1279,10 @@ The result should separate at least:
 ```text
 matchKind
 bindingStatus
-canonicality
+inputFormCanonicality
 ```
 
-## 30.1 Match kind
+## 34.1 Match kind
 
 Conceptual values:
 
@@ -1117,7 +1294,7 @@ RETIRED_ALIAS
 NONE
 ```
 
-## 30.2 Binding status
+## 34.2 Binding status
 
 Conceptual values when a binding exists:
 
@@ -1136,9 +1313,9 @@ CURRENT + INACTIVE
 
 without inventing one overloaded enum.
 
-## 30.3 Canonicality
+## 34.3 Input-form canonicality
 
-Resolution receives a decoded input segment, normalizes it with the scope's profile, performs lookup on canonical identity, and can report whether the caller's supplied representation already equals the canonical representation expected for that match/current target.
+Resolution receives a decoded segment from the Host/router and applies the profile's **lookup canonicalization**, not its arbitrary source-generation pipeline.
 
 Example:
 
@@ -1149,25 +1326,37 @@ iphone-pro
 incoming decoded segment:
 iPhone-Pro
 
-normalized lookup:
+lookup canonical identity:
 iphone-pro
 
 matchKind:
 CURRENT
 
-isCanonicalRequest:
+inputIsCanonicalForm:
 false
 ```
 
-The Host decides whether that difference warrants an HTTP redirect or any other action.
+`inputIsCanonicalForm` answers only whether the supplied decoded segment already uses the canonical textual form for the matched slug identity.
 
-## 30.4 Suggested result information
+It does **not** mean that an alias or historical slug is the application's primary canonical URL. That question is represented by `matchKind` and `currentSlug`.
+
+Therefore an exact active alias may validly produce:
+
+```text
+matchKind = ALIAS
+inputIsCanonicalForm = true
+currentSlug = canonical-current-slug
+```
+
+The Host decides whether any of those facts warrant an HTTP redirect or another action.
+
+## 34.4 Suggested result information
 
 A result may need information equivalent to:
 
 ```text
 requestedSegment
-normalizedLookupSlug
+lookupCanonicalSlug
 matchedSlug
 matchKind
 bindingStatus
@@ -1175,7 +1364,7 @@ currentSlug
 entity
 scope
 revision
-isCanonicalRequest
+inputIsCanonicalForm
 ```
 
 Exact DTO shape is a Blueprint decision.
@@ -1186,9 +1375,11 @@ Historical/alias matches should resolve directly to the current binding state ra
 old1 → old2 → old3 → current
 ```
 
+Released claims are not live resolution ownership even if retained audit history still mentions them.
+
 ---
 
-# 31. Availability API
+# 35. Availability API
 
 Availability checks are useful but never authoritative under concurrency.
 
@@ -1206,13 +1397,15 @@ INVALID
 
 Additional ownership metadata may distinguish current/history/alias/retired state without multiplying public enums unnecessarily.
 
+Availability/reservation checks must use the same canonical claim identity rules that the eventual claim operation uses.
+
 Documentation must state:
 
 > Availability is advisory. Only an actual claim/allocation operation provides an authoritative concurrency-safe outcome.
 
 ---
 
-# 32. Legacy Adoption
+# 36. Legacy Adoption
 
 Existing applications may already contain:
 
@@ -1236,28 +1429,35 @@ Adoption should support original lifecycle timestamps when they are known and co
 
 Adoption may provide narrowly controlled migration behavior for rules such as newly introduced reserved words, but it must never bypass ownership uniqueness or create ambiguous live claims.
 
+A legacy slug must remain resolvable under the target scope's declared profile/lookup contract. Adoption must not silently insert a slug that the active profile cannot canonicalize/resolve consistently.
+
+If legacy slug semantics differ from built-in profiles, the correct solutions include an explicitly versioned compatible custom/legacy profile or an explicit migration mapping. Hidden profile bypasses are not acceptable.
+
 A generic ETL/import framework is not required. The package only needs a deliberate domain adoption API that lets Hosts migrate trustworthy legacy slug state.
+
+Large migrations may be coordinated inside a caller-owned transaction where supported; whether RC1 exposes a dedicated batch/dry-run adoption API is a Blueprint decision rather than a persistence-model requirement.
 
 ---
 
-# 33. Ownership Release and Reuse Semantics
+# 37. Ownership Release and Reuse Semantics
 
 Normal lifecycle operations do **not** free slugs for unrelated entities.
 
-Cross-entity reuse becomes possible only after explicit ownership release (or destructive purge where applicable).
+Cross-entity reuse becomes possible only after explicit claim/whole-binding ownership release or destructive purge where applicable.
 
 Consequences must be documented clearly:
 
-- historical runtime resolution for released slugs is intentionally no longer authoritative for the old binding;
-- another binding may subsequently claim the released slug;
+- historical runtime resolution for released claims is intentionally no longer authoritative for the old binding;
+- another binding may subsequently claim a released slug;
 - retained audit history is not consulted as live ownership;
-- the operation therefore represents a deliberate break from permanent old-URL protection.
+- management/history queries may therefore show an old historical relationship and a newer live owner for the same textual slug at different times;
+- the operation represents a deliberate break from permanent old-URL protection.
 
 This tradeoff must be explicit in the public contract so a Host cannot accidentally turn an old URL into a different entity identifier.
 
 ---
 
-# 34. Management / Query API
+# 38. Management / Query API
 
 Persisted package data needs supported PHP-level read/query contracts for support, auditing, migrations, and management integrations.
 
@@ -1268,7 +1468,7 @@ get binding
 get current slug
 list aliases
 get history
-inspect registry ownership
+inspect live registry ownership
 search bindings
 search registry claims
 inspect scope
@@ -1278,11 +1478,13 @@ List/search filters should use explicit Criteria contracts.
 
 Where pagination is needed, the package should use the stable Maatify persistence pagination capability rather than create a duplicate package-local pagination abstraction.
 
+Management contracts must distinguish live ownership from retained historical/audit evidence after release/reuse.
+
 The package provides no Admin UI.
 
 ---
 
-# 35. Mutation Results and Cross-Domain Integration
+# 39. Mutation Results and Cross-Domain Integration
 
 Mutations should return stable domain results rather than force Host code to reread internal tables.
 
@@ -1317,7 +1519,7 @@ If event publication is later useful, it should be an adapter/integration concer
 
 ---
 
-# 36. Audit Context
+# 40. Audit Context
 
 Lifecycle mutation contracts may carry limited optional Host-provided audit context such as:
 
@@ -1333,9 +1535,11 @@ The package must not know user tables, authentication models, request objects, o
 
 Exact length/nullability/privacy rules are Blueprint/schema decisions.
 
+`correlationKey` must not be implicitly treated as an idempotency key unless the Blueprint/public contract explicitly gives it that semantic and persistence guarantee.
+
 ---
 
-# 37. Exception Model
+# 41. Exception Model
 
 The package should expose a stable semantic exception taxonomy built on `maatify/exceptions`.
 
@@ -1358,6 +1562,7 @@ Exact hierarchy/names remain Blueprint decisions.
 Rules already considered mandatory:
 
 - package-defined exceptions implement the package marker contract;
+- interfaces/enums/DTOs/exceptions follow the current Maatify type-suffix rules;
 - unknown infrastructure failures are not blindly wrapped;
 - errors are never swallowed;
 - duplicate-key conversion occurs only with driver-specific proof;
@@ -1366,23 +1571,7 @@ Rules already considered mandatory:
 
 ---
 
-# 38. Clock and Time
-
-Lifecycle timestamps must use:
-
-```text
-Maatify\SharedCommon\Contracts\ClockInterface
-```
-
-The package must not mutate PHP's global timezone.
-
-The Host owns application timezone configuration.
-
-Timestamp storage format/timezone policy is a schema/Blueprint decision and must be explicit.
-
----
-
-# 39. Expected Shared Runtime Dependencies
+# 42. Expected Shared Runtime Dependencies
 
 The dependency graph should remain minimal and explicit.
 
@@ -1404,9 +1593,11 @@ The package must not copy shared Maatify capabilities into local duplicates.
 
 Exact minimum stable versions belong in the Composer/Blueprint work and must correspond to actually published APIs.
 
+Every directly used runtime extension or package must be declared directly; the package must not rely on a transitive or ambient dependency for Unicode, persistence, or any other runtime behavior.
+
 ---
 
-# 40. Database Driver Policy
+# 43. Database Driver Policy
 
 The package is Host/framework agnostic; that does not mean its persistence implementation must pretend every PDO driver behaves identically.
 
@@ -1427,17 +1618,18 @@ Examples in this discussion mentioning MySQL/MariaDB code `1062` are examples of
 
 ---
 
-# 41. Conceptual Public Capability Surface
+# 44. Conceptual Public Capability Surface
 
 Final classes/method names must be decided in the Blueprint, but RC1 should cover capabilities equivalent to the following.
 
-## Profile / normalization
+## Profile / text handling
 
 ```text
-normalize
-generate
-validate
-resolve profile
+generateFromSource
+canonicalizeClaim
+canonicalizeLookup
+validateCanonicalSlug
+resolveProfile
 ```
 
 ## Availability / allocation
@@ -1458,7 +1650,9 @@ changeGenerated
 restoreHistorical
 deactivate
 reactivate
-releaseOwnership
+releaseClaim
+releaseAllOwnership
+transitionScope
 ```
 
 ## Alias
@@ -1505,7 +1699,7 @@ The public API should prefer domain operations with explicit intent over generic
 
 ---
 
-# 42. Conceptual Source Organization
+# 45. Conceptual Source Organization
 
 The standard's organizing direction is Domain → Capability → Layer, without ceremonial empty folders.
 
@@ -1515,6 +1709,7 @@ A possible capability map is:
 src/
     Profile/
     Generation/
+    Canonicalization/
     Scope/
     Identity/
     Allocation/
@@ -1534,7 +1729,7 @@ The Blueprint should create directories only where real responsibilities justify
 
 ---
 
-# 43. Testing and RC Readiness
+# 46. Testing and RC Readiness
 
 RC1 cannot be considered complete because unit tests and PHPStan pass.
 
@@ -1559,14 +1754,18 @@ English generation
 Arabic generation
 Unicode generation
 ASCII/transliteration generation
+source generation vs exact-claim canonicalization
+lookup canonicalization does not apply unsafe lossy generation transforms
 Unicode normalization equivalence
-normalization idempotence
+canonicalization idempotence
 invalid UTF-8
 profile-defined control/format policy
 reserved slugs
+reservation policy changes with existing ownership
 empty generation result
 exact claim
 automatic allocation
+same-binding historical candidate restore
 collision suffixing
 maximum-length suffixing
 Unicode-safe truncation
@@ -1574,7 +1773,8 @@ same slug in different scopes
 same slug in same scope
 same entity restore
 cross-entity historical reuse prevention
-ownership release and later reuse
+claim-level release and later reuse
+whole-binding release and later reuse
 alias creation
 alias retirement
 alias reactivation
@@ -1584,22 +1784,26 @@ current resolution
 alias resolution
 retired-alias resolution semantics
 active binding resolution
-inactive binding resolution
-canonical request
-non-canonical request
+inactive binding resolution with current ownership retained
+canonical input form
+non-canonical input form
+alias exact form vs primary canonical target distinction
+scope transition between parents/contexts
+parallel active bindings in different scopes
 legacy current adoption
 legacy history adoption
 legacy alias adoption
+legacy profile incompatibility rejection/mapping
 concurrent exact claim
 concurrent auto allocation
 concurrent same-binding update
 revision conflict
+mutation replay/idempotency semantics
 package-owned transaction rollback
 caller-owned transaction participation
 savepoint rollback
 outer transaction rollback
 profile-not-found failure
-reserved-policy changes with existing ownership
 management pagination
 consumer installation
 ```
@@ -1608,38 +1812,40 @@ A fixed regression must receive regression protection at the appropriate behavio
 
 ---
 
-# 44. RC1 Scope Summary
+# 47. RC1 Scope Summary
 
 | Domain | RC1 foundation |
 |---|---|
-| Profile | versioned stable generation/normalization contracts |
+| Profile | versioned stable generation/claim/lookup contracts |
 | Generation | source → candidate |
-| Normalization | canonical slug identity |
+| Canonicalization | explicit-claim and lookup identity rules |
 | Unicode | multilingual + profile-defined normalization/security |
 | Scope | namespace + locale + context; immutable profile configuration |
+| Scope transition | explicit cross-scope lifecycle without rewriting history |
 | Identity | Host-provided opaque entity reference |
 | Allocation | exact claim + automatic allocation |
 | Availability | advisory ownership/policy classification |
-| Ownership | authoritative scope-local registry |
-| Lifecycle | assign/change/restore/deactivate/reactivate/release |
+| Ownership | authoritative scope-local registry + explicit release |
+| Lifecycle | assign/change/restore/deactivate/reactivate/release/transition |
 | Alias | add/retire/reactivate/promote |
-| Resolution | match kind + binding state + canonicality |
+| Resolution | match kind + binding state + input-form canonicality |
 | History | immutable retained normal-lifecycle timeline |
 | Adoption | legacy current/history/alias adoption |
+| Replay semantics | explicit idempotency/retry behavior |
 | Management | supported queries + shared pagination |
-| Persistence | package-owned PDO infrastructure for declared drivers |
+| Persistence | package-owned PDO infrastructure over Host-injected connection for declared drivers |
 | Transactions | owned transaction + documented caller-transaction participation |
 | Concurrency | unique-claim races + same-binding revision protection |
 | Maintenance | explicit destructive erasure contract |
 | Exceptions | stable semantic taxonomy |
-| Clock | shared `ClockInterface` |
+| Clock | shared `ClockInterface` as lifecycle time source |
 | Testing | unit + integration + system + consumer + concurrency |
 
 These are RC1 foundation capabilities, not a list of deliberately deferred core redesigns.
 
 ---
 
-# 45. Explicit Non-Goals
+# 48. Explicit Non-Goals
 
 These are outside the package, not merely postponed:
 
@@ -1674,109 +1880,134 @@ Framework/application adapters can be separate integrations if a concrete need a
 
 ---
 
-# 46. Architectural Invariants Proposed for Locking
+# 49. Architectural Invariants Proposed for Locking
 
 Unless review identifies a concrete defect, the Blueprint should preserve these rules:
 
 1. The package is an authoritative Slug Lifecycle Engine, not only a slug generator.
-2. Stateless generation/normalization can run without persistence configuration.
+2. Stateless generation/canonicalization can run without persistence configuration.
 3. Persisted lifecycle is fully package-owned when the Host chooses to use it.
 4. A slug is a decoded canonical path-segment token, not a full path/URL or percent-encoded transport string.
-5. Entity identity is Host-provided, stable, and opaque.
-6. No Host FK or JOIN is allowed.
-7. Scope is first-class.
-8. Logical scope identity is namespace + localeKey + contextKey.
-9. `profileKey` is immutable scope configuration, not a uniqueness dimension.
-10. Versioned profiles define stable observable generation/normalization behavior.
-11. Current canonical, historical canonical, active alias, and retired alias ownership share one authoritative scope-local registry.
-12. Normal lifecycle changes do not release ownership.
-13. Historical canonical slugs remain owned by the same binding under normal lifecycle.
-14. Retired aliases remain owned under normal lifecycle.
-15. The same binding can restore its historical canonical slug.
-16. Cross-binding reuse requires explicit ownership release or destructive erasure semantics.
-17. Ownership release and destructive purge are different concepts.
-18. Exact claim and automatic allocation are different intents.
-19. Database uniqueness is the final claim authority.
-20. Availability checks are advisory.
-21. Same-slug races are protected by database uniqueness.
-22. Same-binding races are protected by revision/locking semantics.
-23. Multi-row lifecycle mutations are atomic.
-24. Caller-owned transactions must not be committed or rolled back by the package.
-25. Savepoint participation, where promised, is driver-specific and tested.
-26. Retained normal-lifecycle history is immutable.
-27. Aliases are first-class and distinct from canonical history.
-28. Resolution separates match kind from binding status.
-29. Canonical/non-canonical request representation is reportable without making HTTP decisions.
-30. Runtime historical/alias resolution points directly to current binding state, not redirect chains.
-31. Unicode is first-class.
-32. Arabic works without forced ASCII conversion.
-33. ASCII/transliteration behavior is a separate profile/strategy concern.
-34. Built-in deterministic profiles have canonical test vectors and controlled dependencies.
-35. Reserved-slug policy is supported from RC1.
-36. Legacy adoption is supported from RC1.
-37. Explicit ownership release is the only normal mechanism that makes retained claims reusable by another binding.
-38. The package exposes supported query/management contracts for package-owned data.
-39. Time uses `ClockInterface`.
-40. Shared pagination uses the Maatify persistence capability where applicable.
-41. Package exceptions use the Maatify exception hierarchy.
-42. Unknown infrastructure failures are not blindly wrapped.
-43. Supported database drivers are declared rather than assumed portable.
-44. The Slug package has no dependency on SEO.
-45. SEO has no dependency on Slug.
-46. Host/adapter code owns integrations between Slug and other domains.
+5. Source generation, explicit-claim canonicalization, and lookup canonicalization are distinct contracts.
+6. Lookup must not silently apply lossy generation-only transforms unless the versioned profile explicitly defines and proves that equivalence.
+7. Entity identity is Host-provided, stable, and opaque.
+8. No Host FK or JOIN is allowed.
+9. Scope is first-class.
+10. Logical scope identity is `namespace + localeKey + contextKey`.
+11. `profileKey` is immutable scope configuration, not a uniqueness dimension.
+12. A binding's scope identity is immutable; cross-scope movement is an explicit lifecycle transition.
+13. The same Host entity may legitimately have parallel bindings in different scopes.
+14. Versioned profiles define stable observable generation/canonicalization/lookup behavior.
+15. Canonicalization is idempotent for canonical inputs.
+16. Current canonical, historical canonical, active alias, and retired alias ownership share one authoritative scope-local registry.
+17. Normal lifecycle changes do not release ownership.
+18. Historical canonical slugs remain owned by the same binding under normal lifecycle.
+19. Retired aliases remain owned under normal lifecycle.
+20. The same binding can restore its historical canonical slug.
+21. Same-binding retained ownership is not treated as a cross-binding collision.
+22. Cross-binding reuse requires explicit ownership release or destructive erasure semantics.
+23. Claim-level release, whole-binding release, and destructive purge are distinct concepts.
+24. Exact claim and automatic allocation are different intents.
+25. Database uniqueness is the final claim authority.
+26. Availability checks are advisory.
+27. Same-slug races are protected by database uniqueness.
+28. Same-binding races are protected by revision/locking semantics.
+29. Multi-row lifecycle/history mutations are atomic.
+30. Caller-owned transactions must not be committed or rolled back by the package.
+31. Savepoint/nested participation, where promised, is driver-specific and tested.
+32. A supported adapter must fail before mutation rather than silently weaken promised caller-transaction atomicity.
+33. Mutation replay/idempotency semantics are explicit.
+34. Retained normal-lifecycle history is immutable.
+35. Aliases are first-class and distinct from canonical history.
+36. Deactivation changes binding status only; it does not release/clear current ownership.
+37. Resolution separates match kind from binding status.
+38. Input-form canonicality is distinct from whether a matched alias/history entry is the primary canonical target.
+39. Runtime historical/alias resolution points directly to current binding state, not redirect chains.
+40. Released claims are not live resolution ownership even when retained audit history exists.
+41. Unicode is first-class.
+42. Arabic works without forced ASCII conversion.
+43. ASCII/transliteration behavior is a separate profile/strategy concern.
+44. Built-in deterministic profiles have canonical test vectors and controlled runtime dependencies/extensions.
+45. Reserved-slug policy is supported from RC1.
+46. Existing retained ownership is not silently invalidated by a later reserved-policy change.
+47. Legacy adoption is supported from RC1 and must remain compatible with the target profile's resolution contract.
+48. The package exposes supported query/management contracts for package-owned data.
+49. Host configuration/connection ownership remains outside the package; persistence receives explicit dependencies.
+50. Lifecycle time uses `ClockInterface`; database defaults must not become a competing behavioral clock.
+51. Shared pagination uses the Maatify persistence capability where applicable.
+52. Package exceptions use the Maatify exception hierarchy.
+53. Unknown infrastructure failures are not blindly wrapped.
+54. Supported database drivers are declared rather than assumed portable.
+55. Every direct runtime package/extension dependency is declared explicitly.
+56. The Slug package has no dependency on SEO.
+57. SEO has no dependency on Slug.
+58. Host/adapter code owns integrations between Slug and other domains.
 
 ---
 
-# 47. Open Decisions That Must Be Closed in the Blueprint
+# 50. Open Decisions That Must Be Closed in the Blueprint
 
 The architectural direction is intentionally broad, but the following items cannot remain ambiguous when implementation starts:
 
 1. Exact RC1 supported database driver(s).
-2. Exact built-in profile names and normalization rules.
-3. Unicode normalization form/policy for each built-in profile.
-4. Transliteration engine/data and deterministic compatibility contract.
-5. Default Unicode security policy and extension interface.
-6. Exact slug/storage length and Unicode-safe length semantics.
-7. Exact database collation/equality strategy per supported driver.
-8. Exact scope canonical-empty representation.
-9. Exact registry state/role columns and integrity constraints.
-10. Exact binding bootstrap/current-pointer constraints.
-11. Exact binding status model.
-12. Exact history snapshot model.
-13. Exact ownership-release persistence behavior.
-14. Exact destructive purge/erasure behavior.
-15. Exact alias promotion/retirement/reactivation rules.
-16. Exact revision/locking rules per mutation.
-17. Exact transaction/savepoint adapter behavior.
-18. Exact public commands, Criteria, DTOs, enums, interfaces, and exceptions.
-19. Exact legacy-adoption rules and timestamp validation.
-20. Exact dependency minimum versions based on published stable APIs.
-21. Exact schema/index plan and real concurrency proof strategy.
-22. Exact standards adoption snapshot/manifest for the repository.
-23. Exact RC execution plan and acceptance criteria.
+2. Exact built-in profile names.
+3. Exact source-generation rules per built-in profile.
+4. Exact explicit-claim canonicalization rules per built-in profile.
+5. Exact runtime lookup-canonicalization rules per built-in profile.
+6. Unicode normalization form/policy for each built-in profile.
+7. Transliteration engine/data and deterministic compatibility contract.
+8. Required runtime PHP extensions/packages for Unicode/transliteration behavior.
+9. Default Unicode security policy and extension interface.
+10. Exact slug/storage length and Unicode-safe length semantics.
+11. Exact database collation/equality strategy per supported driver.
+12. Exact scope canonical-empty representation.
+13. Exact validation/canonicalization rules for `namespace`, `localeKey`, `contextKey`, `entityType`, and `entityKey`.
+14. Exact registry state/role columns and integrity constraints.
+15. Exact binding bootstrap/current-pointer constraints.
+16. Exact binding status model.
+17. Exact history snapshot/sequence model.
+18. Exact claim-level and whole-binding ownership-release persistence behavior.
+19. Exact destructive purge/erasure behavior.
+20. Exact alias promotion/retirement/reactivation rules.
+21. Exact same-binding restore/reuse behavior for generated allocation.
+22. Exact cross-scope transition behavior and source/target binding statuses.
+23. Exact revision/locking rules per mutation.
+24. Exact transaction/savepoint adapter behavior.
+25. Exact mutation replay/idempotency semantics and whether any idempotency key exists.
+26. Exact public Commands, Criteria, DTOs, Enums, Interfaces, and Exceptions.
+27. Exact legacy-adoption rules, timestamp validation, and profile-compatibility behavior.
+28. Exact dependency minimum versions based on published stable APIs.
+29. Exact schema/index plan and real concurrency proof strategy.
+30. Exact Clock timestamp storage precision/timezone contract.
+31. Exact standards adoption snapshot/manifest for the repository.
+32. Exact RC execution plan and acceptance criteria.
 
 These are Blueprint decisions, not reasons to reopen the core package boundary.
 
 ---
 
-# 48. Working Definition
+# 51. Working Definition
 
-> **Maatify Slug provides deterministic, host-agnostic slug generation, normalization, scoped ownership, allocation, lifecycle, aliases, history, resolution, adoption, and concurrency-safe persistence for PHP applications.**
+> **Maatify Slug provides deterministic, host-agnostic slug generation, canonicalization, scoped ownership, allocation, lifecycle, aliases, history, resolution, scope transitions, adoption, and concurrency-safe persistence for PHP applications.**
 
 ---
 
-# 49. Review Exit Criteria for This Discussion Draft
+# 52. Review Exit Criteria for This Discussion Draft
 
 This discussion draft is ready to be replaced by the formal Blueprint only when review confirms that:
 
 - the package boundary is coherent;
+- generation, exact-claim canonicalization, and lookup canonicalization do not create an unsafe or ambiguous acceptance surface;
 - no core slug use case requires a different identity/scope/ownership model;
+- hierarchical/multi-tenant scope transitions are representable without rewriting old ownership/history;
 - no documented invariant contradicts another invariant;
 - no persistence concept depends on impossible schema semantics;
 - URL/HTTP/SEO responsibilities remain outside the package;
-- Unicode and transliteration contracts are implementable and testable;
-- release/reuse/history semantics are explicit;
-- transaction/concurrency promises can be proven on declared drivers;
+- Unicode and transliteration contracts are implementable, dependency-explicit, deterministic where promised, and testable;
+- ownership release/reuse/history semantics are explicit;
+- deactivation/reactivation semantics are internally consistent;
+- transaction/concurrency/replay promises can be proven on declared drivers;
+- legacy adoption cannot bypass the resolution/profile contract;
 - standards obligations have a clear adoption path;
 - remaining questions are implementation/contract details suitable for the Blueprint rather than unresolved architectural holes.
 
