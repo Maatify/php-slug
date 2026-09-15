@@ -89,7 +89,8 @@ History immutable retained normal-lifecycle timeline. يحفظ snapshots مفه�
 | Lifecycle mutation | `SlugLifecycleServiceInterface` |
 | Resolution/availability | `SlugQueryServiceInterface` |
 | Management | `SlugManagementQueryInterface` |
-| Construction | `SlugEngineFactory` و`SlugEngine`؛ factory final framework-neutral وليست Service Locator ولا contract لاستبدال PDO |
+| Stateless construction | `SlugProfileRegistryFactory` و`SlugTextServiceFactory`؛ لا يقبل أي منهما PDO ولا يكتب Persistence |
+| Persisted construction | `SlugEngineFactory` و`SlugEngine`؛ factory final framework-neutral وليست Service Locator ولا contract لاستبدال PDO |
 
 لا تُكشف repositories الداخلية أو SQL builders أو lock coordinators كـstable public API. إذا أريد استبدال infrastructure في Runtime، يتم ذلك خلف interface عامة محددة أعلاه أو contract أصغر خاص بحد الاستبدال الفعلي؛ لا يضطر Host إلى معرفة جداول الحزمة.
 
@@ -111,7 +112,7 @@ interface SlugProfileInterface
     public function generateFromSource(string $source): GeneratedSlugDTO;
     public function canonicalizeClaim(string $candidate): CanonicalSlugDTO;
     public function canonicalizeLookup(string $decodedSegment): LookupCanonicalizationDTO;
-    public function validateCanonicalSlug(string $candidate): Slug;
+    public function assertCanonicalSlug(string $candidate): void;
 }
 
 interface SlugProfileRegistryInterface
@@ -181,6 +182,16 @@ interface SlugManagementQueryInterface
 
 لا يقبل `SlugTextServiceInterface` PDO ولا يكتب Persistence. كل lifecycle method يقبل Command واحدًا لا raw parameter list غير موثق، وكل query filter يقبل Criteria أو query contract صريح.
 
+مسار الإنشاء stateless ملزم ومفصول عن مسار Persistence:
+
+```php
+$profiles = SlugProfileRegistryFactory::createBuiltIn();
+$profiles->register($customProfile); // اختياري قبل إنشاء الخدمة
+$text = SlugTextServiceFactory::create($profiles);
+```
+
+`SlugProfileRegistryFactory::createBuiltIn()` يعيد Registry مستقلة محملة مسبقًا بـ`unicode-v1` و`ascii-v1`. لا ينشئ `SlugTextServiceFactory` اتصالًا أو Repository، ولا يسمح `SlugEngineFactory` بأن يكون بديلًا لهذا المسار؛ مسار Persistence يستخدم نفس Registry بعد اكتمال تسجيل Profiles.
+
 ### 5.2 Internal boundaries
 
 تقسم Runtime، عند وجود مسؤولية حقيقية، إلى `Profile`, `Generation`, `Canonicalization`, `Identity`, `Scope`, `Lifecycle`, `Allocation`, `Resolution`, `History`, `Adoption`, `Management`, `Persistence`, و`Exception`. يمكن أن تبقى المكونات الصغيرة في مجلد capability واحد؛ لا تنشأ مجلدات فارغة لمجرد مطابقة الرسم.
@@ -201,7 +212,7 @@ SQL لا يوجد في Services أو Commands. Commands تتحقق من مدخل
 
 ### 6.1 `Slug`
 
-`Slug` value object يحمل string canonical فقط. لا يسمح منشئه العام بقيمة غير validated؛ profile هو الذي ينشئه بعد canonicalization. لا تدخل profile أو scope في string نفسها. يسجل DTO السياق عند الحاجة.
+`Slug` value object يحمل string canonical فقط. لا يوجد له public constructor. مسار الإنشاء العام الوحيد هو `Slug::fromProfile(SlugProfileInterface, string): Slug`، وتنفذ هذه الدالة `assertCanonicalSlug()` على Profile قبل إنشاء القيمة دون أي تحويل؛ لذلك لا يستطيع public caller إنشاء Slug دون Profile validation. لا تدخل profile أو scope في string نفسها. يسجل DTO السياق عند الحاجة.
 
 ### 6.2 `SlugProfileKey`
 
@@ -242,25 +253,36 @@ final readonly class ScopeProfileRequestDTO implements \JsonSerializable
 | `generateFromSource` | human/source text | transforms lossy المعلنة في Profile |
 | `canonicalizeClaim` | exact candidate | equivalences المعلنة فقط؛ لا تحويل source عام |
 | `canonicalizeLookup` | decoded URL segment | equivalences الأضيق المعلنة؛ لا generation-only loss |
-| `validateCanonicalSlug` | canonical candidate | قبول/reject دون اختراع قيمة |
+| `assertCanonicalSlug` | canonical candidate | قبول/reject دون اختراع قيمة؛ بوابة إنشاء `Slug::fromProfile` |
 
 كل عملية canonicalization idempotent على نطاقها. `canonicalizeClaim(canonical)` و`canonicalizeLookup(canonical)` يعيدان القيمة ذاتها، وlookup لا يحول `hello!!!` إلى `hello` إلا إذا أضاف Profile هذا equivalence صراحة؛ RC1 لا يضيفه.
 
-### 7.1 `unicode-v1`
+### 7.1 Runtime compatibility for built-in Profiles
+
+كلتا الـbuilt-in Profiles تعتمدان على ICU نفسه حتى لا تتغير identity بسبب اختلاف runtime data. قبل التسجيل أو أول استعمال، يجب تحقق الآتي، وإلا يرمى `SlugProfileConfigurationException` قبل أي mutation:
+
+- `INTL_ICU_VERSION` major هو `74`؛
+- `IntlChar::getUnicodeVersion()` يعيد Unicode data version `15.1`؛
+- `Normalizer` و`Transliterator` متاحان؛
+- تستخدم عمليات NFC وlowercase في Profiles ICU data، ولا تستخدم `mb_strtolower` كمصدر identity؛ `ext-mbstring` محصور في عمليات UTF-8 code-point length بعد التحقق.
+
+RC1 يدعم PHP 8.4 وPHP 8.5 عندما يقدمان هذا compatibility tuple فقط. أي ICU/Unicode data tuple آخر يفشل مغلقًا بدل إنتاج Slug قابل للحفظ؛ vectors §38 وruntime compatibility tests في Plan تثبت ذلك على كلا الإصدارين.
+
+### 7.2 `unicode-v1`
 
 - Unicode normalization: NFC عبر `ext-intl`؛ فشل Normalizer يرفض المدخل.
-- Case: `mb_strtolower(..., 'UTF-8')` عبر `ext-mbstring`.
+- Case: ICU transliterator ID `Any-Lower` بعد NFC؛ فشل إنشاء الـtransliterator يرفض المدخل، ولا يعتمد على Unicode tables الخاصة بـ`mbstring`.
 - Allowed canonical code points: Unicode letters `L`، marks `M`، decimal digits `Nd`، وASCII hyphen `U+002D` فقط.
 - Separator: hyphen ASCII واحد؛ source generation تستبدل كل run من غير المسموح به، عدا security-invalid input، بـhyphen ثم collapse وtrim.
 - Exact claim: يطبق NFC وlowercase فقط، ثم يرفض space أو punctuation أو duplicate/leading/trailing hyphen؛ لا يحولها إلى hyphen.
 - Lookup: يطبق NFC وlowercase فقط ثم نفس validation؛ لا trim ولا punctuation removal ولا whitespace-to-hyphen.
 - Arabic يبقى Unicode؛ مثال canonical vector: `آيفون ١٧ برو` → `آيفون-١٧-برو`.
 
-### 7.2 `ascii-v1`
+### 7.3 `ascii-v1`
 
 - Unicode normalization الأولي: NFC.
 - Transliteration engine: ICU `Transliterator` عبر `ext-intl`، بالمعرف الثابت `Any-Latin; Latin-ASCII`.
-- Compatibility contract: RC1 يدعم ICU major `74` فقط. تشغيل Profile على ICU major مختلف يفشل بـ`SlugProfileConfigurationException` قبل أي mutation؛ هذا قيد determinism وليس ادعاء portability.
+- Compatibility contract: يطبق compatibility tuple في §7.1؛ تشغيل Profile على ICU/Unicode data مختلف يفشل بـ`SlugProfileConfigurationException` قبل أي mutation.
 - Case: ASCII lowercase بعد transliteration.
 - Allowed canonical code points: `a-z`, `0-9`, وASCII hyphen فقط.
 - Source generation: security validation ثم transliteration ثم تحويل runs غير المسموح بها إلى hyphen، collapse وtrim.
@@ -268,7 +290,7 @@ final readonly class ScopeProfileRequestDTO implements \JsonSerializable
 - Lookup: يقبل ASCII candidate بعد lowercase equivalence فقط؛ لا يشغل transliteration أو lossy separator transforms.
 - canonical vector: `Über Café` → `uber-cafe`.
 
-### 7.3 Custom profiles
+### 7.4 Custom profiles
 
 `SlugProfileRegistryInterface` يسجل Profile object قبل استعمال Scope له. custom key versioned ومطابق لشكل `SlugProfileKey`، ولا يجوز أن يحل محل built-in key. consumer مسؤول عن ثبات behavior وdata mappings طالما Scope persisted تشير إلى المفتاح. عدم توفر Profile المشار إليه في Scope يفشل مغلقًا بـ`SlugProfileNotFoundException`.
 
@@ -288,7 +310,7 @@ final readonly class ScopeProfileRequestDTO implements \JsonSerializable
 
 الحد الأقصى للـSlug هو **160 Unicode code points** بعد canonicalization. `mb_strlen`/`mb_substr` أو equivalent code-point operations مطلوبة؛ byte truncation ممنوعة. لا يعد RC1 بسلامة grapheme clusters، لكنه لا يقطع UTF-8 byte sequence. Source generation تقصر على 160 code points، تزيل trailing hyphen، وexact claim/lookup يرفضان القيمة الأطول بدل قص exact identity.
 
-لـautomatic allocation، يحجز algorithm طول `-N` قبل القص: `baseLimit = 160 - (1 + digits(N))`، يقص base على code-point boundary ثم يزيل trailing hyphen، ويرفض إذا لم يبق token صالح. يبدأ التسلسل بالـbase ثم `-2` إلى `-1000` فقط؛ تجاوز 1000 محاولة يعطي `SlugAllocationExhaustedException`.
+لـautomatic allocation، يكون المرشح الأساسي `base` بلا لاحقة وبحد `160` code points؛ ولكل `N` من `2` إلى `1000` يحجز algorithm طول `-N` قبل القص باستخدام `baseLimit = 160 - (1 + digits(N))`، ثم يقص base على code-point boundary ويزيل trailing hyphen ويرفض إذا لم يبق token صالح. يبدأ التسلسل بالـbase ثم `-2` إلى `-1000` فقط؛ هذه 1000 محاولة إجمالًا، واستنفادها يعطي `SlugAllocationExhaustedException`.
 
 ## 9. Validation لقيم Scope وEntityReference
 
@@ -322,6 +344,8 @@ isReserved(SlugScope $scope, Slug $slug): bool
 
 Host يملك vocabulary/patterns، والحزمة لا تستعلم Host tables. يفحص claim/allocation/adoption policy قبل إنشاء ownership حية. ترتيب availability هو: `INVALID` ثم same-binding ownership ثم `OWNED_BY_OTHER_BINDING` ثم `RESERVED` ثم `AVAILABLE`. same-binding restore/promotion لا تعاقبه reservation لاحقة؛ atomic transfer إلى binding أخرى يفحص reservation على الهدف.
 
+في `assignGenerated` و`changeGenerated`، إذا كان المرشح canonical صالحًا لكنه `RESERVED` لمالك جديد، يُتجاوز المرشح ويستمر التسلسل إلى المرشح التالي؛ reservation لا تُحوّل العملية إلى `SlugReservedException`. تُحسب المرشحات المحجوزة ضمن 1000 محاولة، ولذلك يؤدي حجز base و`-2` ... `-1000` كلها إلى `SlugAllocationExhaustedException`. أما `assignExact` و`changeExact` و`adopt*` فمرشح محجوز لملكية جديدة يفشل مباشرةً بـ`SlugReservedException`. لا ينطبق skip على same-binding retained ownership، ولا على atomic transfer؛ النقل الجديد إلى Binding أخرى يفشل عند reservation الهدف.
+
 إذا أعطت source generation canonical empty result أو فشلت سياسة Profile، يرمى `SlugCannotBeGeneratedException`. لا توجد fallback قيم مخترعة مثل `item-123`.
 
 ## 11. Driver contract لـRC1
@@ -343,7 +367,7 @@ RC1 يدعم **PDO MySQL فقط** مع **MySQL Server 8.0.36**. `pdo_mysql` و`e
 
 ## 12. Persistence schema العقدي
 
-ما يلي pseudo-DDL وصفي لا يُحفظ كملف SQL في مهمة Blueprint. كل جدول يستخدم prefix `maa_slug_`، وكل جدول له `id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY`. كل FK هنا package-local؛ لا توجد FKs إلى Host.
+ما يلي pseudo-DDL وصفي لا يُحفظ كملف SQL في مهمة Blueprint. ترتيب الإنشاء التنفيذي الملزم هو `scopes → bindings → operations → operation_bindings → registry → history`، أو إنشاء History أولًا ثم إضافة FK بعد إنشاء Operations؛ لا يعتمد SQL على forward FK. كل جدول يستخدم prefix `maa_slug_`، وكل جدول له `id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY`. كل FK هنا package-local؛ لا توجد FKs إلى Host. يجب أن يحافظ ملف SQL الفعلي على أسماء القيود والفهارس المذكورة ويضيف meaningful column/table comments المطلوبة بالـStandard.
 
 ### 12.1 `maa_slug_scopes`
 
@@ -355,8 +379,8 @@ context_key     VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL 
 profile_key     VARCHAR(63) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 created_at      DATETIME(6) NOT NULL
 updated_at      DATETIME(6) NOT NULL
-UNIQUE(namespace, locale_key, context_key)
-INDEX(profile_key)
+CONSTRAINT uk_scope_identity UNIQUE(namespace, locale_key, context_key)
+INDEX ix_scope_profile (profile_key)
 ```
 
 Scope profile لا يتغير بعد إنشاء الصف؛ لا يوجد update public لـ`profile_key`.
@@ -365,7 +389,7 @@ Scope profile لا يتغير بعد إنشاء الصف؛ لا يوجد update 
 
 ```text
 id                   BIGINT UNSIGNED PK
-scope_id             BIGINT UNSIGNED NOT NULL REFERENCES maa_slug_scopes(id) ON DELETE RESTRICT
+scope_id             BIGINT UNSIGNED NOT NULL
 entity_type          VARCHAR(63) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
 entity_key           VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
 current_registry_id  BIGINT UNSIGNED NULL
@@ -374,10 +398,12 @@ revision             BIGINT UNSIGNED NOT NULL DEFAULT 0
 history_sequence     BIGINT UNSIGNED NOT NULL DEFAULT 0
 created_at           DATETIME(6) NOT NULL
 updated_at           DATETIME(6) NOT NULL
-UNIQUE(scope_id, entity_type, entity_key)
-UNIQUE(id, scope_id)
-INDEX(current_registry_id)
-INDEX(status)
+CONSTRAINT uk_binding_identity UNIQUE(scope_id, entity_type, entity_key)
+CONSTRAINT fk_binding_scope FOREIGN KEY(scope_id) REFERENCES maa_slug_scopes(id) ON DELETE RESTRICT
+CONSTRAINT uk_binding_id_scope UNIQUE(id, scope_id)
+INDEX ix_binding_current_registry (current_registry_id)
+INDEX ix_binding_status (status)
+CHECK(status IN ('ACTIVE','INACTIVE','RELEASED'))
 ```
 
 `current_registry_id` لا يملك FK عمدًا حتى لا تنشأ circular impossible insert مع Registry. سلامته تُفرض داخل package transaction وبـinvariant read check موثق في §14؛ لا تستخدم القراءة pointer غير المتحقق منه.
@@ -394,14 +420,14 @@ claimed_at      DATETIME(6) NOT NULL
 updated_at      DATETIME(6) NOT NULL
 current_marker  BIGINT UNSIGNED GENERATED ALWAYS AS
                 (CASE WHEN claim_role = 'CURRENT_CANONICAL' THEN binding_id ELSE NULL END) STORED
-FOREIGN KEY(scope_id) REFERENCES maa_slug_scopes(id) ON DELETE RESTRICT
-FOREIGN KEY(binding_id, scope_id) REFERENCES maa_slug_bindings(id, scope_id) ON DELETE RESTRICT
-UNIQUE(scope_id, slug)
-UNIQUE(binding_id, slug)
-UNIQUE(current_marker)
+CONSTRAINT fk_registry_scope FOREIGN KEY(scope_id) REFERENCES maa_slug_scopes(id) ON DELETE RESTRICT
+CONSTRAINT fk_registry_binding_scope FOREIGN KEY(binding_id, scope_id) REFERENCES maa_slug_bindings(id, scope_id) ON DELETE RESTRICT
+CONSTRAINT uk_registry_scope_slug UNIQUE(scope_id, slug)
+CONSTRAINT uk_registry_binding_slug UNIQUE(binding_id, slug)
+CONSTRAINT uk_registry_current_marker UNIQUE(current_marker)
 CHECK(claim_role IN ('CURRENT_CANONICAL','HISTORICAL_CANONICAL','ACTIVE_ALIAS','RETIRED_ALIAS'))
-INDEX(binding_id, claim_role)
-INDEX(scope_id, claim_role, id)
+INDEX ix_registry_binding_role (binding_id, claim_role)
+INDEX ix_registry_scope_role_id (scope_id, claim_role, id)
 ```
 
 لا يوجد registry row بحالة `RELEASED`; release يمحو live claim ويكتب snapshot في History. `current_marker` يضمن صف current واحدًا لكل Binding دون partial-index assumption.
@@ -410,7 +436,7 @@ INDEX(scope_id, claim_role, id)
 
 ```text
 id                       BIGINT UNSIGNED PK
-binding_id               BIGINT UNSIGNED NOT NULL REFERENCES maa_slug_bindings(id) ON DELETE RESTRICT
+binding_id               BIGINT UNSIGNED NOT NULL
 sequence_no              BIGINT UNSIGNED NOT NULL
 event_type               VARCHAR(32) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 scope_namespace_snapshot VARCHAR(63) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
@@ -425,19 +451,36 @@ related_locale           VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin 
 related_context          VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
 related_entity_type      VARCHAR(63) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
 related_entity_key       VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
-operation_id             BIGINT UNSIGNED NULL REFERENCES maa_slug_operations(id) ON DELETE RESTRICT
+operation_id             BIGINT UNSIGNED NULL
 operation_key            CHAR(32) CHARACTER SET ascii COLLATE ascii_bin NULL
 actor_key                VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
 reason                   VARCHAR(500) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
 correlation_key          VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
 occurred_at              DATETIME(6) NOT NULL
-UNIQUE(binding_id, sequence_no)
-INDEX(binding_id, occurred_at, id)
-INDEX(event_type, occurred_at, id)
-CHECK(event_type IN (the RC1 event vocabulary in §21))
+original_occurred_at     DATETIME(6) NULL
+CONSTRAINT fk_history_binding FOREIGN KEY(binding_id) REFERENCES maa_slug_bindings(id) ON DELETE RESTRICT
+CONSTRAINT fk_history_operation FOREIGN KEY(operation_id) REFERENCES maa_slug_operations(id) ON DELETE RESTRICT
+CONSTRAINT uk_history_binding_sequence UNIQUE(binding_id, sequence_no)
+INDEX ix_history_binding_occurred_id (binding_id, occurred_at, id)
+INDEX ix_history_event_occurred_id (event_type, occurred_at, id)
+CHECK(event_type IN (
+  'ASSIGNED','CHANGED','RESTORED','ALIAS_ADDED','ALIAS_RETIRED',
+  'ALIAS_REACTIVATED','ALIAS_PROMOTED','DEACTIVATED','REACTIVATED',
+  'SCOPE_TRANSITIONED_OUT','SCOPE_TRANSITIONED_IN','OWNERSHIP_RELEASED',
+  'OWNERSHIP_RELEASED_ALL','OWNERSHIP_TRANSFERRED_OUT',
+  'OWNERSHIP_TRANSFERRED_IN','ADOPTED_CURRENT','ADOPTED_HISTORICAL',
+  'ADOPTED_ALIAS'
+))
+CONSTRAINT ck_history_original_occurred_at CHECK (
+  (event_type IN ('ADOPTED_CURRENT','ADOPTED_HISTORICAL','ADOPTED_ALIAS')
+   AND original_occurred_at IS NOT NULL)
+  OR
+  (event_type NOT IN ('ADOPTED_CURRENT','ADOPTED_HISTORICAL','ADOPTED_ALIAS')
+   AND original_occurred_at IS NULL)
+)
 ```
 
-History لا تملك `idempotency_key` أو `request_fingerprint`؛ تلك evidence تشغيلية في جدول العمليات التالي. كل event ناتج عن عملية ذات idempotency يحمل `operation_id` و`operation_key`. لا يستخدم History JSON dump عامًا. `operation_key` واحد مشترك في حدثي transfer out/in، مع snapshots source/target في كل جهة.
+History لا تملك `idempotency_key` أو `request_fingerprint`؛ تلك evidence تشغيلية في جدول العمليات التالي. كل event ناتج عن عملية ذات idempotency يحمل `operation_id` و`operation_key`. لا يستخدم History JSON dump عامًا. `operation_key` واحد مشترك في حدثي transfer out/in، مع snapshots source/target في كل جهة. `occurred_at` هو وقت حدوث mutation من `ClockInterface`، أما `original_occurred_at` فلا يستخدم إلا لأحداث adoption ويحفظ التاريخ المستورد بعد تطبيع UTC؛ لذلك لا يختلط زمن الاستيراد بزمن تنفيذ الحزمة.
 
 ### 12.5 `maa_slug_operations` و`maa_slug_operation_bindings`
 
@@ -451,29 +494,35 @@ operation_type        VARCHAR(48) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 request_fingerprint   CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 result_type           VARCHAR(48) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 result_schema_version SMALLINT UNSIGNED NOT NULL DEFAULT 1
-result_snapshot       JSON NOT NULL
+result_snapshot       JSON NULL
 status                VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 created_at            DATETIME(6) NOT NULL
-completed_at          DATETIME(6) NOT NULL
-UNIQUE(operation_key) CONSTRAINT uk_operation_key
-INDEX(operation_type, created_at, id)
-CHECK(status = 'COMMITTED')
+completed_at          DATETIME(6) NULL
+CONSTRAINT uk_operation_key UNIQUE(operation_key)
+INDEX ix_operation_type_created_id (operation_type, created_at, id)
+CONSTRAINT ck_operation_status CHECK (
+  (status = 'IN_PROGRESS' AND result_snapshot IS NULL AND completed_at IS NULL)
+  OR
+  (status = 'COMMITTED' AND result_snapshot IS NOT NULL AND completed_at IS NOT NULL)
+)
 
 maa_slug_operation_bindings
 id                    BIGINT UNSIGNED PK
 idempotency_key       VARCHAR(191) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
-operation_id          BIGINT UNSIGNED NOT NULL REFERENCES maa_slug_operations(id) ON DELETE RESTRICT
-binding_id            BIGINT UNSIGNED NOT NULL REFERENCES maa_slug_bindings(id) ON DELETE RESTRICT
+operation_id          BIGINT UNSIGNED NOT NULL
+binding_id            BIGINT UNSIGNED NOT NULL
 participant_role      VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
-UNIQUE(binding_id, idempotency_key) CONSTRAINT uk_operation_binding_idempotency
-UNIQUE(operation_id, binding_id) CONSTRAINT uk_operation_binding_pair
-INDEX(operation_id, participant_role)
+CONSTRAINT fk_operation_binding_operation FOREIGN KEY(operation_id) REFERENCES maa_slug_operations(id) ON DELETE RESTRICT
+CONSTRAINT fk_operation_binding_binding FOREIGN KEY(binding_id) REFERENCES maa_slug_bindings(id) ON DELETE RESTRICT
+CONSTRAINT uk_operation_binding_idempotency UNIQUE(binding_id, idempotency_key)
+CONSTRAINT uk_operation_binding_pair UNIQUE(operation_id, binding_id)
+INDEX ix_operation_binding_role (operation_id, participant_role)
 CHECK(participant_role IN ('SINGLE','SOURCE','TARGET'))
 ```
 
-`idempotency_key` يُخزن مرة واحدة لكل Binding مشارك؛ العملية متعددة الـBinding تشترك في صف `maa_slug_operations` واحد وصف `SOURCE` و`TARGET` في جدول المشاركين. `request_fingerprint` هو lowercase hexadecimal SHA-256 بطول 64، و`operation_key` هو lowercase hexadecimal بطول 32. `result_snapshot` هو serialization canonical للـDTO العام بعد نجاح mutation، ويحتوي discriminator `result_type` و`result_schema_version` وجميع الحقول المحددة في §35. لا يجوز أن يكون snapshot ناقصًا أو يعاد تركيبه من الحالة الحالية.
+لا توجد صفوف في `maa_slug_operations` أو `maa_slug_operation_bindings` عند غياب `audit.idempotencyKey`. عند وجوده، يُخزن مرة واحدة لكل Binding مشارك؛ العملية متعددة الـBinding تشترك في صف `maa_slug_operations` واحد وصف `SOURCE` و`TARGET` في جدول المشاركين. لذلك تبقى `idempotency_key NOT NULL` صحيحة: الجدول لا يمثل natural mutations بلا key. `request_fingerprint` هو lowercase hexadecimal SHA-256 بطول 64، و`operation_key` هو lowercase hexadecimal بطول 32. `result_snapshot` هو serialization canonical للـDTO العام بعد نجاح mutation، ويحتوي discriminator `result_type` و`result_schema_version` وجميع الحقول المحددة في §35. لا يجوز أن يكون snapshot ناقصًا أو يعاد تركيبه من الحالة الحالية.
 
-لا يُلتزم صف `IN_PROGRESS`: ينشئ التنفيذ العملية والمشاركين ويكتب History وlive state ويملأ snapshot ثم يلتزمها كـ`COMMITTED` في نفس transaction؛ rollback يمحو كل evidence الجزئية. يحتفظ RC1 بالـoperation snapshot بلا انتهاء زمني ما دام صف العملية موجودًا؛ لا يوجد automatic time-based purge. عند purge تُزال participant rows الخاصة بالـBinding؛ يبقى operation evidence ما دام مشارك آخر يحتاجها، وتحذف العملية بعد حذف آخر participant. بذلك يكون purge هو الحد الصريح لانتهاء ضمان replay لذلك الـBinding.
+ينشئ التنفيذ صف العملية بحالة `IN_PROGRESS` وصفوف المشاركين داخل نفس transaction قبل mutation؛ لا يراه أي قارئ ملتزم، ولا يُسمح بتركه ملتزمًا. بعد نجاح live state وHistory يبني snapshot مرة واحدة، ثم ينفذ انتقالًا وحيدًا إلى `COMMITTED` يملأ `result_snapshot` و`completed_at`؛ لا يجوز تعديل snapshot بعد ذلك. أي failure يعمل rollback ويمحو صف العملية والمشاركين والحالة الجزئية. يحتفظ RC1 بالـoperation snapshot بلا انتهاء زمني ما دام صف العملية موجودًا؛ لا يوجد automatic time-based purge. عند purge تُزال participant rows الخاصة بالـBinding؛ يبقى operation evidence ما دام مشارك آخر يحتاجها، وتحذف العملية بعد حذف آخر participant. بذلك يكون purge هو الحد الصريح لانتهاء ضمان replay لذلك الـBinding.
 
 ## 13. Database equality وkeys
 
@@ -551,7 +600,7 @@ RELEASED  → ACTIVE عند assign جديد فقط
 يولد base من source ثم يجرب base و`-2` ... `-1000`. Database unique هو الحكم النهائي. عند `1062` على slug constraint:
 
 - exact operation يحولها إلى semantic conflict؛
-- generated operation ينتقل إلى candidate التالي؛
+- generated operation ينتقل إلى candidate التالي، سواء كان سبب عدم القبول duplicate live claim أو reservation؛
 - أي duplicate evidence غير مربوط بهذا constraint يعاد كما هو.
 
 candidate المملوك لنفس Binding لا يعد collision: current يعيد no-op، وhistorical يرقى إلى current، وalias يطبق role transition المحدد. candidate المملوك لغيره يسبب suffix في generated mode فقط.
@@ -576,8 +625,8 @@ INVALID
 
 | العملية العامة | القاعدة |
 |---|---|
-| `assignExact` | Binding غير موجود أو `RELEASED` فقط؛ ينشئ/يعيد current exact؛ existing ACTIVE/INACTIVE يستخدم change |
-| `assignGenerated` | مثل assignExact مع bounded suffix allocation |
+| `assignExact` | Binding غير موجود أو `RELEASED` فقط؛ ينشئ/يعيد current exact؛ existing ACTIVE/INACTIVE يرفض بـ`SlugAssignmentNotPermittedException` ويستخدم change |
+| `assignGenerated` | مثل assignExact مع bounded suffix allocation وskip reservation المحدد في §10 |
 | `changeExact` | Binding موجود ACTIVE/INACTIVE؛ يستبدل current ويحفظ السابق historical |
 | `changeGenerated` | مثل changeExact مع same-binding restore وعدم suffix لنفس ownership |
 | `restoreHistorical` | يعيد historical canonical لنفس Binding إلى current؛ لا يحرر ownership |
@@ -589,6 +638,8 @@ INVALID
 | `atomicTransfer` | ينقل claim محددًا بين Bindingين في نفس Scope transaction واحدة |
 
 كل mutation أحادي الـBinding يعيد `SlugMutationResultDTO` بالشكل الكامل المحدد في §35.4. `transitionScope` يعيد `ScopeTransitionResultDTO` مستقلًا، و`atomicTransfer` يعيد `AtomicTransferResultDTO` مستقلًا؛ لا يجوز اختزالهما إلى `SlugMutationResultDTO` لأنهما يغيران أكثر من Binding. adoption يعيد `AdoptionResultDTO`، و`purgeBinding` لا يعيد DTO لأنه يمحو الـBinding.
+
+قواعد assign الموحدة مع CAS هي: `expectedRevision = null` مقبول فقط عندما لا يوجد Binding، وينشئ Binding جديدًا revision `1` وstatus `ACTIVE`; وجود Binding بـ`RELEASED` يتطلب revision الحالية صراحةً، ويعيده إلى `ACTIVE` ويرفع revision مرة واحدة؛ وجود Binding بـ`ACTIVE` أو `INACTIVE` يرفض قبل أي Registry/History mutation بـ`SlugAssignmentNotPermittedException` ولا يغير revision. لذلك لا تكون assign بديلًا لـchange، ولا تنتج assign على `ACTIVE/INACTIVE` event أو history row.
 
 Natural no-op يعيد snapshot الحالة الحالية ولا يرفع revision أو يضيف event جديدًا. أما idempotency replay فيعيد snapshot النتيجة الأصلية المحفوظ في `maa_slug_operations.result_snapshot` حتى لو تغيّرت الحالة الحية بعد العملية الأصلية؛ لا يعاد بناؤه من current state.
 
@@ -634,7 +685,7 @@ Transfer ينتج في transaction واحدة:
 2. `OWNERSHIP_TRANSFERRED_IN` مربوطًا بالهدف مع slug وsource snapshots؛
 3. عند نقل current، event source replacement قبل transfer out، والهدف يصبح current حسب target role.
 
-الحدثان يشتركان في `operation_key` random 32-character hex، وتسلسل كل Binding مستقل. لذلك يبقى كل طرف مفهومًا بعد release أو purge للطرف الآخر، ولا يخلط management بين retained evidence وlive ownership.
+عند وجود idempotency key يشترك الحدثان في `operation_key` random 32-character hex؛ عند غيابه تكون `operation_key` و`operation_id` في الحدثين `NULL`. وتسلسل كل Binding مستقل. لذلك يبقى كل طرف مفهومًا بعد release أو purge للطرف الآخر، ولا يخلط management بين retained evidence وlive ownership.
 
 ## 22. Same-binding restore/reuse
 
@@ -659,24 +710,26 @@ Transfer ينتج في transaction واحدة:
 - failure في target claim يلغي target/source changes معًا.
 - transition ليس ownership transfer؛ اختلاف Scope وحده لا ينقل slug text ملكيةً بين bindings.
 
-النتيجة ليست عامة: `ScopeTransitionResultDTO` يحفظ `operationKey`, `mode`, ولقطتي `sourceBefore/sourceAfter` و`targetBefore/targetAfter`، مع `targetCreated`, و`sourceRevision`, و`targetRevision`, و`sourceResult`, و`targetResult`, وقائمة History الناتجة و`replayed`. عند `PARALLEL` تكون source before/after نفس الحالة الدلالية مع revision المصدر دون زيادة، وعند `MOVE` يظهر source بعده `INACTIVE` مع revision جديد؛ target before هو `null` في التنفيذ الأول وtarget after هو Binding الجديد. replay يعيد aggregate الأصلي كاملًا.
+النتيجة ليست عامة: `ScopeTransitionResultDTO` يحفظ `?operationKey` (null بلا idempotency key)، `mode`, ولقطتي `sourceBefore/sourceAfter` و`targetBefore/targetAfter`، مع `targetCreated`, و`sourceRevision`, و`targetRevision`, و`sourceResult`, و`targetResult`, وقائمة History الناتجة و`replayed`. عند `PARALLEL` تكون source before/after نفس الحالة الدلالية مع revision المصدر دون زيادة، وعند `MOVE` يظهر source بعده `INACTIVE` مع revision جديد؛ target before هو `null` في التنفيذ الأول وtarget after هو Binding الجديد. replay يعيد aggregate الأصلي كاملًا.
 
 ## 24. Atomic cross-binding transfer
 
 العقد العام هو `atomicTransfer(AtomicTransferCommand)`. المصدر والهدف يجب أن يكونا Bindingين مختلفين في **نفس Scope**. لا يدعم RC1 cross-scope transfer؛ ذلك `transitionScope`.
 
-الأدوار القابلة للنقل هي الأدوار الأربع. القواعد الخاصة بـ`CURRENT_CANONICAL`:
+الأدوار القابلة للنقل هي الأدوار الأربع، وBinding الهدف يجب أن تكون **موجودة قبل العملية**؛ لا يسمح RC1 بهدف absent أو placeholder/bootstrap في `atomicTransfer`. لذلك `targetExpectedRevision` هو `int` إلزامي دائمًا ويطابق revision الحالية للهدف.
+
+الدور الناتج في الهدف هو **نفس `RegistryRoleEnum` للـclaim المصدر**؛ لا يختار Command دورًا آخر ولا يستنتجه التنفيذ من state الهدف. القواعد الخاصة بـ`CURRENT_CANONICAL`:
 
 - نقل current من المصدر يتطلب `sourceReplacementIntent` exact/generated؛ يعيّن replacement current للمصدر في نفس transaction قبل تحرير slug المنقول.
-- target role `CURRENT_CANONICAL` يتطلب target `RELEASED`، أو target binding بلا current ضمن حالة bootstrap؛ يصبح target ACTIVE.
+- target role `CURRENT_CANONICAL` يتطلب target `RELEASED`؛ يصبح target `ACTIVE` ويحمل الـclaim المنقول كـ`CURRENT_CANONICAL`.
 - target role غير current يتطلب target ACTIVE أو INACTIVE وله current قائم.
 - نقل non-current لا يحتاج replacement للمصدر.
 
-المصدر لا يكون RELEASED، والهدف لا يساوي المصدر. Reservation تفحص الهدف دائمًا عندما يكون target ownership جديدًا؛ existing same-target retained claim تعالج كـidempotent same-binding state فقط. أي conflict لBinding آخر يفشل ولا يستخدم release ضمني.
+المصدر لا يكون RELEASED، والهدف لا يساوي المصدر. Reservation تفحص الهدف دائمًا عندما يكون target ownership جديدًا؛ History أو claim retained في الهدف لا تمنح transfer دلالة no-op ولا تتجاوز شرط أن تكون Registry ownership الحية قابلة للنقل. أي live conflict لBinding آخر يفشل ولا يستخدم release ضمني، ولا تكون الإعادة بلا mutation إلا replay مطابقًا بالـidempotency key.
 
-العملية تحذف source Registry row وتدرج target row تحت نفس transaction، مع History out/in وrevision لكل طرف. لذلك لا يرى قارئ ملتزم حالة unowned gap، ويظل unique `scope_id+slug` مانعًا لأي منافس. replay مع نفس idempotency key يعيد النتيجة السابقة؛ من دون key لا يوجد exactly-once guarantee.
+العملية تحذف source Registry row وتدرج target row تحت نفس transaction، مع History out/in وrevision لكل طرف. الدور المدرج في target يساوي دور source حرفيًا. لذلك لا يرى قارئ ملتزم حالة unowned gap، ويظل unique `scope_id+slug` مانعًا لأي منافس. replay مع نفس idempotency key يعيد النتيجة السابقة؛ من دون key لا يوجد exactly-once guarantee ولا operation evidence.
 
-النتيجة هي `AtomicTransferResultDTO` لا `SlugMutationResultDTO`: تحتوي `operationKey`, و`sourceBefore/sourceAfter`, و`targetBefore/targetAfter`, و`transferredClaim` (role وslug وscope/entity snapshots)، و`sourceReplacementResult` عند نقل current، و`sourceRevision`, و`targetRevision`, وقائمة حدثي out/in وجميع أحداث replacement و`replayed`. لا يجوز أن يضطر المستهلك إلى استنتاج أي state أو revision من query لاحقة.
+النتيجة هي `AtomicTransferResultDTO` لا `SlugMutationResultDTO`: تحتوي `?operationKey` (null بلا idempotency key)، و`sourceBefore/sourceAfter`, و`targetBefore/targetAfter`, و`transferredClaim` (role وslug وscope/entity snapshots)، و`sourceReplacementResult` عند نقل current، و`sourceRevision`, و`targetRevision`, وقائمة حدثي out/in وجميع أحداث replacement و`replayed`. `targetBefore` غير null لأن الهدف موجود قبل العملية. لا يجوز أن يضطر المستهلك إلى استنتاج أي state أو revision من query لاحقة.
 
 ## 25. Release وdestructive purge
 
@@ -738,18 +791,45 @@ Transfer يتطلب source وtarget expected revisions لأن كليهما Bindi
 
 ## 29. Replay وidempotency
 
-`correlationKey` audit-only. RC1 يضيف `?string $idempotencyKey` داخل `AuditContextDTO` إلى كل mutation command القابل للـreplay؛ PurgeBindingCommand يستلزم null لأن نجاحه يمحو evidence. عند وجوده، يحسب package lowercase SHA-256 `requestFingerprint` من canonical serialization ثابتة تشمل operation name، canonical inputs، expected profile، intent، expected revisions، ونسخة contract. تحفظ evidence في `maa_slug_operations` و`maa_slug_operation_bindings` (§12.5)، لا في current Registry ولا في History وحدها.
+`correlationKey` و`actorKey` و`reason` audit-only ولا تدخل fingerprint. RC1 يضيف `?string $idempotencyKey` داخل `AuditContextDTO` إلى كل mutation command القابل للـreplay؛ PurgeBindingCommand يستلزم null لأن نجاحه يمحو evidence. عند وجوده، يحسب package lowercase SHA-256 `requestFingerprint` من canonical serialization المحددة أدناه. عند غيابه لا ينشئ التنفيذ أي operation أو participant row، ويكون `operationKey = null` و`replayed = false`؛ تطبق natural state rules فقط ولا يوجد exactly-once guarantee.
+
+صيغة fingerprint ثابتة version `1` هي JSON UTF-8 compact بلا BOM أو whitespace، وتستخدم `json_encode` مع `JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR`. ترتيب مفاتيح الـtop-level وترتيب الحقول داخل objects ثابت كما يلي، وتوجد كل المفاتيح حتى عند عدم انطباقها بقيمة `null`:
+
+```json
+{
+  "contract_version": 1,
+  "operation_type": "...",
+  "source_scope": {
+    "namespace": "...",
+    "locale_key": null,
+    "context_key": null,
+    "profile_key": "..."
+  },
+  "source_binding": {"entity_type": "...", "entity_key": "..."},
+  "target_scope": null,
+  "target_binding": null,
+  "claim_intent": null,
+  "source_replacement_intent": null,
+  "transition_mode": null,
+  "expected_revision": null,
+  "source_expected_revision": null,
+  "target_expected_revision": null,
+  "original_occurred_at": null
+}
+```
+
+`target_scope` يحمل `namespace, locale_key, context_key, profile_key` بالترتيب نفسه عند `transitionScope`، و`target_binding` يحمل `entity_type, entity_key` عند `atomicTransfer`. كل intent يحمل `mode` ثم `value`؛ `operation_type` و`mode` و`transition_mode` تستخدم tokens ASCII uppercase كما في Enums، و`transition_mode` يحمل `MOVE` أو `PARALLEL`. كل revision إما JSON `null` أو integer موجب/صفر دون تحويل نصي، وكل string canonical UTF-8 كما خرج من value object/Profile، وكل null هو JSON `null`. `original_occurred_at` إما null أو UTC بصيغة `Y-m-d\\TH:i:s.u\\Z`. لا تدخل audit fields أو idempotency key أو generated `operation_key` في payload. قيمة fingerprint هي `hash('sha256', $canonicalJson)` lowercase hex بطول 64.
 
 آلية التنفيذ الملزمة:
 
-1. canonicalize/validate المدخلات قبل lookup؛ ثم يحسب التنفيذ fingerprint ويميز operation type.
+1. canonicalize/validate المدخلات قبل lookup؛ ثم يحسب التنفيذ fingerprint ويميز operation type فقط إذا كان `idempotencyKey` موجودًا.
 2. مع key، يبحث في `maa_slug_operation_bindings` عن كل Binding متأثر بالـoperation. إذا وجد صفًا، يقرأ operation مرة واحدة ويشترط تطابق `request_fingerprint`, `operation_type`, المشاركين، و`COMMITTED`؛ الاختلاف يرمى `SlugIdempotencyConflictException`.
 3. عند التطابق يعيد decoder النتيجة من `result_type + result_schema_version + result_snapshot` إلى DTO المحدد في §35، مع `replayed = true`. لا يقرأ current state لإعادة تشكيل النتيجة ولا يرفع revision ولا يكتب History.
-4. عند غياب key يطبق التنفيذ natural state rules فقط؛ لا يوجد exactly-once guarantee بعد timeout.
-5. عند غياب evidence ينشئ `operation_key` وصف العملية وصفوف `SINGLE` أو `SOURCE`/`TARGET` داخل نفس transaction، وينفذ mutation، ويبني aggregate من before/after snapshots، ثم يكتب snapshot canonical ويثبت العملية `COMMITTED` قبل commit.
+4. عند غياب key لا ينشئ التنفيذ operation أو participants، ولا يكتب `operation_id` أو `operation_key` في History؛ يطبق natural state rules فقط.
+5. عند وجود key وغياب evidence ينشئ `operation_key` وصف العملية وصفوف `SINGLE` أو `SOURCE`/`TARGET` داخل نفس transaction، وينفذ mutation، ويبني aggregate من before/after snapshots، ثم يكتب snapshot canonical ويثبت العملية `COMMITTED` قبل commit.
 6. إذا سباق تنفيذين على نفس key سبب unique conflict، يعيد التنفيذ قراءة الصف الملتزم: fingerprint المطابق replay، والمختلف conflict. لا يسمح هذا المسار بإعادة mutation.
 
-لـ`transitionScope` يحفظ operation صفًا واحدًا مع مشاركي source وtarget؛ و`atomicTransfer` يحفظ source وtarget بالطريقة نفسها، مع `operation_key` واحد وsnapshot aggregate يضم source/target states/revisions/results. أما mutation الأحادي فيستخدم `SINGLE`. Reservation وrevision checks لا تُتجاوز بإعادة التشغيل، و`replayed` جزء من DTO المعاد ولا يغير الـsnapshot الأصلي.
+لـ`transitionScope` يحفظ operation صفًا واحدًا مع مشاركي source وtarget عند وجود key؛ و`atomicTransfer` يحفظ source وtarget بالطريقة نفسها، مع `operation_key` واحد وsnapshot aggregate يضم source/target states/revisions/results. أما mutation الأحادي فيستخدم `SINGLE`. Reservation وrevision checks لا تُتجاوز بإعادة التشغيل، و`replayed` جزء من DTO المعاد ولا يغير الـsnapshot الأصلي. عند غياب key لا توجد operation participant evidence لأي من هذه العمليات.
 
 operation snapshot retained indefinitely while its operation row exists؛ لا يوجد automatic time-based purge ولا يجوز حذف evidence ما دام Binding participant حيًا. maintenance purge يحذف participant rows للـBinding بعد History وBinding وفق §25.3؛ إذا بقي participant لBinding آخر يبقى operation snapshot، وإذا لم يبق أي participant تحذف العملية. بعد ذلك فقط ينتهي ضمان replay لذلك الـBinding، ويجب أن يوثق Host أن purge حد تدميري لا retry contract. أي عملية ذات key ملتزمة يجب أن تكون قابلة للقراءة كاملًا حتى purge، حتى لو تغيرت live state أو أصبحت claims released.
 
@@ -787,7 +867,7 @@ Inactive binding يبقى قابلًا للمطابقة ويفيد Host بأن s
 
 في `adoptCurrent` يكون `expectedRevision = null` فقط إذا أثبت lookup عدم وجود Binding؛ أما `RELEASED` الموجود فيتطلب revision الحالية صراحةً ولا يسمح بإعادة فتحه مع `null`. في `adoptHistorical` و`adoptAlias` يجب أن يساوي `expectedRevision` revision المقروء للـBinding الموجود، ولا يسمحان بـ`null` أو بBinding absent/RELEASED. كل عملية تتحقق من canonical claim/profile، uniqueness، reservation عند إنشاء ownership جديدة، وownership الحالية لنفس Binding؛ conflict مع Binding آخر يرفض ولا يحرر ownership ضمنيًا. replay المطابق هو الاستثناء الوحيد للسماح بوجود نفس النتيجة السابقة، ويعيد `AdoptionResultDTO` المحفوظ.
 
-التاريخ المستورد (`originalOccurredAt`) يجب أن يكون UTC-aware `DateTimeImmutable` ويكتب بدقة microsecond؛ لا يقبل تاريخًا نصيًا overflow أو timezone غير محدد. إذا كان `null`، يستخدم Clock وقت adoption. Registry هي مصدر ownership الحية، وHistory تسجل snapshot الحدث، وBinding revision يرتفع كما في الجدول. legacy semantics المختلفة تتطلب custom/legacy versioned Profile أو mapping صريح قبل الإدخال. لا يوجد generic ETL أو bulk/dry-run API في RC1؛ يكرر Host command ضمن transaction مناسبة.
+التاريخ المستورد (`originalOccurredAt`) يقبل أي `DateTimeImmutable` ذي timezone صالح، ثم يحوله التنفيذ إلى UTC قبل التخزين في `original_occurred_at`؛ لا يشترط أن يكون timezone الأصلي UTC. تحفظ دقة microseconds الست كاملة، ويرفض instant إذا خرج بعد التحويل عن مدى MySQL `DATETIME(6)` من `1000-01-01T00:00:00.000000Z` إلى `9999-12-31T23:59:59.999999Z`. لا توجد قاعدة مستقبل/ماضٍ بالنسبة إلى Clock؛ هذا timestamp دليل مصدر مستقل، ولا يقبل نصًا أو overflow أو قيمة بلا timezone. إذا كان `null`، يلتقط التنفيذ instant واحدًا من Clock ويستخدمه كـ`original_occurred_at` وكوقت adoption التشغيلي؛ أما كل non-adoption event فيستخدم `occurred_at` من Clock فقط. Registry هي مصدر ownership الحية، وHistory تسجل snapshot الحدث، وBinding revision يرتفع كما في الجدول. legacy semantics المختلفة تتطلب custom/legacy versioned Profile أو mapping صريح قبل الإدخال. لا يوجد generic ETL أو bulk/dry-run API في RC1؛ يكرر Host command ضمن transaction مناسبة.
 
 ## 32. Management queries وpagination
 
@@ -814,7 +894,16 @@ Management يفصل live Registry عن History released/reused. لا يحول Ho
 
 Runtime dependency هو `maatify/shared-common ^1.0` واستخدام `Maatify\\SharedCommon\\Contracts\\ClockInterface` المنشور. لا ينشئ package local Clock. كل `occurred_at`, `claimed_at`, `created_at`, `updated_at` الناتج عن Runtime يأتي من Clock، يحول إلى UTC ويخزن `DATETIME(6)`. لا تستخدم DB `CURRENT_TIMESTAMP` كbehavioral source.
 
-`actorKey`, `reason`, `correlationKey` opaque اختيارية وتطبق validation limits §9؛ لا يفهم package user/auth tables أو request objects. `reason` ليس command behavior ولا idempotency. لا تغير الحزمة PHP global timezone.
+حقول التدقيق اختيارية، لكن حدودها ثابتة وليست delegated إلى Host:
+
+| الحقل | contract | schema |
+|---|---|---|
+| `actorKey` | valid UTF-8، غير فارغ عند تمريره، بحد 191 Unicode code points، ويرفض NUL و`Cc/Cs/Cf` و`/` و`\\` وleading/trailing ASCII أو U+00A0 whitespace؛ يحفظ exact دون trim أو folding | `VARCHAR(191) utf8mb4_bin NULL` |
+| `correlationKey` | نفس envelope والحد الأقصى `191`؛ audit-only ولا يدخل fingerprint | `VARCHAR(191) utf8mb4_bin NULL` |
+| `idempotencyKey` | نفس envelope والحد الأقصى `191`، غير فارغ عند تمريره؛ لا يدخل fingerprint، ويُسمح به فقط للعمليات القابلة للـreplay | `VARCHAR(191) utf8mb4_bin NOT NULL` في participant row، ولا row عند غيابه |
+| `reason` | valid UTF-8، غير فارغ عند تمريره، بحد 500 Unicode code points، ويرفض NUL و`Cc/Cs/Cf`؛ punctuation وinternal/leading/trailing whitespace محفوظة ولا يحدث trim أو folding | `VARCHAR(500) utf8mb4_bin NULL` |
+
+لا يفهم package user/auth tables أو request objects. `reason` ليس command behavior ولا idempotency. لا تغير الحزمة PHP global timezone.
 
 ## 34. Dependencies وconstruction
 
@@ -823,8 +912,8 @@ RC1 runtime contracts المباشرة:
 | Dependency | الحد الأدنى | السبب |
 |---|---:|---|
 | PHP | `^8.4` | baseline new Maatify library |
-| `ext-intl` | `*` | NFC وICU transliteration |
-| `ext-mbstring` | `*` | Unicode case/length operations |
+| `ext-intl` | `*` | NFC وICU lowercase/transliteration؛ runtime tuple §7.1 |
+| `ext-mbstring` | `*` | UTF-8 code-point length operations فقط |
 | `ext-pdo` | `*` | PDO contract |
 | `ext-pdo_mysql` | `*` | MySQL adapter الوحيد |
 | `maatify/exceptions` | `^1.0` | hierarchy and semantic exception base |
@@ -843,7 +932,7 @@ RC1 runtime contracts المباشرة:
 
 هذه أدوات `require-dev` وليست Runtime API؛ لا يجوز استبدالها بأدوات ambient أو تأجيل تعريفها إلى آخر WU.
 
-construction public يكون عبر `SlugEngineFactory` final framework-neutral ويستقبل `PDO`, `SlugProfileRegistryInterface`, `ReservedSlugPolicyInterface`, و`ClockInterface`. لا يقرأ `.env` ولا ينشئ Host connection ولا يستخدم Service Locator. built-in profiles تسجل تلقائيًا، وcustom profiles تسجل صراحةً قبل lifecycle use.
+construction public يكون عبر مسارين منفصلين. `SlugProfileRegistryFactory` ينشئ Registry مستقلة محملة بالـbuilt-in Profiles، و`SlugTextServiceFactory` ينشئ stateless text service منها دون PDO. أما `SlugEngineFactory` فهو final framework-neutral لمسار Persistence ويستقبل Registry المكتملة و`PDO`, `ReservedSlugPolicyInterface`, و`ClockInterface`. لا تقرأ أي Factory `.env`، ولا تنشئ Host connection أو Service Locator، ولا يسجل `SlugEngineFactory` Profiles ضمنيًا؛ يجب أن تأتي Registry من `SlugProfileRegistryFactory` أو من implementation مسجل فيها built-ins وcustom profiles صراحةً قبل lifecycle use.
 
 ## 35. Public commands وcriteria contract
 
@@ -855,9 +944,19 @@ construction public يكون عبر `SlugEngineFactory` final framework-neutral 
 
 الأنواع الأساسية:
 
-    final readonly class Slug
+    final readonly class Slug implements JsonSerializable
     {
-        public function __construct(public string $value) {}
+        private function __construct(public string $value) {}
+
+        public static function fromProfile(
+            SlugProfileInterface $profile,
+            string $canonicalValue,
+        ): self {
+            $profile->assertCanonicalSlug($canonicalValue);
+            return new self($canonicalValue);
+        }
+
+        public function jsonSerialize(): string { return $this->value; }
     }
 
     final readonly class SlugProfileKey
@@ -882,7 +981,7 @@ construction public يكون عبر `SlugEngineFactory` final framework-neutral 
         ) {}
     }
 
-Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ SlugScope وEntityReference يطبقان حدود §9، مع رفض string الفارغ الصريح وترك null locale/context فقط كغياب dimension. لا يطبق constructor trim أو case folding أو normalization على identity.
+Slug لا يملك public constructor؛ public caller يحصل عليه فقط عبر `Slug::fromProfile(SlugProfileInterface, string)`, التي تستدعي Profile validation وترفض القيمة غير canonical ولا تحولها. لا توجد public/internal primitive أخرى لإنشاء Slug، ولا يقبل أي DTO أو Repository raw string بدل Slug بعد هذه البوابة. SlugProfileKey يطبق regex §6.2؛ SlugScope وEntityReference يطبقان حدود §9، مع رفض string الفارغ الصريح وترك null locale/context فقط كغياب dimension. لا يطبق أي constructor عام trim أو case folding أو normalization على identity.
 
     final readonly class AuditContextDTO implements JsonSerializable
     {
@@ -894,7 +993,7 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
         ) {}
     }
 
-كل حقل Audit اختياري ويطبق limits §9. idempotencyKey non-empty وUTF-8 وبحد 191 code points، وcorrelationKey لا يدخل fingerprint. وقت الحدث يأتي من Clock، وليس من AuditContextDTO.
+كل حقل Audit اختياري ويطبق الجدول المحدد في §33. `idempotencyKey` non-empty وUTF-8 وبحد 191 code points، و`correlationKey` لا يدخل fingerprint. وقت الحدث يأتي من Clock، وليس من AuditContextDTO.
 
     final readonly class ScopeProfileRequestDTO implements JsonSerializable
     {
@@ -938,8 +1037,8 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
 
 | Command | exact constructor signature | validation والدلالة |
 |---|---|---|
-| AssignExactCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?int $expectedRevision, AuditContextDTO $audit) | exact candidate يمر canonicalizeClaim؛ `null` يثبت Binding absent فقط، وint يساوي revision الحالية عند ACTIVE/INACTIVE/RELEASED؛ ينشئ أو يعيد current، وإعادة فتح RELEASED مع null مرفوضة. |
-| AssignGeneratedCommand | __construct(BindingIdentityDTO $binding, string $sourceText, ?int $expectedRevision, AuditContextDTO $audit) | source غير فارغ؛ generation bounded إلى base ثم -2..-1000؛ `null` للـabsent فقط، وint للـexisting بأي status بما فيها RELEASED. |
+| AssignExactCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, ?int $expectedRevision, AuditContextDTO $audit) | exact candidate يمر canonicalizeClaim؛ يقبل Binding absent أو `RELEASED` فقط؛ `null` يثبت absent، وint يساوي revision الحالية عند `RELEASED`. ينشئ/يعيد current ويرفع revision مرة واحدة؛ `ACTIVE/INACTIVE` يرفضان بـ`SlugAssignmentNotPermittedException`. |
+| AssignGeneratedCommand | __construct(BindingIdentityDTO $binding, string $sourceText, ?int $expectedRevision, AuditContextDTO $audit) | source غير فارغ؛ يقبل Binding absent أو `RELEASED` فقط؛ generation bounded إلى base ثم -2..-1000 مع reservation skip §10؛ `null` للـabsent فقط، وint للـ`RELEASED` الحالي؛ `ACTIVE/INACTIVE` يرفضان بـ`SlugAssignmentNotPermittedException`. |
 | ChangeExactCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | Binding ACTIVE/INACTIVE وله current؛ يستبدل current ويحفظ السابق historical. |
 | ChangeGeneratedCommand | __construct(BindingIdentityDTO $binding, string $sourceText, int $expectedRevision, AuditContextDTO $audit) | مثل ChangeExact مع generated candidate وsame-binding restore. |
 | RestoreHistoricalCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | requested slug historical لنفس Binding؛ يرقّيه إلى current ولا ينقل ownership. |
@@ -948,7 +1047,7 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
 | ReleaseClaimCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | يحرر non-current claim محددًا؛ current يرمى SlugCurrentClaimReleaseException. |
 | ReleaseAllOwnershipCommand | __construct(BindingIdentityDTO $binding, int $expectedRevision, AuditContextDTO $audit) | ACTIVE/INACTIVE؛ يكتب snapshots، يمحو Registry، يضع RELEASED. |
 | TransitionScopeCommand | __construct(BindingIdentityDTO $source, ScopeProfileRequestDTO $targetScope, ScopeTransitionModeEnum $mode, ScopeTransitionClaimIntentDTO $targetClaimIntent, int $sourceExpectedRevision, AuditContextDTO $audit) | source موجود وtarget identity مختلف وtarget Binding absent؛ ينشئ target ويطبق MOVE/PARALLEL. |
-| AtomicTransferCommand | __construct(BindingIdentityDTO $source, BindingIdentityDTO $target, string $slugCandidate, ?TransferReplacementIntentDTO $sourceReplacementIntent, int $sourceExpectedRevision, int $targetExpectedRevision, AuditContextDTO $audit) | source/target مختلفان في نفس Scope؛ replacement مطلوب فقط لنقل current؛ target Binding موجود أو replay مطابق. |
+| AtomicTransferCommand | __construct(BindingIdentityDTO $source, BindingIdentityDTO $target, string $slugCandidate, ?TransferReplacementIntentDTO $sourceReplacementIntent, int $sourceExpectedRevision, int $targetExpectedRevision, AuditContextDTO $audit) | source/target مختلفان في نفس Scope؛ replacement مطلوب فقط لنقل current؛ target Binding موجود دائمًا و`targetExpectedRevision` يطابقه؛ لا absent/bootstrap target. الدور الناتج في target يساوي role claim المصدر حرفيًا. |
 | AddAliasCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | ACTIVE/INACTIVE وله current؛ ينشئ ACTIVE_ALIAS أو يعالج same-binding retained claim. |
 | RetireAliasCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | ACTIVE_ALIAS فقط؛ يحوله RETIRED_ALIAS دون release. |
 | ReactivateAliasCommand | __construct(BindingIdentityDTO $binding, string $slugCandidate, int $expectedRevision, AuditContextDTO $audit) | RETIRED_ALIAS فقط؛ يعيده ACTIVE_ALIAS. |
@@ -992,14 +1091,14 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
 | RegistryClaimDTO | int $id، BindingIdentityDTO $binding، Slug $slug، RegistryRoleEnum $role، DateTimeImmutable $claimedAt، DateTimeImmutable $updatedAt. |
 | CurrentSlugDTO | BindingDTO $binding، RegistryClaimDTO $claim، int $revision. |
 | AliasDTO | RegistryClaimDTO $claim، bool $resolvableAsAlias، int $bindingRevision. |
-| HistoryEventDTO | int $id، int $bindingId، int $sequenceNo، HistoryEventTypeEnum $eventType، SlugScope $scopeSnapshot، EntityReference $entitySnapshot، ?Slug $slugSnapshot، ?Slug $previousSlugSnapshot، ?SlugScope $relatedScope، ?EntityReference $relatedEntity، ?string $operationKey، ?string $actorKey، ?string $reason، ?string $correlationKey، DateTimeImmutable $occurredAt. |
+| HistoryEventDTO | int $id، int $bindingId، int $sequenceNo، HistoryEventTypeEnum $eventType، SlugScope $scopeSnapshot، EntityReference $entitySnapshot، ?Slug $slugSnapshot، ?Slug $previousSlugSnapshot، ?SlugScope $relatedScope، ?EntityReference $relatedEntity، ?string $operationKey، ?string $actorKey، ?string $reason، ?string $correlationKey، DateTimeImmutable $occurredAt، ?DateTimeImmutable $originalOccurredAt. `originalOccurredAt` non-null فقط لأحداث adoption، و`occurredAt` هو وقت mutation من Clock. |
 | SlugAvailabilityDTO | ScopeProfileRequestDTO $scopeProfile، string $requestedInput، ?Slug $canonicalSlug، AvailabilityStatusEnum $status، ?BindingDTO $owner، bool $advisory؛ advisory دائمًا true في RC1. |
 | SlugResolutionDTO | ScopeProfileRequestDTO $scopeProfile، string $requestedSegment، InputFormCanonicalityEnum $inputCanonicality، ?Slug $lookupCanonicalSlug، ?Slug $matchedSlug، MatchKindEnum $matchKind، ?BindingStatusEnum $bindingStatus، ?Slug $currentSlug، ?EntityReference $entity، ?int $bindingRevision. حالات NONE/INVALID تجعل الحقول غير المنطبقة null. |
-| SlugMutationResultDTO | OperationTypeEnum $operationType، string $operationKey، bool $replayed، ?BindingDTO $before، BindingDTO $after، list<RegistryClaimDTO> $affectedClaims، ?Slug $previousSlug، ?Slug $currentSlug، ChangeTypeEnum $changeType، int $revision، list<HistoryEventDTO> $historyEvents. affectedClaims هي live claims الناتجة؛ تكون فارغة عند releaseAll، وتبقى snapshots لكل claim محذوف في historyEvents. |
+| SlugMutationResultDTO | OperationTypeEnum $operationType، ?string $operationKey، bool $replayed، ?BindingDTO $before، BindingDTO $after، list<RegistryClaimDTO> $affectedClaims، ?Slug $previousSlug، ?Slug $currentSlug، ChangeTypeEnum $changeType، int $revision، list<HistoryEventDTO> $historyEvents. affectedClaims هي live claims الناتجة؛ تكون فارغة عند releaseAll، وتبقى snapshots لكل claim محذوف في historyEvents. operationKey non-null فقط عند وجود idempotency evidence. |
 | BindingStateResultDTO | ?BindingDTO $before، BindingDTO $after، bool $mutated، int $revision، list<HistoryEventDTO> $historyEvents. يستعمل participant result في aggregates. |
-| ScopeTransitionResultDTO | OperationTypeEnum $operationType، string $operationKey، bool $replayed، ScopeTransitionModeEnum $mode، bool $targetCreated، BindingStateResultDTO $sourceResult، BindingStateResultDTO $targetResult، ?BindingDTO $sourceBefore، BindingDTO $sourceAfter، ?BindingDTO $targetBefore، BindingDTO $targetAfter، ?Slug $sourceClaim، ?Slug $targetClaim، int $sourceRevision، int $targetRevision، list<HistoryEventDTO> $historyEvents. sourceResult وtargetResult موجودان دائمًا؛ targetBefore null في التنفيذ الأول وtargetCreated يوضح إنشاء target في هذه العملية. |
-| AtomicTransferResultDTO | OperationTypeEnum $operationType، string $operationKey، bool $replayed، BindingStateResultDTO $sourceResult، BindingStateResultDTO $targetResult، RegistryClaimDTO $transferredClaim، ?SlugMutationResultDTO $sourceReplacementResult، int $sourceRevision، int $targetRevision، list<HistoryEventDTO> $historyEvents. |
-| AdoptionResultDTO | OperationTypeEnum $operationType، string $operationKey، bool $replayed، ?BindingDTO $before، BindingDTO $after، RegistryClaimDTO $adoptedClaim، HistoryEventDTO $historyEvent. |
+| ScopeTransitionResultDTO | OperationTypeEnum $operationType، ?string $operationKey، bool $replayed، ScopeTransitionModeEnum $mode، bool $targetCreated، BindingStateResultDTO $sourceResult، BindingStateResultDTO $targetResult، ?BindingDTO $sourceBefore، BindingDTO $sourceAfter، ?BindingDTO $targetBefore، BindingDTO $targetAfter، ?Slug $sourceClaim، ?Slug $targetClaim، int $sourceRevision، int $targetRevision، list<HistoryEventDTO> $historyEvents. sourceResult وtargetResult موجودان دائمًا؛ targetBefore null في التنفيذ الأول وtargetCreated يوضح إنشاء target في هذه العملية. operationKey non-null فقط عند وجود idempotency evidence. |
+| AtomicTransferResultDTO | OperationTypeEnum $operationType، ?string $operationKey، bool $replayed، BindingStateResultDTO $sourceResult، BindingStateResultDTO $targetResult، RegistryClaimDTO $transferredClaim، ?SlugMutationResultDTO $sourceReplacementResult، int $sourceRevision، int $targetRevision، list<HistoryEventDTO> $historyEvents. operationKey non-null فقط عند وجود idempotency evidence. |
+| AdoptionResultDTO | OperationTypeEnum $operationType، ?string $operationKey، bool $replayed، ?BindingDTO $before، BindingDTO $after، RegistryClaimDTO $adoptedClaim، HistoryEventDTO $historyEvent. operationKey non-null فقط عند وجود idempotency evidence. |
 | BindingPageDTO | list<BindingDTO> $items، int $total، int $page، int $perPage. |
 | RegistryPageDTO | list<RegistryClaimDTO> $items، int $total، int $page، int $perPage. |
 | HistoryPageDTO | list<HistoryEventDTO> $items، int $total، int $page، int $perPage. |
@@ -1007,7 +1106,7 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
 
 كل list هي PHP array متجانسة موثقة بـlist<T>، وكل total غير سالب، وكل page/perPage يطابق Criteria. Json serialization تعرض هذه الحقول فقط ولا تعرض PDO أو Host records أو SQL state.
 
-قواعد DTO الحافظة للاتساق: BindingStateDTO بحالة ACTIVE أو INACTIVE يجب أن يحمل currentSlug، وBindingDTO المقابل يجب أن يحمل currentClaim؛ حالة RELEASED يجب أن تحمل الاثنين كـnull. operationKey في نتائج mutations هو lowercase hex بطول 32، وhistoryEvents مرتبة حسب sequence داخل كل Binding. `replayed = true` لا يصاحبه أي event جديد ولا revision جديد، وsource/target participant results في transition/transfer موجودة دائمًا حتى عندما تكون mutated = false.
+قواعد DTO الحافظة للاتساق: BindingStateDTO بحالة ACTIVE أو INACTIVE يجب أن يحمل currentSlug، وBindingDTO المقابل يجب أن يحمل currentClaim؛ حالة RELEASED يجب أن تحمل الاثنين كـnull. operationKey في النتائج هو lowercase hex بطول 32 عند وجود idempotencyKey، وnull عند غيابه؛ وhistoryEvents مرتبة حسب sequence داخل كل Binding. `replayed = true` لا يصاحبه أي event جديد ولا revision جديد، وsource/target participant results في transition/transfer موجودة دائمًا حتى عندما تكون mutated = false.
 
 ### 35.5 Enums والـfactory
 
@@ -1027,7 +1126,19 @@ Slug يرفض value غير canonical؛ SlugProfileKey يطبق regex §6.2؛ Slu
     RegistrySortFieldEnum: ID, SLUG, ROLE, UPDATED_AT
     BindingSortFieldEnum: ID, ENTITY_TYPE, ENTITY_KEY, UPDATED_AT
 
-SlugEngineFactory هو class نهائي framework-neutral بالـsignature الوحيدة:
+`SlugProfileRegistryFactory` هو class نهائي framework-neutral بالـsignature الوحيدة:
+
+    public static function createBuiltIn(): SlugProfileRegistryInterface;
+
+تعيد هذه الدالة Registry جديدة في كل استدعاء، محملة مسبقًا وبالترتيب الثابت بـ`unicode-v1` ثم `ascii-v1`. تسجيل custom Profile يتم على Registry الناتجة قبل إنشاء أي service.
+
+`SlugTextServiceFactory` هو class نهائي framework-neutral بالـsignature الوحيدة:
+
+    public static function create(
+        SlugProfileRegistryInterface $profiles,
+    ): SlugTextServiceInterface;
+
+`SlugEngineFactory` هو class نهائي framework-neutral لمسار Persistence بالـsignature الوحيدة:
 
     public static function create(
         PDO $pdo,
@@ -1036,7 +1147,7 @@ SlugEngineFactory هو class نهائي framework-neutral بالـsignature ال
         ClockInterface $clock,
     ): SlugEngine;
 
-SlugEngine هو aggregate عام نهائي ينفذ SlugTextServiceInterface وSlugProfileRegistryInterface وSlugScopeRegistryInterface وSlugLifecycleServiceInterface وSlugQueryServiceInterface وSlugManagementQueryInterface، ولا يضيف contract آخر.
+SlugEngine هو aggregate عام نهائي ينفذ SlugTextServiceInterface وSlugProfileRegistryInterface وSlugScopeRegistryInterface وSlugLifecycleServiceInterface وSlugQueryServiceInterface وSlugManagementQueryInterface، ولا يضيف contract آخر. `SlugTextServiceFactory` يعيد خدمة text فقط ولا يعيد `SlugEngine`.
 لا يملك SlugEngine public constructor؛ إنشاؤه الوحيد هو return value من SlugEngineFactory::create، ولا يحق للمستهلك إنشاء PDO أو repositories داخلية من خلاله.
 
 ### 35.6 قاعدة result وreplay
@@ -1171,7 +1282,7 @@ BindingSortFieldEnum
     SlugProfileConfigurationException     extends SlugValidationException
     SlugProfileNotFoundException          extends SlugNotFoundException
     SlugScopeProfileMismatchException     extends SlugConflictException
-    SlugScopeRetiredException             extends SlugBusinessRuleException
+    SlugAssignmentNotPermittedException   extends SlugBusinessRuleException
     SlugAlreadyClaimedException           extends SlugConflictException
     SlugReservedException                 extends SlugConflictException
     SlugRevisionConflictException         extends SlugConflictException
@@ -1196,7 +1307,7 @@ SlugDomainExceptionInterface
 │   └── SlugProfileConfigurationException
 ├── SlugBusinessRuleException
 │   ├── SlugCannotBeGeneratedException
-│   ├── SlugScopeRetiredException
+│   ├── SlugAssignmentNotPermittedException
 │   ├── SlugCurrentClaimReleaseException
 │   └── SlugPurgeNotPermittedException
 ├── SlugConflictException
@@ -1230,7 +1341,7 @@ Host input
 → SlugMutationResultDTO أو SlugResolutionDTO أو semantic exception
 ```
 
-stateless path يحقن profile registry فقط وينتج `GeneratedSlugDTO`. persisted path يحقن PDO/Clock/policy ويثبت assign ثم change ثم resolve القديم كـhistorical والجديد كـcurrent. Host هو الذي يقرر أي SEO redirect أو HTTP response ينشئ بعد قراءة النتيجة.
+stateless path يستخدم `SlugProfileRegistryFactory::createBuiltIn()` ثم `SlugTextServiceFactory::create($profiles)`، ويحقن Profile Registry فقط وينتج `GeneratedSlugDTO` أو canonicalization DTOs. persisted path يستخدم Registry نفسها مع `SlugEngineFactory::create(PDO, profiles, reservedPolicy, clock)` ويثبت assign ثم change ثم resolve القديم كـhistorical والجديد كـcurrent. Host هو الذي يقرر أي SEO redirect أو HTTP response ينشئ بعد قراءة النتيجة.
 
 ## 38. Required canonical test vectors
 
@@ -1249,9 +1360,8 @@ stateless path يحقن profile registry فقط وينتج `GeneratedSlugDTO`. p
 | both | invalid UTF-8/NUL/Cf/control/path separator | reject before mutation |
 | both | 160 code points + `-2` | safe bounded candidate ≤160 |
 | both | 161-code-point exact claim | reject without truncation |
-```
 
-تضاف vectors لـreserved words، same-binding restore، aliases، scopes، transfers، adoption، transaction، and concurrency كما في خطة التنفيذ.
+تضاف vectors لـreserved words، same-binding restore، aliases، scopes، transfers، adoption، transaction، and concurrency كما في خطة التنفيذ. كما يجب أن يثبت compatibility test أن PHP 8.4 و8.5 مع ICU major 74 وUnicode data 15.1 ينتجان byte-identical canonical outputs لهذه المجموعة، وأن ICU/Unicode tuple مختلفًا يرمى `SlugProfileConfigurationException` قبل أي mutation. ويثبت generated allocation أن candidate المحجوز يُتجاوز إلى التالي، وأن exact/adoption المحجوز يفشل مباشرةً، وأن حجز base و`-2` ... `-1000` يعطي exhaustion.
 
 ## 39. Seven risk gates
 
@@ -1273,7 +1383,7 @@ stateless path يحقن profile registry فقط وينتج `GeneratedSlugDTO`. p
 
 ### Gate R5 — profile/Unicode contracts
 
-يثبت vectors والفروق الثلاثة بين generation/claim/lookup، exact profile names، ICU/extension requirements، invalid/security handling، truncation، collision suffix.
+يثبت vectors والفروق الثلاثة بين generation/claim/lookup، exact profile names، ICU/Unicode runtime tuple وextension requirements، invalid/security handling، truncation، reservation skip، collision suffix، وexhaustion.
 
 ### Gate R6 — driver/transaction/savepoint
 
@@ -1335,8 +1445,8 @@ stateless path يحقن profile registry فقط وينتج `GeneratedSlugDTO`. p
 | Binding states | ACTIVE / INACTIVE / RELEASED |
 | Registry roles | CURRENT_CANONICAL / HISTORICAL_CANONICAL / ACTIVE_ALIAS / RETIRED_ALIAS |
 | Time | injected `ClockInterface`، UTC `DATETIME(6)` |
-| Replay | operations evidence مع fingerprint وversioned result snapshot؛ optional idempotency key؛ correlation audit-only |
-| Transfer | same Scope atomic، current يحتاج replacement |
+| Replay | operations evidence مع fingerprint وversioned immutable result snapshot عند وجود idempotency key فقط؛ correlation/audit خارج fingerprint، وبدون key natural mutation بلا evidence |
+| Transfer | same Scope atomic إلى target Binding موجودة، role محفوظ حرفيًا، current يحتاج replacement |
 | Transition | target Binding جديد؛ MOVE أو PARALLEL |
 
 ## 46. Implementation Plan reference
@@ -1426,12 +1536,12 @@ main
 | القرار | الإغلاق المحدد | موضع العقد أو الدليل المطلوب |
 |---:|---|---|
 | 1 | PDO MySQL مع MySQL Server 8.0.36 فقط؛ لا MariaDB/PostgreSQL/SQLite | §11، §40، Plan §9 |
-| 2 | Profile names هما `unicode-v1` و`ascii-v1` فقط | §7.1–§7.3، Plan §3 |
-| 3 | source rules: Unicode NFC/lowercase/allowed-run→hyphen؛ ASCII ICU transliteration ثم ASCII rules | §7.1–§7.2، §38 |
+| 2 | Profile names هما `unicode-v1` و`ascii-v1` فقط، مع Registry factory مستقل | §5.1، §7.1–§7.4، §35.5، Plan §3–§5 |
+| 3 | source rules: Unicode NFC/lowercase/allowed-run→hyphen؛ ASCII ICU transliteration ثم ASCII rules | §7.1–§7.3، §38 |
 | 4 | exact claim يطبق NFC/lowercase فقط ثم strict candidate validation؛ لا source lossy transforms | §7، §17، §38 |
 | 5 | lookup يطبق NFC/lowercase فقط ثم validation؛ invalid لا يولد candidate | §7، §30، §38 |
-| 6 | NFC لكل built-in Profile عبر ext-intl | §7.1–§7.2، §34 |
-| 7 | ICU `Any-Latin; Latin-ASCII`، ICU major 74 فقط، ext-intl | §7.2، §11، Plan §3 |
+| 6 | NFC لكل built-in Profile عبر ext-intl | §7.1–§7.3، §34 |
+| 7 | ICU `Any-Latin; Latin-ASCII`، ICU major 74 وUnicode data 15.1 فقط، ext-intl | §7.1 و§7.3، §11، Plan §3 |
 | 8 | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql`، وMaatify dependencies direct | §11، §34 |
 | 9 | reject invalid UTF-8/NUL/Cc/Cs/Cf/path separators؛ mixed scripts مسموحة | §8، §38 |
 | 10 | max 160 Unicode code points؛ exact يرفض، generated يقص code points ويحجز suffix | §8، §45 |
@@ -1447,15 +1557,15 @@ main
 | 20 | purge فقط لـRELEASED بلا claims، يمحو History ثم Binding ويحتفظ Scope | §25.3 |
 | 21 | alias operations role transitions المحددة؛ retired لا يحرر ownership؛ generated retired same-binding restore محدد | §20، §22 |
 | 22 | transition ينشئ target Binding؛ MOVE source INACTIVE، PARALLEL source unchanged؛ لا scope rewrite | §23 |
-| 23 | `atomicTransfer` same Scope؛ كل roles قابلة؛ current يحتاج replacement؛ reservation على target؛ atomic history/revision/idempotency و`AtomicTransferResultDTO` source/target aggregate | §24، §35.4، Gate R2 |
+| 23 | `atomicTransfer` same Scope إلى target Binding موجودة فقط؛ role target يساوي role source؛ current يحتاج replacement؛ reservation على target؛ atomic history/revision/idempotency و`AtomicTransferResultDTO` source/target aggregate | §24، §35.2، §35.4، Gate R2 |
 | 24 | `expectedRevision = null` للـBinding absent فقط؛ كل Binding موجود، بما فيه `RELEASED`، يتطلب revision الحالية صراحةً؛ row locks وCAS وdeterministic order §27 | §27–§28، §35.1–§35.2 |
 | 25 | package-owned BEGIN/COMMIT؛ caller-owned savepoint فقط؛ fail before mutation عند فقد nested guarantee | §26، Gate R6 |
-| 26 | operations evidence مستقل: operation identity/type، participant lookup، SHA-256 fingerprint، versioned result snapshot، replay بعد تغير live state، retention/purge؛ correlation audit-only، وno key = natural idempotency فقط | §12.5، §29، §35.6 |
-| 27 | كل public interface signature، وCommand/Criteria/DTO fields/types/nullability/validation، وScopeProfileRequestDTO، وtransition/transfer result aggregates، وEnums محددة دون design decision أثناء التنفيذ | §5.1.1، §35.1–§35.6، Gate R7 |
-| 28 | adoptCurrent/adoptHistorical/adoptAlias exact commands مع preconditions منفصلة لـabsent/RELEASED/ACTIVE/INACTIVE، current requirement، Registry role، status/revision/history، reservation/profile، وUTC timestamp؛ لا generic ETL | §31، §35.2، Gate R7 |
+| 26 | operations evidence مستقل عند وجود idempotency key فقط: participant lookup، canonical request JSON version 1، SHA-256 fingerprint، versioned immutable result snapshot، replay بعد تغير live state، retention/purge؛ correlation/audit fields خارج fingerprint، وno key = natural mutation بلا evidence | §12.5، §29، §35.4–§35.6 |
+| 27 | كل public interface signature، stateless/persisted construction paths، وCommand/Criteria/DTO fields/types/nullability/validation، وScopeProfileRequestDTO، وtransition/transfer result aggregates، وEnums محددة دون design decision أثناء التنفيذ | §5.1، §5.1.1، §35.1–§35.6، Gate R7 |
+| 28 | adoptCurrent/adoptHistorical/adoptAlias exact commands مع preconditions منفصلة لـabsent/RELEASED/ACTIVE/INACTIVE، current requirement، Registry role، status/revision/history، reservation/profile، وDateTimeImmutable بأي timezone يتحول إلى UTC مع microseconds ومدى DATETIME(6)؛ لا generic ETL | §31، §33، §35.2، Gate R7 |
 | 29 | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1`، وأدوات evidence `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94`، مع PHP/extensions §34 | §34، Plan §2، Plan §3.3 |
 | 30 | schema/index/operations evidence plan §12–§13، real MySQL/concurrency matrix Plan §9–§10 | §12–§13، Plan §8–§10 |
-| 31 | Clock-derived UTC `DATETIME(6)` لكل package timestamp؛ imported timestamp explicit | §33، §31 |
+| 31 | Clock-derived UTC `DATETIME(6)` لكل package timestamp؛ imported DateTimeImmutable بأي timezone يتحول إلى UTC مع microseconds ومدى MySQL المحدد | §33، §31، §35.2 |
 | 32 | adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28` وManifest المحلي الحالي؛ Standards Freeze أثناء train | §3، §47، Plan §11 |
 | 33 | first-use يثبت Scope profile تحت unique lock؛ same profile يتشارك، mismatch يفشل قبل mutation، public `SlugScopeRegistryInterface` وinternal bootstrap path | §14، §5، Gate R1/R4 |
 | 34 | Preparation تغلق أولًا بدمج PR #2 إلى `phase-draft/rc-1`، ثم Execution Batch/Work Branch من HEAD المحدث، Implementation PR إلى Phase Draft لا Preparation، مع Phase Integration Gate وHarness وreal DB/concurrency evidence وفق Plan | §40، §46–§47، Plan §1–§15 |
