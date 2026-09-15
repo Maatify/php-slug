@@ -131,6 +131,7 @@ The RC foundation should own:
 - binding activation/deactivation;
 - explicit scope transition/rebinding semantics;
 - explicit ownership release;
+- atomic cross-binding ownership transfer;
 - explicit destructive purge/erasure when required;
 - immutable retained normal-lifecycle history;
 - legacy adoption;
@@ -453,6 +454,10 @@ namespace + localeKey + contextKey
 
 Once a persisted scope owns claims, its profile must not silently change.
 
+One persisted logical scope has one authoritative profile configuration. Establishment of that configuration together with first ownership must be concurrency-safe. An operation expecting a different profile must fail explicitly and must not silently execute using the persisted profile it did not request. Concurrent first-use attempts with conflicting profile configurations must not produce race-dependent behavioral semantics.
+
+The exact scope-registration / first-use API and locking implementation remain Blueprint decisions.
+
 ---
 
 # 10. Versioned Slug Profiles
@@ -674,7 +679,7 @@ Length rules must operate safely on Unicode according to the explicitly selected
 
 ---
 
-# 16. Database Equality / Collation Contract
+# 16. Database Identity Semantics
 
 Slug equality must be controlled by the package's canonical identity contract, not by accidental database linguistic comparison.
 
@@ -690,6 +695,12 @@ input
 The schema must use comparison semantics compatible with exact canonical identity after package-level canonicalization.
 
 The exact MySQL/MariaDB collation/column strategy, or equivalent strategy for any other declared driver, is a Blueprint decision and must be integration-tested.
+
+## 16.1 Non-Slug Key Identity
+
+Logical uniqueness also depends on `namespace`, `localeKey`, `contextKey`, `entityType`, and `entityKey`. These are Host-provided/opaque identity components. Host canonical representation remains authoritative where the package treats a value as opaque.
+
+Database uniqueness/comparison must match the documented identity contract. Case-insensitive/accent-insensitive database collation must not accidentally merge distinct opaque identifiers unless the package contract explicitly defines that equivalence. Any canonicalization performed by the package must be explicit, deterministic, documented, and tested.
 
 The package must not rely on a case/accent-insensitive collation to perform normalization implicitly.
 
@@ -852,6 +863,7 @@ alias_promoted
 deactivated
 reactivated
 scope_transitioned
+ownership_transferred
 ownership_released
 adopted
 ```
@@ -877,7 +889,9 @@ The history design must not depend exclusively on live registry-row references i
 
 No generic unbounded JSON dump is required for normal lifecycle semantics.
 
-Lifecycle history changes must participate in the same atomic transaction as the ownership/current-state mutation they describe.
+Lifecycle history changes must participate in the same atomic transaction as the ownership/current-state mutation they describe. The formal history design must represent both sides of an ownership transfer unambiguously. The Blueprint may choose, for example, one transfer event carrying stable source and target snapshots, or correlated source/target history records, but the Discussion Draft does not lock the exact representation.
+
+It must guarantee that source history remains understandable, target history remains understandable, retained audit evidence is not confused with live ownership, and transfer history is committed atomically with the live ownership mutation.
 
 ---
 
@@ -893,7 +907,9 @@ The package must not mutate PHP's global timezone.
 
 The Host owns application timezone configuration.
 
-The package should write lifecycle timestamps from the injected Clock rather than have database `CURRENT_TIMESTAMP` defaults silently become a competing behavioral time source.
+The package should write lifecycle timestamps from the injected Clock rather than have database `CURRENT_TIMESTAMP` defaults silently become a competing behavioral time source. `ClockInterface` is authoritative for package-generated runtime "now".
+
+Imported historical timestamps are explicit adoption data, not a competing runtime clock.
 
 Exact storage timezone/format/precision is a Blueprint/schema decision and must be explicit and testable.
 
@@ -1007,6 +1023,8 @@ This intent is suitable for title/source-driven generation.
 
 Exact claim and automatic allocation must not share an ambiguous public operation whose behavior depends on hidden defaults.
 
+Claim and allocation are low-level internal application/domain capabilities used by authoritative lifecycle operations. They must not bypass binding lifecycle, history, concurrency, transaction, and result guarantees. The public persistent mutation APIs must be lifecycle-oriented, while read-only availability may remain public.
+
 ---
 
 # 26. Collision Handling
@@ -1047,7 +1065,7 @@ The first RC must explicitly declare which database drivers its persistence adap
 
 # 27. Concurrency Protection
 
-Two independent race classes must be protected.
+Three independent race classes must be protected.
 
 ## 27.1 Competing bindings for the same slug
 
@@ -1083,13 +1101,27 @@ After one commits revision `6`, the stale mutation must fail with a revision con
 
 Persistence may additionally use row locking where required to make multi-row lifecycle transitions safe.
 
-Both race classes require real concurrency verification, not only repository mocks.
+## 27.3 Coordinated multi-binding mutations
+
+Example: atomic cross-binding ownership transfer or cross-scope transition.
+
+Source and target bindings cannot be independently mutated in a way that causes lost updates during a coordinated operation. The authoritative registry uniqueness invariant remains protected, and transfer/transition remains atomic.
+
+Exact revision, row-locking, lock ordering, and deadlock-handling strategy are Blueprint/driver decisions. Concurrency protection must cover all affected bindings, not just one `expectedRevision`.
+
+All three race classes require real concurrency verification, not only repository mocks.
 
 ---
 
 # 28. Replay / Idempotency Semantics
 
 Professional Host code may retry an operation after a timeout or uncertain caller-side outcome.
+
+The architecture must separate:
+- **Natural/state-based idempotency:** repeating an operation that evaluates safely based on the current domain state (e.g., re-assigning a slug that is already correctly assigned).
+- **Retry-safe idempotency:** protecting against duplicate side effects after an uncertain caller outcome.
+
+The package must not promise exactly-once/retry deduplication unless the final contract has enough identity (e.g., an exact idempotency-key design) to prove it safely. Keep the exact idempotency-key design as a Blueprint decision if appropriate.
 
 The Blueprint must explicitly define replay semantics for mutation operations, including at least:
 
@@ -1099,7 +1131,7 @@ The Blueprint must explicitly define replay semantics for mutation operations, i
 - whether a repeated command is a no-op, returns the existing state, or fails semantically;
 - whether `correlationKey` is audit-only or whether a distinct idempotency contract/key exists.
 
-No API should accidentally create duplicate history events merely because an identical request was retried, unless the public contract explicitly defines that behavior.
+Natural/state-based no-op behavior may prevent duplicate effects where current domain state proves the desired state already exists. However, retry-safe deduplication after an uncertain caller outcome is guaranteed only when the final contract provides sufficient request identity/idempotency semantics. The document must not imply exactly-once behavior without such a contract.
 
 Idempotency must not weaken optimistic concurrency or ownership checks.
 
@@ -1162,6 +1194,7 @@ deactivate
 reactivate
 releaseClaim
 releaseAllOwnership
+transfer
 ```
 
 Method/class names are not locked yet.
@@ -1425,7 +1458,7 @@ adoptHistorical
 adoptAlias
 ```
 
-Adoption should support original lifecycle timestamps when they are known and contractually valid.
+Adoption should support original lifecycle timestamps when they are known and contractually valid. These imported historical timestamps require validation under the future Adoption contract.
 
 Adoption may provide narrowly controlled migration behavior for rules such as newly introduced reserved words, but it must never bypass ownership uniqueness or create ambiguous live claims.
 
@@ -1441,9 +1474,12 @@ Large migrations may be coordinated inside a caller-owned transaction where supp
 
 # 37. Ownership Release and Reuse Semantics
 
-Normal lifecycle operations do **not** free slugs for unrelated entities.
+Normal lifecycle operations other than explicit release/transfer must continue retaining ownership.
 
-Cross-entity reuse becomes possible only after explicit claim/whole-binding ownership release or destructive purge where applicable.
+Cross-binding ownership change must be possible only through explicitly modeled mechanisms:
+- explicit claim-level / whole-binding release followed by later reuse;
+- explicit atomic cross-binding transfer;
+- destructive erasure where applicable.
 
 Consequences must be documented clearly:
 
@@ -1454,6 +1490,14 @@ Consequences must be documented clearly:
 - the operation represents a deliberate break from permanent old-URL protection.
 
 This tradeoff must be explicit in the public contract so a Host cannot accidentally turn an old URL into a different entity identifier.
+
+Transfer intentionally breaks permanent old-URL protection because the same slug may now identify another binding, even though the transfer prevents an externally visible unowned gap.
+
+## 37.1 Atomic cross-binding ownership transfer
+
+The architecture must explicitly support the intentional transfer of a slug from Binding A to Binding B. This requires an architectural capability/invariant for an atomic cross-binding transfer so there is no externally visible unowned gap or race condition.
+
+An atomic transfer of the same slug identity is a same-SlugScope operation. Cross-scope entity movement remains governed by `transitionScope` and must not be conflated with cross-binding transfer. The exact public API name may remain a Blueprint decision, but this must not be implemented as two unrelated public calls unless the architecture explicitly guarantees they are coordinated atomically by the package.
 
 ---
 
@@ -1618,7 +1662,7 @@ Examples in this discussion mentioning MySQL/MariaDB code `1062` are examples of
 
 ---
 
-# 44. Conceptual Public Capability Surface
+# 44. Conceptual Capability Surface
 
 Final classes/method names must be decided in the Blueprint, but RC1 should cover capabilities equivalent to the following.
 
@@ -1632,15 +1676,22 @@ validateCanonicalSlug
 resolveProfile
 ```
 
-## Availability / allocation
+## Public read capabilities
 
 ```text
 checkAvailability
+```
+
+## Internal allocation / claim primitives
+
+```text
 claimExact
 allocateGenerated
 ```
 
-## Lifecycle
+Internal primitives must remain incapable of bypassing lifecycle/history/transaction/concurrency guarantees.
+
+## Public lifecycle mutation capabilities
 
 ```text
 assignExact
@@ -1653,6 +1704,7 @@ reactivate
 releaseClaim
 releaseAllOwnership
 transitionScope
+atomicCrossBindingTransfer
 ```
 
 ## Alias
@@ -1773,6 +1825,11 @@ same slug in different scopes
 same slug in same scope
 same entity restore
 cross-entity historical reuse prevention
+atomic cross-binding ownership transfer
+transfer vs concurrent source-binding mutation
+transfer vs concurrent target-binding mutation
+transfer vs competing slug claim
+scope transition vs concurrent affected-binding mutation
 claim-level release and later reuse
 whole-binding release and later reuse
 alias creation
@@ -1797,6 +1854,7 @@ legacy profile incompatibility rejection/mapping
 concurrent exact claim
 concurrent auto allocation
 concurrent same-binding update
+concurrent scope profile first-use mismatch
 revision conflict
 mutation replay/idempotency semantics
 package-owned transaction rollback
@@ -1825,8 +1883,8 @@ A fixed regression must receive regression protection at the appropriate behavio
 | Identity | Host-provided opaque entity reference |
 | Allocation | exact claim + automatic allocation |
 | Availability | advisory ownership/policy classification |
-| Ownership | authoritative scope-local registry + explicit release |
-| Lifecycle | assign/change/restore/deactivate/reactivate/release/transition |
+| Ownership | authoritative scope-local registry + explicit release AND atomic transfer |
+| Lifecycle | assign/change/restore/deactivate/reactivate/release/transition/transfer |
 | Alias | add/retire/reactivate/promote |
 | Resolution | match kind + binding state + input-form canonicality |
 | History | immutable retained normal-lifecycle timeline |
@@ -1835,7 +1893,7 @@ A fixed regression must receive regression protection at the appropriate behavio
 | Management | supported queries + shared pagination |
 | Persistence | package-owned PDO infrastructure over Host-injected connection for declared drivers |
 | Transactions | owned transaction + documented caller-transaction participation |
-| Concurrency | unique-claim races + same-binding revision protection |
+| Concurrency | competing same-slug claims + same-binding mutation protection + coordinated multi-binding mutation protection |
 | Maintenance | explicit destructive erasure contract |
 | Exceptions | stable semantic taxonomy |
 | Clock | shared `ClockInterface` as lifecycle time source |
@@ -1900,12 +1958,12 @@ Unless review identifies a concrete defect, the Blueprint should preserve these 
 14. Versioned profiles define stable observable generation/canonicalization/lookup behavior.
 15. Canonicalization is idempotent for canonical inputs.
 16. Current canonical, historical canonical, active alias, and retired alias ownership share one authoritative scope-local registry.
-17. Normal lifecycle changes do not release ownership.
+17. Normal lifecycle operations other than explicit release/transfer retain ownership. Canonical change, alias retirement, and deactivation do not release ownership; explicit release is an intentional ownership-ending mechanism, and explicit atomic transfer is an intentional ownership-reassignment exception.
 18. Historical canonical slugs remain owned by the same binding under normal lifecycle.
 19. Retired aliases remain owned under normal lifecycle.
 20. The same binding can restore its historical canonical slug.
 21. Same-binding retained ownership is not treated as a cross-binding collision.
-22. Cross-binding reuse requires explicit ownership release or destructive erasure semantics.
+22. Cross-binding ownership change must be possible only through explicitly modeled mechanisms: explicit claim-level / whole-binding release followed by later reuse, explicit atomic cross-binding transfer, or destructive erasure where applicable.
 23. Claim-level release, whole-binding release, and destructive purge are distinct concepts.
 24. Exact claim and automatic allocation are different intents.
 25. Database uniqueness is the final claim authority.
@@ -1942,6 +2000,7 @@ Unless review identifies a concrete defect, the Blueprint should preserve these 
 56. The Slug package has no dependency on SEO.
 57. SEO has no dependency on Slug.
 58. Host/adapter code owns integrations between Slug and other domains.
+59. Intentional cross-binding ownership transfer of a slug must be coordinated atomically to prevent unowned gaps or races.
 
 ---
 
@@ -1959,28 +2018,30 @@ The architectural direction is intentionally broad, but the following items cann
 8. Required runtime PHP extensions/packages for Unicode/transliteration behavior.
 9. Default Unicode security policy and extension interface.
 10. Exact slug/storage length and Unicode-safe length semantics.
-11. Exact database collation/equality strategy per supported driver.
+11. Exact database collation/equality strategy per supported driver for both slug identity and all opaque logical identity components.
 12. Exact scope canonical-empty representation.
 13. Exact validation/canonicalization rules for `namespace`, `localeKey`, `contextKey`, `entityType`, and `entityKey`.
 14. Exact registry state/role columns and integrity constraints.
 15. Exact binding bootstrap/current-pointer constraints.
 16. Exact binding status model.
-17. Exact history snapshot/sequence model.
-18. Exact claim-level and whole-binding ownership-release persistence behavior.
+17. Exact history snapshot/sequence model, including the exact representation of cross-binding transfers.
+18. Exact claim-level and whole-binding release persistence behavior.
 19. Exact destructive purge/erasure behavior.
 20. Exact alias promotion/retirement/reactivation rules.
 21. Exact same-binding restore/reuse behavior for generated allocation.
 22. Exact cross-scope transition behavior and source/target binding statuses.
-23. Exact revision/locking rules per mutation.
-24. Exact transaction/savepoint adapter behavior.
-25. Exact mutation replay/idempotency semantics and whether any idempotency key exists.
-26. Exact public Commands, Criteria, DTOs, Enums, Interfaces, and Exceptions.
-27. Exact legacy-adoption rules, timestamp validation, and profile-compatibility behavior.
-28. Exact dependency minimum versions based on published stable APIs.
-29. Exact schema/index plan and real concurrency proof strategy.
-30. Exact Clock timestamp storage precision/timezone contract.
-31. Exact standards adoption snapshot/manifest for the repository.
-32. Exact RC execution plan and acceptance criteria.
+23. Exact behavior and public API name for atomic cross-binding ownership transfer. This must include: which registry claim roles are transferable; source and target binding state requirements; behavior when transferring a current canonical claim; ReservedSlugPolicy behavior for transfer/acquisition; and replay/idempotency semantics for transfer.
+24. Exact revision/locking rules per mutation.
+25. Exact transaction/savepoint adapter behavior.
+26. Exact mutation replay/idempotency semantics and whether any idempotency key exists.
+27. Exact public Commands, Criteria, DTOs, Enums, Interfaces, and Exceptions.
+28. Exact legacy-adoption rules, timestamp validation, and profile-compatibility behavior.
+29. Exact dependency minimum versions based on published stable APIs.
+30. Exact schema/index plan and real concurrency proof strategy.
+31. Exact Clock timestamp storage precision/timezone contract.
+32. Exact standards adoption snapshot/manifest for the repository.
+33. Exact scope profile establishment / first-use semantics; mismatch behavior; concurrency/locking requirements; and exact public/internal registration or lookup contract.
+34. Exact RC execution plan and acceptance criteria.
 
 These are Blueprint decisions, not reasons to reopen the core package boundary.
 
@@ -2004,7 +2065,7 @@ This discussion draft is ready to be replaced by the formal Blueprint only when 
 - no persistence concept depends on impossible schema semantics;
 - URL/HTTP/SEO responsibilities remain outside the package;
 - Unicode and transliteration contracts are implementable, dependency-explicit, deterministic where promised, and testable;
-- ownership release/reuse/history semantics are explicit;
+- ownership release/reuse/transfer/history semantics are explicit;
 - deactivation/reactivation semantics are internally consistent;
 - transaction/concurrency/replay promises can be proven on declared drivers;
 - legacy adoption cannot bypass the resolution/profile contract;
