@@ -247,7 +247,7 @@ tests/Unit/Persistence/Scope/
 - replay يقرأ snapshot الأصلي ولا يعيد بناء DTO من current state؛ retention وpurge يطبقان §12.5 و§29، مع FK/index names المحددة.
 - driver يرفض أي DB غير MySQL 8.0.36 بعقد واضح، ولا يضيف SQLite fallback.
 - PDO config وunique placeholders وint LIMIT/OFFSET وmixed-row annotations مطبقة.
-- duplicate conversion محصورة في MySQL `errorInfo[1] === 1062` مع constraint context؛ duplicate `uk_binding_identity` في first-create لمسارات `assignExact`/`assignGenerated`/`adoptCurrent` وtarget `transitionScope` race متوقع لا infrastructure failure: rollback إلى savepoint، إعادة قراءة Binding تحت `SELECT ... FOR UPDATE`، ثم نفس key/fingerprint يعيد replay snapshot، ونفس key مع fingerprint مختلف يرمى `SlugIdempotencyConflictException`، وغياب evidence يرمى `SlugRevisionConflictException` كـsemantic/CAS conflict. أي duplicate آخر يتبع تصنيفه المحدد في Blueprint §11.1 و§29.
+- duplicate conversion محصورة في MySQL `errorInfo[1] === 1062` مع constraint context؛ duplicate `uk_binding_identity` في first-create لمسارات `assignExact`/`assignGenerated`/`adoptCurrent` وtarget `transitionScope` race متوقع لا infrastructure failure: تعتبر `INSERT` statement نفسها failed، ولا يوجد savepoint خاص بالإدراج ولا rollback له، ويستمر التنفيذ داخل package transaction أو savepoint الحالية؛ ثم يعاد قراءة Binding الفائزة تحت `SELECT ... FOR UPDATE`، ويطبق §29 و§26.3: نفس key وfingerprint مع evidence `COMMITTED` يعيد replay snapshot، ونفس key مع fingerprint مختلف `SlugIdempotencyConflictException`، وغياب evidence `SlugRevisionConflictException` كـsemantic/CAS conflict. إذا انتهت classification بفشل semantic أو فشل لاحق، يطبق rollback العام في §26 على مستوى العملية كاملة، وليس rollback خاصًا ببيان `INSERT`. أي duplicate آخر يتبع تصنيفه المحدد في Blueprint §11.1 و§29.
 - package-owned transaction rollback وcaller savepoint setup يحدثان قبل mutation.
 
 ### 6.4 Evidence
@@ -365,7 +365,7 @@ tests/System/Transition/
 - resolve يفصل `matchKind`, `bindingStatus`, `inputFormCanonicality` ويشير إلى current مباشرة.
 - released claim لا تحل، وretained history لا تظهر كlive ownership.
 - Criteria تستخدم dependency `PageRequest` باعتباره المدخل الوحيد للـpagination وsort، وpublic results تستخدم `PageResult<T>` وshared `SortDirectionEnum`؛ لا يوجد `$sort` أو direction أو page/per-page parameter منفصل، وdomain sort keys/filters فقط مملوكة لـSlug.
-- `PdoPaginator` ينفذ normalization وsort resolution وdirection/defaults وper-page bounds من `PaginationConfig`/`SortWhitelist` المحددة query-by-query في Blueprint §32؛ لا تنسب الخطة validation إلى `PageRequest`. count/data predicates وselected columns وrow DTO semantics تبقى Slug-owned، مع tie-breaker `id ASC`، ولا يوجد local pagination DTO/enum أو paginator أو `*PageDTO`.
+- `PdoPaginator` ينفذ normalization وsort resolution وdirection/defaults وper-page bounds من `PaginationConfig`/`SortWhitelist` المحددة query-by-query في Blueprint §32، وبالقيم الثابتة لكل query: `defaultPerPage = 25`, `minPerPage = 1`, و`maxPerPage = 100`؛ لا تنسب الخطة validation إلى `PageRequest`. count/data predicates وselected columns وrow DTO semantics تبقى Slug-owned، مع tie-breaker `id ASC`، ولا يوجد local pagination DTO/enum أو paginator أو `*PageDTO`.
 - acceptance يتضمن exact public signatures §5.1.1 و§35.1–§35.5، ولا يسمح بقرار أثناء التنفيذ حول PageRequest/PageResult أو Engine construction.
 
 ### 9.4 Evidence
