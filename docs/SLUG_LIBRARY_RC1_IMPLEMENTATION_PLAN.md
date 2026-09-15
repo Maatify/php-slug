@@ -585,7 +585,7 @@ Composer install/resolve
 هذه الخطة لا تنفذ الإجراء الآن. عند التصريح بتنفيذ RC1:
 
 1. يتحقق المنفذ من source branch وexact HEAD وworking tree/index.
-2. ينفذ Preparation أولًا من `work/rc-1-preparation`: يقبل Blueprint/Plan، ينشئ أو يحدّث `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة كـcanonical Package Reference وفق `std-package-building` و`std-library-presentation`، ويكمل release-facing `README.md` و`CHANGELOG.md` و`SECURITY.md` عند لزوم RC1. بعد ذلك ينقل القرارات الدائمة، يحذف Discussion Draft في خطوة الإغلاق المناسبة، ثم يدمج PR #2 إلى `phase-draft/rc-1`. لا تدّعي هذه الخطة أن تلك artifacts أُنشئت في مهمة الوثيقتين الحالية؛ هي gate قبل الحذف.
+2. ينفذ Preparation أولًا من `work/rc-1-preparation`: يقبل Blueprint/Plan، ينشئ أو يحدّث `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة كـcanonical Package Reference وفق `std-package-building` و`std-library-presentation`، ويكمل release-facing `README.md` و`CHANGELOG.md` و`SECURITY.md` عند لزوم RC1. بعد ذلك ينقل القرارات الدائمة، يحذف Discussion Draft في خطوة الإغلاق المناسبة، ثم يدمج PR #2 إلى `phase-draft/rc-1`. توثق هذه الخطة ترتيب البوابة؛ ويثبت تنفيذ artifacts وحالتها في PR الـPreparation Closure، ولا يُفهم من وجودها أن Runtime أو نسخة منشورة موجودة.
 3. يتحقق من HEAD الجديد وmerge-base لـ`phase-draft/rc-1` بعد إغلاق Preparation؛ لا يستخدم `work/rc-1-preparation` أو `main` كـimplementation base.
 4. ينشئ Work Branch/Execution Batch التنفيذية من ذلك HEAD المحدث، وينفذ WUs بالتتابع في Commits واضحة، دون `amend` أو force-push.
 5. يراجع staged paths الصريحة و`git diff --cached --check`.
@@ -653,7 +653,7 @@ Composer install/resolve
 هذه ليست Runtime WU، لكنها شرط إغلاق Preparation وDecision #34، وتنفذ قبل حذف `docs/SLUG_LIBRARY_RC_CONCEPT_DISCUSSION.md`:
 
 1. ينشئ المالك أو يحدّث `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة وفق Package Building/Library Presentation Standards، ويجعله المرجع canonical package-facing للتثبيت والاستعمال ومسارات construction العامة، public contracts، PHP/DB/ICU support، ownership/lifecycle/pagination boundaries، وحالة RC1 الحالية دون future-state claims.
-2. يحدّث release-facing `README.md` و`CHANGELOG.md` و`SECURITY.md` بالقيم الحالية المطلوبة لـRC1 وفق Library Presentation Standard. لا تنشئ هذه المهمة تلك الملفات ولا تدعي وجودها.
+2. يحدّث release-facing `README.md` و`CHANGELOG.md` و`SECURITY.md` بالقيم الحالية المطلوبة لـRC1 وفق Library Presentation Standard، مع فصل حالة العقد عن حالة التنفيذ والنشر.
 3. بعد مراجعة artifacts ومطابقة source-of-truth، تنقل القرارات إلى Blueprint/Plan، ثم تحذف Discussion Draft، ثم تتحقق أن `SLUG_PACKAGE_REFERENCE.md` هو المرجع الجذري package-facing وأن Blueprint supporting architecture وPlan execution gates لا يناقضانها.
 4. بعد هذا الترتيب فقط يدمج المالك PR #2 إلى `phase-draft/rc-1`، ويبدأ implementation branch من HEAD المحدث. لا تستخدم Package Reference gate لتوسيع RC1 إلى Stable tag/Release/Packagist.
 
