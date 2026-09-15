@@ -893,7 +893,9 @@ The package must not mutate PHP's global timezone.
 
 The Host owns application timezone configuration.
 
-The package should write lifecycle timestamps from the injected Clock rather than have database `CURRENT_TIMESTAMP` defaults silently become a competing behavioral time source.
+The package should write lifecycle timestamps from the injected Clock rather than have database `CURRENT_TIMESTAMP` defaults silently become a competing behavioral time source. `ClockInterface` is authoritative for package-generated runtime "now".
+
+Imported historical timestamps are explicit adoption data, not a competing runtime clock.
 
 Exact storage timezone/format/precision is a Blueprint/schema decision and must be explicit and testable.
 
@@ -1007,6 +1009,8 @@ This intent is suitable for title/source-driven generation.
 
 Exact claim and automatic allocation must not share an ambiguous public operation whose behavior depends on hidden defaults.
 
+Claim and allocation are low-level internal application/domain capabilities used by authoritative lifecycle operations. They must not bypass binding lifecycle, history, concurrency, transaction, and result guarantees. The public persistent mutation APIs must be lifecycle-oriented, while read-only availability may remain public.
+
 ---
 
 # 26. Collision Handling
@@ -1090,6 +1094,12 @@ Both race classes require real concurrency verification, not only repository moc
 # 28. Replay / Idempotency Semantics
 
 Professional Host code may retry an operation after a timeout or uncertain caller-side outcome.
+
+The architecture must separate:
+- **Natural/state-based idempotency:** repeating an operation that evaluates safely based on the current domain state (e.g., re-assigning a slug that is already correctly assigned).
+- **Retry-safe idempotency:** protecting against duplicate side effects after an uncertain caller outcome.
+
+The package must not promise exactly-once/retry deduplication unless the final contract has enough identity (e.g., an exact idempotency-key design) to prove it safely. Keep the exact idempotency-key design as a Blueprint decision if appropriate.
 
 The Blueprint must explicitly define replay semantics for mutation operations, including at least:
 
@@ -1425,7 +1435,7 @@ adoptHistorical
 adoptAlias
 ```
 
-Adoption should support original lifecycle timestamps when they are known and contractually valid.
+Adoption should support original lifecycle timestamps when they are known and contractually valid. These imported historical timestamps require validation under the future Adoption contract.
 
 Adoption may provide narrowly controlled migration behavior for rules such as newly introduced reserved words, but it must never bypass ownership uniqueness or create ambiguous live claims.
 
@@ -1454,6 +1464,10 @@ Consequences must be documented clearly:
 - the operation represents a deliberate break from permanent old-URL protection.
 
 This tradeoff must be explicit in the public contract so a Host cannot accidentally turn an old URL into a different entity identifier.
+
+## 37.1 Atomic cross-binding ownership transfer
+
+The architecture must explicitly support the intentional transfer of a slug from Binding A to Binding B. This requires an architectural capability/invariant for an atomic cross-binding transfer so there is no externally visible unowned gap or race condition. The exact public API name may remain a Blueprint decision, but this must not be implemented as two unrelated public calls unless the architecture explicitly guarantees they are coordinated atomically by the package.
 
 ---
 
@@ -1632,10 +1646,15 @@ validateCanonicalSlug
 resolveProfile
 ```
 
-## Availability / allocation
+## Availability / read-only
 
 ```text
 checkAvailability
+```
+
+## Internal allocation capabilities
+
+```text
 claimExact
 allocateGenerated
 ```
@@ -1653,6 +1672,7 @@ reactivate
 releaseClaim
 releaseAllOwnership
 transitionScope
+atomicCrossBindingTransfer
 ```
 
 ## Alias
@@ -1773,6 +1793,7 @@ same slug in different scopes
 same slug in same scope
 same entity restore
 cross-entity historical reuse prevention
+atomic cross-binding ownership transfer
 claim-level release and later reuse
 whole-binding release and later reuse
 alias creation
@@ -1826,7 +1847,7 @@ A fixed regression must receive regression protection at the appropriate behavio
 | Allocation | exact claim + automatic allocation |
 | Availability | advisory ownership/policy classification |
 | Ownership | authoritative scope-local registry + explicit release |
-| Lifecycle | assign/change/restore/deactivate/reactivate/release/transition |
+| Lifecycle | assign/change/restore/deactivate/reactivate/release/transition/transfer |
 | Alias | add/retire/reactivate/promote |
 | Resolution | match kind + binding state + input-form canonicality |
 | History | immutable retained normal-lifecycle timeline |
@@ -1942,6 +1963,7 @@ Unless review identifies a concrete defect, the Blueprint should preserve these 
 56. The Slug package has no dependency on SEO.
 57. SEO has no dependency on Slug.
 58. Host/adapter code owns integrations between Slug and other domains.
+59. Intentional cross-binding ownership transfer of a slug must be coordinated atomically to prevent unowned gaps or races.
 
 ---
 
@@ -1971,6 +1993,7 @@ The architectural direction is intentionally broad, but the following items cann
 20. Exact alias promotion/retirement/reactivation rules.
 21. Exact same-binding restore/reuse behavior for generated allocation.
 22. Exact cross-scope transition behavior and source/target binding statuses.
+22b. Exact behavior and public API name for atomic cross-binding ownership transfer.
 23. Exact revision/locking rules per mutation.
 24. Exact transaction/savepoint adapter behavior.
 25. Exact mutation replay/idempotency semantics and whether any idempotency key exists.
@@ -2004,7 +2027,7 @@ This discussion draft is ready to be replaced by the formal Blueprint only when 
 - no persistence concept depends on impossible schema semantics;
 - URL/HTTP/SEO responsibilities remain outside the package;
 - Unicode and transliteration contracts are implementable, dependency-explicit, deterministic where promised, and testable;
-- ownership release/reuse/history semantics are explicit;
+- ownership release/reuse/transfer/history semantics are explicit;
 - deactivation/reactivation semantics are internally consistent;
 - transaction/concurrency/replay promises can be proven on declared drivers;
 - legacy adoption cannot bypass the resolution/profile contract;
