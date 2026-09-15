@@ -3,8 +3,9 @@
 > **الحالة:** خطة تنفيذ مرتبطة بـ`SLUG_LIBRARY_RC1_BLUEPRINT.md`؛ لا تثبت أن أي Work Unit نُفذت.
 >
 > **المرجع:** `docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`
-> **RC1 source baseline المعتمد:** `006ca7c62b4defc62c8ef2b16374b6f60d48a8dc`
-> **الـPhase draft المقصودة لاحقًا:** `work/rc-1-preparation`
+> **RC1 source baseline المعتمد للتأليف:** `006ca7c62b4defc62c8ef2b16374b6f60d48a8dc`
+> **الـPhase Draft:** `phase-draft/rc-1`
+> **Preparation Work Branch:** `work/rc-1-preparation`
 
 هذه الخطة تحول الـBlueprint إلى dependency graph وExecution Batch وWork Units قابلة للتسليم والمراجعة. نطاق هذه المهمة الحالية هو تأليف الوثيقتين فقط؛ لا تنشئ هذه الخطة Runtime أو Schema أو Tests أو CI أو Composer files.
 
@@ -30,7 +31,7 @@ Profile/Text
 
 ### 2.1 Baseline
 
-يبدأ التنفيذ اللاحق من أحدث Phase Draft معتمدة في `work/rc-1-preparation` بعد قبول Blueprint. المصدر المقصود لهذه الخطة هو baseline المرقمة أعلاه؛ لا يستخدم التنفيذ `main` كبديل ولا يصلح ancestry تلقائيًا.
+تبدأ Preparation من `phase-draft/rc-1` عبر `work/rc-1-preparation` وتغلق أولًا بعد قبول Blueprint/Plan، ونقل القرارات الدائمة، وحذف Discussion Draft في خطوة الإغلاق المناسبة، ثم دمج PR #2 إلى `phase-draft/rc-1`. يبدأ التنفيذ اللاحق فقط من HEAD المحدث المتحقق منه لـ`phase-draft/rc-1`؛ لا يستخدم `work/rc-1-preparation` كـimplementation base ولا يستخدم `main` كبديل ولا يصلح ancestry تلقائيًا.
 
 ### 2.2 Standards snapshot
 
@@ -53,15 +54,17 @@ Profile/Text
 التقسيم المفاهيمي هو:
 
 ```text
-Roadmap Phase: RC1 Implementation
-└── Execution Batch: RC1 Full Lifecycle
-    └── Work Branch: work/rc-1-implementation (لاحقًا عند التصريح)
-        └── PR إلى work/rc-1-preparation (لاحقًا عند فتحها)
+main
+└── phase-draft/rc-1
+    └── work/rc-1-preparation (Preparation؛ تغلق أولًا)
+        [قبول Blueprint/Plan، نقل القرارات، حذف Discussion Draft، دمج PR #2]
+    └── work/rc-1-implementation (لاحقًا من HEAD المحدث لـphase-draft/rc-1)
+        └── PR إلى phase-draft/rc-1 (لاحقًا عند فتحها)
 ```
 
-هذه ليست مساواة بين المصطلحات: `Phase != Branch != PR`. الـdefault هو Batch وWork Branch وPR واحدة لأن العقود وschema وlocks وtests مشتركة. Commits logical milestones تكفي لتتبع WUs؛ لا توجد PR لكل WU لمجرد الرقم.
+هذه ليست مساواة بين المصطلحات: `Phase != Branch != PR`. الـdefault هو Batch وWork Branch وPR واحدة لأن العقود وschema وlocks وtests مشتركة. Commits logical milestones تكفي لتتبع WUs؛ لا توجد PR لكل WU لمجرد الرقم. لا تفتح Implementation PR إلى `work/rc-1-preparation`.
 
-Branch التنفيذ المقترحة لا تُنشأ في هذه المهمة. إن قرر المالك استخدامها لاحقًا، تبدأ من أحدث `work/rc-1-preparation` HEAD المتحقق منه، لا من `main`. Merge إلى `main` وTag وRelease وPublish تبقى owner-only.
+Branch التنفيذ المقترحة لا تُنشأ في هذه المهمة. إن قرر المالك استخدامها لاحقًا، تبدأ بعد إغلاق Preparation من أحدث HEAD متحقق لـ`phase-draft/rc-1`، لا من `work/rc-1-preparation` ولا من `main`. Merge إلى `main` وTag وRelease وPublish تبقى owner-only.
 
 ## 3. Dependency graph وExecution Waves
 
@@ -118,7 +121,7 @@ tests/Unit/Exception/
 
 ### 4.2 المسؤولية
 
-تنفيذ value objects `Slug`, `SlugProfileKey`, `SlugScope`, `EntityReference`، والعقود العامة في Blueprint §5، Commands/Criteria/DTOs/Enums في §35، وexception marker/taxonomy في §36. تتحقق Commands من input contract فقط ولا تنفذ orchestration.
+تنفيذ value objects `Slug`, `SlugProfileKey`, `SlugScope`, `EntityReference`، والعقود العامة ذات signatures المحددة في Blueprint §5.1.1، وكل Commands/Criteria/DTOs/Enums/aggregated results في §35، وexception marker/taxonomy في §36. تتحقق Commands من input contract فقط ولا تنفذ orchestration.
 
 ### 4.3 Acceptance criteria
 
@@ -127,6 +130,9 @@ tests/Unit/Exception/
 - nullable locale/context يميز بين `null` وempty string وفق §9.
 - Commands الموجودة لا تقبل internal IDs بدل domain identity إلا حيث نص Blueprint.
 - expected revision وidempotency/audit fields لها validation محددة.
+- `ScopeProfileRequestDTO` وBinding identity وall result aggregates لها fields/types/nullability محددة، ولا توجد operation أو public type تُترك لقرار أثناء التنفيذ.
+- `transitionScope` و`atomicTransfer` يعيدان aggregates المحددة في §35 مع source/target before/after/revision/result.
+- exception parent لكل package family محدد باسم exact published class في `maatify/exceptions` كما في §36.
 - Exceptions تستند إلى stable `maatify/exceptions` hierarchy ولا تبتلع Throwable.
 
 ### 4.4 Evidence
@@ -194,6 +200,8 @@ tests/Integration/Persistence/
 - `current_registry_id` nullable بلا circular FK، وplaceholder sequence §14 قابل للتنفيذ atomic.
 - `utf8mb4_bin` و`ascii_bin` موجودتان حيث قررهما Blueprint، ولا تعتمد schema على collation normalization.
 - `current_marker` يفرض current claim واحدة لكل Binding، و`uk_registry_scope_slug` authority نهائية.
+- `maa_slug_operations` يحتفظ بـoperation identity وoperation type وfingerprint وversioned result snapshot، و`maa_slug_operation_bindings` يثبت participants وunique replay lookup للـsingle/source/target.
+- replay يقرأ snapshot الأصلي ولا يعيد بناء DTO من current state؛ retention وpurge يطبقان §12.5 و§29، مع FK/index names المحددة.
 - driver يرفض أي DB غير MySQL 8.0.36 بعقد واضح، ولا يضيف SQLite fallback.
 - PDO config وunique placeholders وint LIMIT/OFFSET وmixed-row annotations مطبقة.
 - duplicate conversion محصورة في MySQL `errorInfo[1] === 1062` مع constraint context.
@@ -269,7 +277,8 @@ tests/System/Transfer/
 - purge يعمل فقط لـRELEASED بلا claims، ويحذف History ثم Binding ويترك Scope.
 - transfer ينقل الأدوار الأربع، وcurrent يحتاج source replacement؛ target role/state/reservation rules ثابتة.
 - transfer يكتب out/in snapshots في transaction واحدة وبـ`operation_key` واحدة، ولا تظهر unowned gap.
-- history sequence وrevision يزدادان بشكل صحيح، وidempotency key لا يتكرر داخل Binding.
+- history sequence وrevision يزدادان بشكل صحيح، وresult aggregate يحفظ source/target before-after states والـrevisions والـevents.
+- idempotency key/fingerprint والـresult snapshot تُحفظ في operations evidence؛ transfer/transition يستخدمان operation واحدًا ومشاركي SOURCE/TARGET، ولا يكتفيان بإعادة قراءة current state.
 
 ### 8.4 Evidence
 
@@ -301,8 +310,9 @@ tests/System/Transition/
 
 - transition ينشئ target Binding ولا يغير source `scope_id` أو source Registry snapshots.
 - MOVE يجعل المصدر INACTIVE، وPARALLEL لا يغير source status؛ كلاهما atomic.
+- transition result هو `ScopeTransitionResultDTO` وفيه participant results وsource/target before-after/revisions والـHistory؛ transfer result هو `AtomicTransferResultDTO` بنفس الصراحة.
 - target profile يطبق على target claim، وprofile mismatch يفشل قبل mutation.
-- adoptCurrent/adoptHistorical/adoptAlias تمر بنفس canonical/profile/ownership/reservation rules وتتحقق من UTC timestamp.
+- adoptCurrent/adoptHistorical/adoptAlias لها preconditions منفصلة للـabsent/RELEASED/ACTIVE/INACTIVE وrole/status/revision/history في Blueprint §31، وتمر بنفس canonical/profile/ownership/reservation rules وتتحقق من UTC timestamp.
 - resolve يفصل `matchKind`, `bindingStatus`, `inputFormCanonicality` ويشير إلى current مباشرة.
 - released claim لا تحل، وretained history لا تظهر كlive ownership.
 - Criteria page/perPage/sort limits ثابتة، count/data predicates متطابقة، tie-breaker `id ASC`.
@@ -339,10 +349,10 @@ phpunit.xml.dist
 
 مع اتصال PDO حقيقي إلى MySQL 8.0.36:
 
-- schema creation/constraints/indexes/collations؛
+- schema creation/constraints/indexes/collations، بما فيها `maa_slug_operations` و`maa_slug_operation_bindings` وresult snapshots؛
 - scope first use/profile mismatch/current-pointer bootstrap؛
 - Registry roles and uniqueness؛
-- Clock UTC `DATETIME(6)` and History snapshots/sequences؛
+- Clock UTC `DATETIME(6)` وHistory snapshots/sequences وoperation evidence/replay retention؛
 - package-owned transaction and caller savepoint participation؛
 - management count/data/pagination؛
 - cleanup/repeatability and no host table access.
@@ -370,6 +380,8 @@ adopt current/historical/alias
 - two exact claimers for one `(scope,slug)`؛
 - two generated allocators؛
 - two same-binding mutations with same revision؛
+- same idempotency key with same/different fingerprint، بعد تغير live state، يعيد snapshot أو conflict دون mutation جديدة؛
+- multi-binding replay يتحقق من source/target participants وaggregate snapshot الواحد؛
 - first-use same profile and conflicting profile؛
 - transfer مقابل source mutation؛
 - transfer مقابل target mutation؛
@@ -513,11 +525,12 @@ Composer install/resolve
 هذه الخطة لا تنفذ الإجراء الآن. عند التصريح بتنفيذ RC1:
 
 1. يتحقق المنفذ من source branch وexact HEAD وworking tree/index.
-2. ينشئ Work Branch واحدة من أحدث Phase Draft HEAD؛ لا يستخدم `main` fallback.
-3. ينفذ WUs بالتتابع في Commits واضحة، دون `amend` أو force-push.
-4. يراجع staged paths الصريحة و`git diff --cached --check`.
-5. ينشر branch ويفتح PR إلى `work/rc-1-preparation` وفق الصلاحية المنفصلة؛ لا يدمج إلى `main`.
-6. يراجع المساعد القائد remote HEAD وmerge-base وchanged files وchecks وaccumulated diff.
+2. ينفذ Preparation أولًا من `work/rc-1-preparation`: يقبل Blueprint/Plan، ينقل القرارات الدائمة، يحذف Discussion Draft في خطوة الإغلاق المناسبة، ثم يدمج PR #2 إلى `phase-draft/rc-1`.
+3. يتحقق من HEAD الجديد وmerge-base لـ`phase-draft/rc-1` بعد إغلاق Preparation؛ لا يستخدم `work/rc-1-preparation` أو `main` كـimplementation base.
+4. ينشئ Work Branch/Execution Batch التنفيذية من ذلك HEAD المحدث، وينفذ WUs بالتتابع في Commits واضحة، دون `amend` أو force-push.
+5. يراجع staged paths الصريحة و`git diff --cached --check`.
+6. ينشر branch ويفتح Implementation PR إلى `phase-draft/rc-1` وفق الصلاحية المنفصلة؛ لا يفتح PR إلى `work/rc-1-preparation` ولا يدمج إلى `main`.
+7. يراجع المساعد القائد remote HEAD وmerge-base وchanged files وchecks وaccumulated diff.
 
 الـPR ليست جزءًا من كل WU؛ هي حد مراجعة Batch. أي remediation بعد Commit تكون Commit جديدة. Merge إلى `main` يظل owner-only.
 
@@ -543,24 +556,24 @@ Composer install/resolve
 | 14 | WU-03 وWU-04 | role CHECK/current-marker/unique constraints |
 | 15 | WU-03 | placeholder-pointer bootstrap and invariant failure tests |
 | 16 | WU-01 وWU-05 | status transition system matrix |
-| 17 | WU-03 وWU-05 | per-binding history sequence and transfer snapshots |
+| 17 | WU-03 وWU-05 | per-binding History sequence، operation_id، وtransfer out/in snapshots |
 | 18 | WU-05 | current-release rejection and non-current release tests |
 | 19 | WU-05 | release-all marker/per-claim atomic assertions |
 | 20 | WU-05 | purge precondition/order/erasure tests |
 | 21 | WU-05 | alias role transition and generated restore tests |
 | 22 | WU-06 | MOVE/PARALLEL source-target atomic tests |
-| 23 | WU-05 وWU-07 | current/non-current transfer race matrix |
+| 23 | WU-05 وWU-07 | current/non-current transfer race matrix وAtomicTransferResultDTO source/target evidence |
 | 24 | WU-03 وWU-05 وWU-07 | lock order/CAS stale writer tests |
 | 25 | WU-03 وWU-07 | owned transaction/savepoint/outer rollback tests |
-| 26 | WU-01 وWU-05 وWU-06 | fingerprint/replay/idempotency tests |
-| 27 | WU-01 | public inventory/API signature review |
-| 28 | WU-06 | timestamp/profile compatibility/adoption tests |
+| 26 | WU-01 وWU-03 وWU-05 وWU-06 | operations evidence schema، fingerprint، participant lookup، immutable result snapshot، replay بعد تغير live state، وretention/purge tests |
+| 27 | WU-01 | exact interface signatures، Command/Criteria/DTO fields/types/nullability، multi-binding aggregates، وpublic contract review في §5.1.1 و§35.1–§35.6 |
+| 28 | WU-06 | explicit adoptCurrent/adoptHistorical/adoptAlias preconditions لكل Binding status، role/status/revision/history، timestamp/profile compatibility، وAdoptionResultDTO |
 | 29 | WU-08 | direct dependency resolution against stable constraints |
-| 30 | WU-03 وWU-07 | schema/index and real concurrency proof |
+| 30 | WU-03 وWU-07 | schema/index وoperations evidence وreal concurrency proof |
 | 31 | WU-03 وWU-05 | Clock UTC microsecond snapshot tests |
 | 32 | §2.2 و§15 | exact adoption SHA and no mid-train refresh |
 | 33 | WU-03 وWU-04 وWU-07 | first-use same/mismatch profile race |
-| 34 | WU-01..WU-08 | Batch acceptance وPhase Integration Gate |
+| 34 | WU-01..WU-08 و§15 | Preparation closure، updated `phase-draft/rc-1` source، Implementation Batch/PR topology، Batch acceptance وPhase Integration Gate |
 
 ## 17. ما لا يدخل RC1 Implementation Batch
 
@@ -590,7 +603,7 @@ WU acceptance وtest counts
 MySQL/transaction/concurrency evidence
 PHPStan max وComposer/CI gates
 Harness run 1/run 2 وproduction autoload
-Remote HEAD وmerge-base مع work/rc-1-preparation
+Remote HEAD وmerge-base مع phase-draft/rc-1
 PR state إن أنشئت
 ما بقي خارج RC1 وأي blocker مثبت
 ```
