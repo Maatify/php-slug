@@ -247,7 +247,7 @@ tests/Unit/Persistence/Scope/
 - replay يقرأ snapshot الأصلي ولا يعيد بناء DTO من current state؛ retention وpurge يطبقان §12.5 و§29، مع FK/index names المحددة.
 - driver يرفض أي DB غير MySQL 8.0.36 بعقد واضح، ولا يضيف SQLite fallback.
 - PDO config وunique placeholders وint LIMIT/OFFSET وmixed-row annotations مطبقة.
-- duplicate conversion محصورة في MySQL `errorInfo[1] === 1062` مع constraint context.
+- duplicate conversion محصورة في MySQL `errorInfo[1] === 1062` مع constraint context؛ duplicate `uk_binding_identity` في first-create لمسارات `assignExact`/`assignGenerated`/`adoptCurrent` وtarget `transitionScope` race متوقع لا infrastructure failure: rollback إلى savepoint، إعادة قراءة Binding تحت `SELECT ... FOR UPDATE`، ثم نفس key/fingerprint يعيد replay snapshot، ونفس key مع fingerprint مختلف يرمى `SlugIdempotencyConflictException`، وغياب evidence يرمى `SlugRevisionConflictException` كـsemantic/CAS conflict. أي duplicate آخر يتبع تصنيفه المحدد في Blueprint §11.1 و§29.
 - package-owned transaction rollback وcaller savepoint setup يحدثان قبل mutation.
 
 ### 6.4 Evidence
@@ -318,10 +318,10 @@ tests/System/Transfer/
 - alias retirement لا يحرر slug؛ `addAlias/retireAlias/reactivateAlias/promoteAliasToCurrent` تطبق matrix §20 حرفيًا: retire المتكرر reject لا no-op، وretired لا يُpromote مباشرةً.
 - releaseClaim يرفض current؛ releaseAll يكتب per-claim snapshots وmarker ثم يضع RELEASED/pointer NULL.
 - purge يعمل فقط لـRELEASED بلا claims، ويحذف History ثم Binding ويترك Scope.
-- transfer ينقل الأدوار الأربع إلى Binding target موجودة فقط؛ role target يساوي role source حرفيًا، وcurrent يحتاج source replacement مختلفًا. exact replacement المساوي للمنقول يرفض قبل mutation، وgenerated replacement يستبعد المنقول؛ target `RELEASED` مسموح للـcurrent فقط، وtarget ACTIVE/INACTIVE ذي current مسموح لغير current.
-- transfer يطبق ترتيب lock/demote/replacement/delete/insert/history المحدد في Blueprint §24، ويكتب out/in snapshots وrole snapshots في transaction واحدة وبـ`operation_key` واحدة عند وجود idempotency key، ولا تظهر unowned gap؛ عند غياب key لا توجد operations evidence ويكون operationKey في النتيجة null.
-- history sequence يزيد لكل row، وrevision مرة واحدة لكل participant mutated، وresult aggregate يحفظ source/target before-after states والـrevisions والـevents بما فيها source replacement.
-- عند وجود idempotency key فقط تُحفظ key/fingerprint والـresult snapshot في operations evidence؛ transfer/transition يستخدمان operation واحدًا ومشاركي SOURCE/TARGET، ولا يكتفيان بإعادة قراءة current state. بدون key لا تُنشأ operation أو participant rows.
+- transfer ينقل الأدوار الأربع إلى Binding target موجودة فقط؛ role target يساوي role source حرفيًا، وcurrent يحتاج source replacement مختلفًا. replacement الجديد يطبق `CHANGED`، والـhistorical لنفس المصدر يطبق `RESTORED`، وactive/retired alias يرفض وفق matrix §20، وexact replacement المساوي للمنقول يرفض قبل mutation، وgenerated replacement يستبعد المنقول؛ لا يوجد تفسير `replacement retained`. target `RELEASED` مسموح للـcurrent فقط، وtarget ACTIVE/INACTIVE ذي current مسموح لغير current.
+- transfer يطبق ترتيب lock/demote/replacement/delete/insert/history المحدد في Blueprint §24، ويحفظ `originalSourceRole` قبل أي transient demotion؛ transfer-out/in يسجلان الدور نفسه والهدف يستلمه حرفيًا، ويكتب out/in snapshots وrole snapshots في transaction واحدة وبـ`operation_key` واحدة عند وجود idempotency key، ولا تظهر unowned gap؛ عند غياب key لا توجد operations evidence ويكون operationKey في النتيجة null.
+- history sequence يزيد لكل row، وrevision مرة واحدة لكل participant mutated، وresult aggregate يحفظ source/target participant results مع before/after states والـrevisions والـevents بما فيها source replacement؛ لا توجد حقول before/after مباشرة بديلة في `AtomicTransferResultDTO`.
+- عند وجود idempotency key فقط تُحفظ key/fingerprint والـresult snapshot في operations evidence؛ transfer/transition يستخدمان operation واحدًا ومشاركي SOURCE/TARGET، ولا يكتفيان بإعادة قراءة current state. في first-create، duplicate `uk_binding_identity` يعاد معه lock/read وفحص evidence قبل تصنيف النتيجة؛ نفس key/fingerprint replay، المختلف `SlugIdempotencyConflictException`، وبدون evidence `SlugRevisionConflictException`. بدون key لا تُنشأ operation أو participant rows.
 - `assignExact` و`assignGenerated` يقبلان Binding absent أو `RELEASED` فقط؛ `null` للـabsent فقط، وrevision الحالية صراحةً لـ`RELEASED`؛ `ACTIVE/INACTIVE` يرفضان بـ`SlugAssignmentNotPermittedException` قبل أي mutation، ولا إعادة فتح مع `null`.
 - History `claim_role_snapshot` و`previous_claim_role_snapshot` وnullable/event applicability checks مطابقة §12.4 و`HistoryEventDTO`؛ release/transfer events لا تعتمد على Registry لاحقة.
 
@@ -357,19 +357,20 @@ tests/System/Transition/
 
 - transition ينشئ target Binding ولا يغير source `scope_id` أو source Registry snapshots.
 - MOVE يجعل المصدر INACTIVE، وPARALLEL لا يغير source status؛ كلاهما atomic.
-- transition result هو `ScopeTransitionResultDTO` وفيه participant results وsource/target before-after/revisions والـHistory؛ transfer result هو `AtomicTransferResultDTO` بنفس الصراحة.
+- transition result هو `ScopeTransitionResultDTO` وفيه participant results وsource/target before-after/revisions والـHistory؛ transfer result هو `AtomicTransferResultDTO` بنفس الصراحة، وتكون before/after في transfer داخل `sourceResult` و`targetResult` فقط.
 - target profile يطبق على target claim، وprofile mismatch يفشل قبل mutation.
+- target first-create duplicate على `uk_binding_identity` يعاد معه target Binding تحت lock وفحص operation participant evidence قبل التصنيف: نفس key/fingerprint replay، fingerprint مختلف `SlugIdempotencyConflictException`، وغياب evidence `SlugRevisionConflictException`؛ لا يُعاد تشغيل mutation تلقائيًا.
 - adoptCurrent/adoptHistorical/adoptAlias لها preconditions منفصلة للـabsent/RELEASED/ACTIVE/INACTIVE وrole/status/revision/history في Blueprint §31، وتمر بنفس canonical/profile/ownership/reservation rules؛ `originalOccurredAt` يقبل timezone-aware `DateTimeImmutable` بأي timezone، يتحول إلى UTC، يحفظ 6 microseconds دون rounding، ويرفض فقط خارج مدى MySQL `DATETIME(6)` دون future/past comparison.
 - `adoptCurrent` يقبل `null` revision فقط عند غياب Binding؛ إعادة فتح Binding `RELEASED` تتطلب revision الحالية، و`adoptHistorical` و`adoptAlias` يتطلبان revision صريحة لBinding موجود.
 - resolve يفصل `matchKind`, `bindingStatus`, `inputFormCanonicality` ويشير إلى current مباشرة.
 - released claim لا تحل، وretained history لا تظهر كlive ownership.
-- Criteria تستخدم dependency `PageRequest` وpublic results تستخدم `PageResult<T>` وshared `SortDirectionEnum`؛ domain sort fields والfilters فقط مملوكة لـSlug.
-- mapping إلى `SortWhitelist`/`PaginationConfig` و`PdoPaginator` من `maatify/persistence` ينفذ normalization/count/offset/metadata/limit/sort/mapper؛ count/data predicates وselected columns وrow DTO semantics تبقى Slug-owned، مع tie-breaker `id ASC`، ولا يوجد local paginator أو `*PageDTO`.
+- Criteria تستخدم dependency `PageRequest` باعتباره المدخل الوحيد للـpagination وsort، وpublic results تستخدم `PageResult<T>` وshared `SortDirectionEnum`؛ لا يوجد `$sort` أو direction أو page/per-page parameter منفصل، وdomain sort keys/filters فقط مملوكة لـSlug.
+- `PdoPaginator` ينفذ normalization وsort resolution وdirection/defaults وper-page bounds من `PaginationConfig`/`SortWhitelist` المحددة query-by-query في Blueprint §32؛ لا تنسب الخطة validation إلى `PageRequest`. count/data predicates وselected columns وrow DTO semantics تبقى Slug-owned، مع tie-breaker `id ASC`، ولا يوجد local pagination DTO/enum أو paginator أو `*PageDTO`.
 - acceptance يتضمن exact public signatures §5.1.1 و§35.1–§35.5، ولا يسمح بقرار أثناء التنفيذ حول PageRequest/PageResult أو Engine construction.
 
 ### 9.4 Evidence
 
-System resolution matrix، transition source/target races، adoption compatibility/rejection، real management searches، pagination count/order tests، وassertion أن queries لا JOIN Host.
+System resolution matrix، transition source/target races، adoption compatibility/rejection، real management searches، pagination count/order tests لكل `PaginationConfig` query في Blueprint §32، وassertion أن queries لا JOIN Host.
 
 ## 10. Work Unit WU-07 — Required behavioral evidence
 
@@ -566,7 +567,7 @@ Composer install/resolve
 هذه الخطة لا تنفذ الإجراء الآن. عند التصريح بتنفيذ RC1:
 
 1. يتحقق المنفذ من source branch وexact HEAD وworking tree/index.
-2. ينفذ Preparation أولًا من `work/rc-1-preparation`: يقبل Blueprint/Plan، ينشئ أو يحدّث `PACKAGE_REFERENCE.md` في جذر الحزمة كـcanonical Package Reference وفق `std-package-building` و`std-library-presentation`، ويكمل release-facing `README.md` و`CHANGELOG.md` و`SECURITY.md` عند لزوم RC1. بعد ذلك ينقل القرارات الدائمة، يحذف Discussion Draft في خطوة الإغلاق المناسبة، ثم يدمج PR #2 إلى `phase-draft/rc-1`. لا تدّعي هذه الخطة أن تلك artifacts أُنشئت في مهمة الوثيقتين الحالية؛ هي gate قبل الحذف.
+2. ينفذ Preparation أولًا من `work/rc-1-preparation`: يقبل Blueprint/Plan، ينشئ أو يحدّث `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة كـcanonical Package Reference وفق `std-package-building` و`std-library-presentation`، ويكمل release-facing `README.md` و`CHANGELOG.md` و`SECURITY.md` عند لزوم RC1. بعد ذلك ينقل القرارات الدائمة، يحذف Discussion Draft في خطوة الإغلاق المناسبة، ثم يدمج PR #2 إلى `phase-draft/rc-1`. لا تدّعي هذه الخطة أن تلك artifacts أُنشئت في مهمة الوثيقتين الحالية؛ هي gate قبل الحذف.
 3. يتحقق من HEAD الجديد وmerge-base لـ`phase-draft/rc-1` بعد إغلاق Preparation؛ لا يستخدم `work/rc-1-preparation` أو `main` كـimplementation base.
 4. ينشئ Work Branch/Execution Batch التنفيذية من ذلك HEAD المحدث، وينفذ WUs بالتتابع في Commits واضحة، دون `amend` أو force-push.
 5. يراجع staged paths الصريحة و`git diff --cached --check`.
@@ -603,7 +604,7 @@ Composer install/resolve
 | 20 | WU-05 | purge precondition/order/erasure tests |
 | 21 | WU-05 وWU-07 | same-binding operation×role matrix، alias role transitions، ورفض retired implicit restore |
 | 22 | WU-06 | MOVE/PARALLEL source-target atomic tests |
-| 23 | WU-05 وWU-07 | existing-target-only transfer، source-role snapshot preservation، exact/generated replacement exclusion، deterministic lock/demote/delete/insert order، current/non-current race matrix وAtomicTransferResultDTO source/target evidence |
+| 23 | WU-05 وWU-07 | existing-target-only transfer، `originalSourceRole` preservation، new/historical/active-alias/retired-alias replacement matrix، exact/generated replacement exclusion، deterministic lock/demote/delete/insert order، current/non-current race matrix و`AtomicTransferResultDTO` nested source/target evidence |
 | 24 | WU-01 وWU-03 وWU-05 وWU-07 | absent-vs-existing/RELEASED expectedRevision validation، lock order/CAS stale writer tests |
 | 25 | WU-03 وWU-07 | owned transaction/savepoint/outer rollback tests |
 | 26 | WU-01 وWU-03 وWU-05 وWU-06 | evidence عند وجود key فقط، canonical JSON request version 1 وSHA-256، first-create participant-after-binding sequencing، immutable result snapshot، no-key natural mutation، replay بعد تغير live state، وretention/purge tests |
@@ -614,7 +615,7 @@ Composer install/resolve
 | 31 | WU-03 وWU-05 وWU-06 | Clock UTC microsecond snapshot tests وimported DateTimeImmutable timezone/range tests |
 | 32 | §2.2 و§15 | exact adoption SHA and no mid-train refresh |
 | 33 | WU-03 وWU-04 وWU-07 | first-use same/mismatch profile race |
-| 34 | WU-00..WU-08 و§15 وPreparation Closure Gate | root `PACKAGE_REFERENCE.md` canonical package reference، release-facing README/CHANGELOG/SECURITY، ثم Discussion deletion، updated `phase-draft/rc-1` source، Implementation Batch/PR topology، Batch acceptance وPhase Integration Gate |
+| 34 | WU-00..WU-08 و§15 وPreparation Closure Gate | root `SLUG_PACKAGE_REFERENCE.md` canonical package reference، release-facing README/CHANGELOG/SECURITY، ثم Discussion deletion، updated `phase-draft/rc-1` source، Implementation Batch/PR topology، Batch acceptance وPhase Integration Gate |
 
 ## 17. ما لا يدخل RC1 Implementation Batch
 
@@ -633,9 +634,9 @@ Composer install/resolve
 
 هذه ليست Runtime WU، لكنها شرط إغلاق Preparation وDecision #34، وتنفذ قبل حذف `docs/SLUG_LIBRARY_RC_CONCEPT_DISCUSSION.md`:
 
-1. ينشئ المالك أو يحدّث `PACKAGE_REFERENCE.md` في جذر الحزمة وفق Package Building/Library Presentation Standards، ويجعله المرجع canonical package-facing للتثبيت والاستعمال ومسارات construction العامة، public contracts، PHP/DB/ICU support، ownership/lifecycle/pagination boundaries، وحالة RC1 الحالية دون future-state claims.
+1. ينشئ المالك أو يحدّث `SLUG_PACKAGE_REFERENCE.md` في جذر الحزمة وفق Package Building/Library Presentation Standards، ويجعله المرجع canonical package-facing للتثبيت والاستعمال ومسارات construction العامة، public contracts، PHP/DB/ICU support، ownership/lifecycle/pagination boundaries، وحالة RC1 الحالية دون future-state claims.
 2. يحدّث release-facing `README.md` و`CHANGELOG.md` و`SECURITY.md` بالقيم الحالية المطلوبة لـRC1 وفق Library Presentation Standard. لا تنشئ هذه المهمة تلك الملفات ولا تدعي وجودها.
-3. بعد مراجعة artifacts ومطابقة source-of-truth، تنقل القرارات إلى Blueprint/Plan، ثم تحذف Discussion Draft، ثم تتحقق أن `PACKAGE_REFERENCE.md` هو المرجع الجذري package-facing وأن Blueprint supporting architecture وPlan execution gates لا يناقضانها.
+3. بعد مراجعة artifacts ومطابقة source-of-truth، تنقل القرارات إلى Blueprint/Plan، ثم تحذف Discussion Draft، ثم تتحقق أن `SLUG_PACKAGE_REFERENCE.md` هو المرجع الجذري package-facing وأن Blueprint supporting architecture وPlan execution gates لا يناقضانها.
 4. بعد هذا الترتيب فقط يدمج المالك PR #2 إلى `phase-draft/rc-1`، ويبدأ implementation branch من HEAD المحدث. لا تستخدم Package Reference gate لتوسيع RC1 إلى Stable tag/Release/Packagist.
 
 لا تمنع هذه الحدود adapters أو release work لاحقة، لكنها لا تدخل acceptance الحالية ولا تغير identity/ownership model.
