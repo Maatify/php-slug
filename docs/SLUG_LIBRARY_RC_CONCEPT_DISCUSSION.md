@@ -852,6 +852,7 @@ alias_promoted
 deactivated
 reactivated
 scope_transitioned
+ownership_transferred
 ownership_released
 adopted
 ```
@@ -877,7 +878,7 @@ The history design must not depend exclusively on live registry-row references i
 
 No generic unbounded JSON dump is required for normal lifecycle semantics.
 
-Lifecycle history changes must participate in the same atomic transaction as the ownership/current-state mutation they describe.
+Lifecycle history changes must participate in the same atomic transaction as the ownership/current-state mutation they describe. The history model must be capable of representing an atomic cross-binding transfer without pretending it was merely an unrelated release followed by an unrelated claim.
 
 ---
 
@@ -1109,7 +1110,7 @@ The Blueprint must explicitly define replay semantics for mutation operations, i
 - whether a repeated command is a no-op, returns the existing state, or fails semantically;
 - whether `correlationKey` is audit-only or whether a distinct idempotency contract/key exists.
 
-No API should accidentally create duplicate history events merely because an identical request was retried, unless the public contract explicitly defines that behavior.
+Natural/state-based no-op behavior may prevent duplicate effects where current domain state proves the desired state already exists. However, retry-safe deduplication after an uncertain caller outcome is guaranteed only when the final contract provides sufficient request identity/idempotency semantics. The document must not imply exactly-once behavior without such a contract.
 
 Idempotency must not weaken optimistic concurrency or ownership checks.
 
@@ -1172,6 +1173,7 @@ deactivate
 reactivate
 releaseClaim
 releaseAllOwnership
+transfer
 ```
 
 Method/class names are not locked yet.
@@ -1632,7 +1634,7 @@ Examples in this discussion mentioning MySQL/MariaDB code `1062` are examples of
 
 ---
 
-# 44. Conceptual Public Capability Surface
+# 44. Conceptual Capability Surface
 
 Final classes/method names must be decided in the Blueprint, but RC1 should cover capabilities equivalent to the following.
 
@@ -1646,20 +1648,22 @@ validateCanonicalSlug
 resolveProfile
 ```
 
-## Availability / read-only
+## Public read capabilities
 
 ```text
 checkAvailability
 ```
 
-## Internal allocation capabilities
+## Internal allocation / claim primitives
 
 ```text
 claimExact
 allocateGenerated
 ```
 
-## Lifecycle
+Internal primitives must remain incapable of bypassing lifecycle/history/transaction/concurrency guarantees.
+
+## Public lifecycle mutation capabilities
 
 ```text
 assignExact
@@ -1993,17 +1997,17 @@ The architectural direction is intentionally broad, but the following items cann
 20. Exact alias promotion/retirement/reactivation rules.
 21. Exact same-binding restore/reuse behavior for generated allocation.
 22. Exact cross-scope transition behavior and source/target binding statuses.
-22b. Exact behavior and public API name for atomic cross-binding ownership transfer.
-23. Exact revision/locking rules per mutation.
-24. Exact transaction/savepoint adapter behavior.
-25. Exact mutation replay/idempotency semantics and whether any idempotency key exists.
-26. Exact public Commands, Criteria, DTOs, Enums, Interfaces, and Exceptions.
-27. Exact legacy-adoption rules, timestamp validation, and profile-compatibility behavior.
-28. Exact dependency minimum versions based on published stable APIs.
-29. Exact schema/index plan and real concurrency proof strategy.
-30. Exact Clock timestamp storage precision/timezone contract.
-31. Exact standards adoption snapshot/manifest for the repository.
-32. Exact RC execution plan and acceptance criteria.
+23. Exact behavior and public API name for atomic cross-binding ownership transfer.
+24. Exact revision/locking rules per mutation.
+25. Exact transaction/savepoint adapter behavior.
+26. Exact mutation replay/idempotency semantics and whether any idempotency key exists.
+27. Exact public Commands, Criteria, DTOs, Enums, Interfaces, and Exceptions.
+28. Exact legacy-adoption rules, timestamp validation, and profile-compatibility behavior.
+29. Exact dependency minimum versions based on published stable APIs.
+30. Exact schema/index plan and real concurrency proof strategy.
+31. Exact Clock timestamp storage precision/timezone contract.
+32. Exact standards adoption snapshot/manifest for the repository.
+33. Exact RC execution plan and acceptance criteria.
 
 These are Blueprint decisions, not reasons to reopen the core package boundary.
 
