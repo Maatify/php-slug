@@ -137,7 +137,11 @@ final class ResultSnapshotDecoder
         ], 'transition');
         $sourceAfter = self::binding(self::object($result['source_after'], 'transition.source_after'), $profiles);
         $targetAfter = self::binding(self::object($result['target_after'], 'transition.target_after'), $profiles);
+        if ($sourceAfter->id === $targetAfter->id) {
+            self::fail('Transition participants must have distinct binding ids.');
+        }
         $sourceProfile = self::profile($sourceAfter->identity->scopeProfile, $profiles);
+        $targetProfile = self::profile($targetAfter->identity->scopeProfile, $profiles);
         $operation = self::operation($result['operation_type'], 'transition.operation_type');
         if ($operation !== OperationTypeEnum::TRANSITION_SCOPE) {
             self::fail('Transition result has an invalid operation type.');
@@ -155,10 +159,15 @@ final class ResultSnapshotDecoder
             $result['target_before'] === null ? null : self::binding(self::object($result['target_before'], 'transition.target_before'), $profiles),
             $targetAfter,
             self::nullableSlug($result['source_claim'], 'transition.source_claim', $sourceProfile),
-            self::nullableSlug($result['target_claim'], 'transition.target_claim', self::profile($targetAfter->identity->scopeProfile, $profiles)),
+            self::nullableSlug($result['target_claim'], 'transition.target_claim', $targetProfile),
             self::integer($result['source_revision'], 'transition.source_revision'),
             self::integer($result['target_revision'], 'transition.target_revision'),
-            self::historyList($result['history_events'], 'transition.history_events', $sourceProfile, [$sourceAfter->id, $targetAfter->id]),
+            self::participantHistoryList(
+                $result['history_events'],
+                'transition.history_events',
+                [$sourceAfter->id => $sourceProfile, $targetAfter->id => $targetProfile],
+                [$sourceAfter->id, $targetAfter->id],
+            ),
         );
     }
 
@@ -328,6 +337,34 @@ final class ResultSnapshotDecoder
         } else {
             DTOAssertions::participantHistory($events, $bindingIds, $path);
         }
+        return $events;
+    }
+
+    /**
+     * @param array<int, SlugProfileInterface> $profilesByBindingId
+     * @param list<int> $bindingIds
+     * @return list<HistoryEventDTO>
+     */
+    private static function participantHistoryList(
+        mixed $value,
+        string $path,
+        array $profilesByBindingId,
+        array $bindingIds,
+    ): array {
+        $events = [];
+        foreach (self::list($value, $path) as $index => $event) {
+            $eventObject = self::object($event, sprintf('%s[%d]', $path, $index));
+            if (! array_key_exists('binding_id', $eventObject)) {
+                self::fail(sprintf('%s[%d] is missing binding_id.', $path, $index));
+            }
+            $bindingId = self::integer($eventObject['binding_id'], sprintf('%s[%d].binding_id', $path, $index));
+            $profile = $profilesByBindingId[$bindingId] ?? null;
+            if ($profile === null) {
+                self::fail(sprintf('%s[%d] references an unknown transition participant.', $path, $index));
+            }
+            $events[] = self::history($eventObject, $profile);
+        }
+        DTOAssertions::participantHistory($events, $bindingIds, $path);
         return $events;
     }
 
