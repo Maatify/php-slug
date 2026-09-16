@@ -14,6 +14,8 @@ use Maatify\Slug\Contract\ReservedSlugPolicyInterface;
 use Maatify\Slug\DTO\AuditContextDTO;
 use Maatify\Slug\DTO\BindingIdentityDTO;
 use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\DTO\TransferReplacementIntentDTO;
+use Maatify\Slug\Enum\ClaimIntentModeEnum;
 use Maatify\Slug\Identity\EntityReference;
 use Maatify\Slug\Identity\Slug;
 use Maatify\Slug\Identity\SlugProfileKey;
@@ -35,6 +37,8 @@ $targetKey = $argv[3] ?? '';
 $slug = $argv[4] ?? '';
 $sourceRevision = (int) ($argv[5] ?? 0);
 $targetRevision = (int) ($argv[6] ?? 0);
+$replacementMode = $argv[7] ?? '';
+$replacementValue = $argv[8] ?? '';
 if (fgets(STDIN) === false) {
     exit(2);
 }
@@ -77,12 +81,15 @@ $identity = static fn(string $entityKey): BindingIdentityDTO => new BindingIdent
 );
 
 try {
-    if ($mode === 'transfer') {
+    if ($mode === 'transfer' || $mode === 'current-transfer') {
+        $replacement = $mode === 'current-transfer'
+            ? new TransferReplacementIntentDTO(ClaimIntentModeEnum::from($replacementMode), $replacementValue)
+            : null;
         $result = $service->atomicTransfer(new AtomicTransferCommand(
             $identity($sourceKey),
             $identity($targetKey),
             $slug,
-            null,
+            $replacement,
             $sourceRevision,
             $targetRevision,
             new AuditContextDTO(),

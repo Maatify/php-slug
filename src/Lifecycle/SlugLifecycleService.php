@@ -69,6 +69,7 @@ use Maatify\Slug\Contract\ResultSnapshot\ResultSnapshotEncoder;
 use Maatify\Slug\Internal\Transaction\PdoTransactionCoordinator;
 use Maatify\Slug\Persistence\Contract\OperationParticipant;
 use Maatify\Slug\Persistence\Contract\OperationReservation;
+use Maatify\Slug\Profile\Contracts\SlugProfileInterface;
 use Maatify\Slug\Profile\Contracts\SlugProfileRegistryInterface;
 use Maatify\Slug\Reserved\ReservationEvaluator;
 use Maatify\Slug\Scope\Value\SlugScope;
@@ -636,10 +637,11 @@ final class SlugLifecycleService
             throw new SlugScopeProfileMismatchException('Atomic transfer source and target must use the same Scope profile.');
         }
         $transferredSlug = $sourceProfile->canonicalizeClaim($command->slugCandidate)->slug;
+        $replacementCandidates = $this->transferReplacementCandidates($command, $sourceProfile);
         $replacementPayload = $command->sourceReplacementIntent === null ? null : [
             'mode' => $command->sourceReplacementIntent->mode->value,
             'value' => $command->sourceReplacementIntent->mode->value === 'EXACT'
-                ? $sourceProfile->canonicalizeClaim($command->sourceReplacementIntent->value)->slug->value
+                ? $replacementCandidates[0]->value
                 : $command->sourceReplacementIntent->value,
         ];
         $fingerprint = $this->fingerprint(
@@ -654,8 +656,13 @@ final class SlugLifecycleService
         );
         $this->capabilities->assertInstalledSchemaSupported();
 
-        return $this->transactions->run(function () use ($command, $transferredSlug, $fingerprint): AtomicTransferResultDTO {
-            [$source, $sourceClaims, $target, $targetClaims] = $this->lockTransferParticipants($command->source, $command->target);
+        return $this->transactions->run(function () use ($command, $transferredSlug, $replacementCandidates, $fingerprint): AtomicTransferResultDTO {
+            [$source, $sourceClaims, $target, $targetClaims, $lockedClaims] = $this->lockTransferParticipants(
+                $command->source,
+                $command->target,
+                $transferredSlug,
+                $replacementCandidates,
+            );
             $reservation = $this->reserve(
                 OperationTypeEnum::ATOMIC_TRANSFER,
                 'transfer',
@@ -677,7 +684,7 @@ final class SlugLifecycleService
                 throw new SlugNotFoundException('The source transfer claim was not found.');
             }
             $originalRole = $moved->role;
-            $targetConflict = $this->registry->findClaimByScopeSlug($moved->scopeId, $transferredSlug, true);
+            $targetConflict = $this->claimInRecords($lockedClaims, $transferredSlug);
             if ($targetConflict !== null && $targetConflict->id !== $moved->id) {
                 throw new SlugAlreadyClaimedException('The transferred slug is already claimed in the target Scope.');
             }
@@ -703,7 +710,15 @@ final class SlugLifecycleService
             $replacement = null;
             $replacementEvent = null;
             if ($originalRole === RegistryRoleEnum::CURRENT_CANONICAL) {
-                [$replacement, $replacementEvent] = $this->prepareTransferReplacement($command, $source, $sourceClaims, $transferredSlug, $reservation);
+                [$replacement, $replacementEvent] = $this->prepareTransferReplacement(
+                    $command,
+                    $source,
+                    $sourceClaims,
+                    $lockedClaims,
+                    $replacementCandidates,
+                    $transferredSlug,
+                    $reservation,
+                );
                 $current = $this->currentClaim($sourceClaims);
                 $this->registry->updateClaimRole($current->id, RegistryRoleEnum::HISTORICAL_CANONICAL);
                 if ($replacement['kind'] === 'RESTORED') {
@@ -792,10 +807,15 @@ final class SlugLifecycleService
     }
 
     /**
-     * @return array{0: BindingDTO, 1: list<RegistryClaimRecord>, 2: BindingDTO, 3: list<RegistryClaimRecord>}
+     * @param list<Slug> $replacementCandidates
+     * @return array{0: BindingDTO, 1: list<RegistryClaimRecord>, 2: BindingDTO, 3: list<RegistryClaimRecord>, 4: list<RegistryClaimRecord>}
      */
-    private function lockTransferParticipants(BindingIdentityDTO $sourceIdentity, BindingIdentityDTO $targetIdentity): array
-    {
+    private function lockTransferParticipants(
+        BindingIdentityDTO $sourceIdentity,
+        BindingIdentityDTO $targetIdentity,
+        Slug $transferredSlug,
+        array $replacementCandidates,
+    ): array {
         $scopeIdentities = [$sourceIdentity, $targetIdentity];
         usort($scopeIdentities, fn(BindingIdentityDTO $left, BindingIdentityDTO $right): int => strcmp($this->scopeLockKey($left), $this->scopeLockKey($right)));
         $lockedScopes = [];
@@ -838,7 +858,24 @@ final class SlugLifecycleService
             throw new SlugInvalidArgumentException('Atomic transfer source and target must differ.');
         }
 
-        $claims = $this->registry->findClaimsForBindings([$sourceRecord->id, $targetRecord->id], true);
+        $participantClaims = $this->registry->findClaimsForBindings([$sourceRecord->id, $targetRecord->id]);
+        $registryKeys = [$transferredSlug->value];
+        foreach ($replacementCandidates as $candidate) {
+            $registryKeys[] = $candidate->value;
+        }
+        foreach ($participantClaims as $claim) {
+            $registryKeys[] = $claim->slugValue;
+        }
+        usort($registryKeys, static fn(string $left, string $right): int => strcmp($left, $right));
+        $registryKeys = array_values(array_unique($registryKeys, SORT_STRING));
+        $minimumSlug = $registryKeys[0];
+        $maximumSlug = $registryKeys[count($registryKeys) - 1];
+        $claims = $this->registry->findClaimsInScopeSlugRange(
+            $sourceRecord->scopeId,
+            $minimumSlug,
+            $maximumSlug,
+            true,
+        );
         $source = $this->requiredBinding($sourceIdentity, true);
         $target = $this->requiredBinding($targetIdentity, true);
 
@@ -847,6 +884,7 @@ final class SlugLifecycleService
             $this->claimsForBinding($claims, $sourceRecord->id),
             $target,
             $this->claimsForBinding($claims, $targetRecord->id),
+            $claims,
         ];
     }
 
@@ -1226,26 +1264,40 @@ final class SlugLifecycleService
         return hash('sha256', $json);
     }
 
+    /** @return list<Slug> */
+    private function transferReplacementCandidates(AtomicTransferCommand $command, SlugProfileInterface $profile): array
+    {
+        $intent = $command->sourceReplacementIntent;
+        if ($intent === null) {
+            return [];
+        }
+
+        if ($intent->mode->value === 'EXACT') {
+            return [$profile->canonicalizeClaim($intent->value)->slug];
+        }
+
+        return $this->candidates->fromSource($profile, $intent->value);
+    }
+
     /**
      * @param list<RegistryClaimRecord> $sourceClaims
+     * @param list<RegistryClaimRecord> $lockedClaims
+     * @param list<Slug> $candidates
      * @return array{0: array{kind: string, slug: Slug, claim: ?RegistryClaimRecord}, 1: HistoryEventDraft}
      */
     private function prepareTransferReplacement(
         AtomicTransferCommand $command,
         BindingDTO $source,
         array $sourceClaims,
+        array $lockedClaims,
+        array $candidates,
         Slug $moved,
         ?OperationReservation $reservation,
     ): array {
-        $profile = $this->profiles->get($command->source->scopeProfile->expectedProfileKey);
         $intent = $command->sourceReplacementIntent;
         if ($intent === null) {
             throw new SlugTransferReplacementConflictException('Current transfer requires a replacement intent.');
         }
-        $candidates = $intent->mode->value === 'EXACT'
-            ? [$profile->canonicalizeClaim($intent->value)->slug]
-            : $this->candidates->fromSource($profile, $intent->value);
-        $scopeId = $this->scopeId($sourceClaims);
         $selection = null;
         foreach ($candidates as $candidate) {
             if ($candidate->value === $moved->value) {
@@ -1265,7 +1317,7 @@ final class SlugLifecycleService
                 }
                 continue;
             }
-            $owner = $this->registry->findClaimByScopeSlug($scopeId, $candidate, true);
+            $owner = $this->claimInRecords($lockedClaims, $candidate);
             if ($owner !== null) {
                 if ($intent->mode->value === 'EXACT') {
                     throw new SlugAlreadyClaimedException('The exact replacement is owned by another Binding.');

@@ -6,9 +6,12 @@ namespace Maatify\Slug\Tests\System\Transfer;
 
 use Maatify\Slug\Command\AddAliasCommand;
 use Maatify\Slug\Command\AssignExactCommand;
+use Maatify\Slug\Command\ReleaseAllOwnershipCommand;
 use Maatify\Slug\DTO\AuditContextDTO;
 use Maatify\Slug\DTO\BindingIdentityDTO;
 use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\DTO\TransferReplacementIntentDTO;
+use Maatify\Slug\Enum\ClaimIntentModeEnum;
 use Maatify\Slug\Exception\SlugAlreadyClaimedException;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
 use Maatify\Slug\Identity\EntityReference;
@@ -118,6 +121,119 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
         }
     }
 
+    public function testCurrentTransferAndCompetingReplacementWriterHaveOneDeterministicWinner(): void
+    {
+        $this->assertWorkersAvailable();
+        $service = $this->service();
+        $source = $this->identity('current-replacement-source');
+        $target = $this->identity('current-replacement-target');
+        $competitor = $this->identity('current-replacement-owner');
+        $service->assignExact(new AssignExactCommand($source, 'current-moved', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($target, 'current-target', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($target, 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($competitor, 'current-owner-main', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($competitor, 1, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['current-transfer', 'current-replacement-source', 'current-replacement-target', 'current-moved', '1', '2', 'EXACT', 'current-replacement'],
+            ['claim', 'current-replacement-owner', '', 'current-replacement', '2', '0'],
+        ]);
+        $successes = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'OK'));
+        $failures = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'ERR'));
+
+        self::assertCount(1, $successes);
+        self::assertCount(1, $failures);
+        self::assertSame(SlugAlreadyClaimedException::class, $failures[0]['class']);
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'current-replacement']));
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        if ($successes[0]['operation'] === 'TRANSFER') {
+            self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'current-moved', 'entity_key' => 'current-replacement-source']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'current-moved', 'entity_key' => 'current-replacement-target']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'current-replacement', 'entity_key' => 'current-replacement-source']));
+            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'current-replacement-source']));
+            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'current-replacement-target']));
+        } else {
+            self::assertSame('CLAIM', $successes[0]['operation']);
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'current-moved', 'entity_key' => 'current-replacement-source']));
+            self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'current-moved', 'entity_key' => 'current-replacement-target']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'current-replacement', 'entity_key' => 'current-replacement-owner']));
+            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'current-replacement-source']));
+            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'current-replacement-target']));
+        }
+    }
+
+    public function testCrossedCurrentTransfersSerializeInReverseCommandOrder(): void
+    {
+        $this->assertWorkersAvailable();
+        $service = $this->service();
+        $sourceA = $this->identity('cross-source-a');
+        $targetA = $this->identity('cross-target-a');
+        $sourceB = $this->identity('cross-source-b');
+        $targetB = $this->identity('cross-target-b');
+        $service->assignExact(new AssignExactCommand($sourceA, 'cross-replacement-a', null, new AuditContextDTO()));
+        $service->changeExact(new \Maatify\Slug\Command\ChangeExactCommand($sourceA, 'cross-moved-a', 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($targetA, 'cross-target-a', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($targetA, 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($sourceB, 'cross-replacement-b', null, new AuditContextDTO()));
+        $service->changeExact(new \Maatify\Slug\Command\ChangeExactCommand($sourceB, 'cross-moved-b', 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($targetB, 'cross-target-b', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($targetB, 1, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['current-transfer', 'cross-source-b', 'cross-target-b', 'cross-moved-b', '2', '2', 'EXACT', 'cross-replacement-a'],
+            ['current-transfer', 'cross-source-a', 'cross-target-a', 'cross-moved-a', '2', '2', 'EXACT', 'cross-replacement-b'],
+        ]);
+
+        self::assertCount(2, $results);
+        foreach ($results as $result) {
+            self::assertSame('ERR', $result['status']);
+            self::assertSame(SlugAlreadyClaimedException::class, $result['class']);
+        }
+        self::assertSame(4, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-source-a']));
+        self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-source-b']));
+        self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-target-a']));
+        self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-target-b']));
+    }
+
+    public function testGeneratedCurrentReplacementAndEarlyCandidateWriterPreserveSequence(): void
+    {
+        $this->assertWorkersAvailable();
+        $service = $this->service();
+        $source = $this->identity('generated-current-source');
+        $target = $this->identity('generated-current-target');
+        $competitor = $this->identity('generated-current-writer');
+        $service->assignExact(new AssignExactCommand($source, 'generated-moved', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($target, 'generated-target', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($target, 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($competitor, 'generated-writer-main', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($competitor, 1, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['current-transfer', 'generated-current-source', 'generated-current-target', 'generated-moved', '1', '2', 'GENERATED', 'generated-moved'],
+            ['claim', 'generated-current-writer', '', 'generated-moved-2', '2', '0'],
+        ]);
+        $transferResults = array_values(array_filter($results, static fn(array $result): bool => $result['operation'] === 'TRANSFER'));
+        $writerResults = array_values(array_filter($results, static fn(array $result): bool => $result['operation'] === 'CLAIM' || ($result['status'] === 'ERR' && $result['class'] === SlugAlreadyClaimedException::class)));
+
+        self::assertCount(1, $transferResults);
+        self::assertSame('OK', $transferResults[0]['status']);
+        self::assertCount(1, $writerResults);
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved', 'entity_key' => 'generated-current-source']));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved', 'entity_key' => 'generated-current-target']));
+        if ($writerResults[0]['status'] === 'OK') {
+            self::assertSame('CLAIM', $writerResults[0]['operation']);
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved-2', 'entity_key' => 'generated-current-writer']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved-3', 'entity_key' => 'generated-current-source']));
+            self::assertSame(3, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        } else {
+            self::assertSame(SlugAlreadyClaimedException::class, $writerResults[0]['class']);
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved-2', 'entity_key' => 'generated-current-source']));
+            self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'generated-moved-3']));
+            self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        }
+    }
+
     private function assertWorkersAvailable(): void
     {
         if (! function_exists('proc_open')) {
@@ -160,8 +276,8 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
             $parts = explode("\t", trim($line));
             $results[] = [
                 'status' => $parts[0],
-                'operation' => $parts[1] ?? '',
-                'class' => $parts[1] ?? '',
+                'operation' => $parts[0] === 'OK' ? ($parts[1] ?? '') : '',
+                'class' => $parts[0] === 'ERR' ? ($parts[1] ?? '') : '',
             ];
             stream_set_blocking($pipes[2], false);
             $diagnostic = stream_get_contents($pipes[2]);

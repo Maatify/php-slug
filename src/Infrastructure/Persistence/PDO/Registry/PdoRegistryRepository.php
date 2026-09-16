@@ -235,6 +235,56 @@ final readonly class PdoRegistryRepository
         return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $rows);
     }
 
+    /**
+     * Read one deterministic Registry key range and, when requested, retain
+     * its row/gap locks for the remainder of the enclosing transaction.
+     *
+     * The range is intentionally scoped to one Scope. Callers must include
+     * every existing participant key and every candidate key before mutation;
+     * the binary Scope/slug index then acquires the complete range in
+     * (scope_id, slug, id) order, including absent candidate gaps.
+     *
+     * @return list<RegistryClaimRecord>
+     */
+    public function findClaimsInScopeSlugRange(
+        int $scopeId,
+        string $minimumSlug,
+        string $maximumSlug,
+        bool $forUpdate = false,
+    ): array {
+        if ($scopeId < 0) {
+            throw new SlugPersistenceInvariantException('Scope id cannot be negative.');
+        }
+        if ($minimumSlug === '' || $maximumSlug === '') {
+            throw new SlugPersistenceInvariantException('Registry slug range bounds must be non-empty.');
+        }
+        if (strcmp($minimumSlug, $maximumSlug) > 0) {
+            throw new SlugPersistenceInvariantException('Registry slug range bounds must be ordered.');
+        }
+
+        $suffix = $forUpdate ? ' FOR UPDATE' : '';
+        $statement = $this->pdo->prepare(
+            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at, '
+            . 's.namespace, s.locale_key, s.context_key, s.profile_key, b.entity_type, b.entity_key '
+            . 'FROM maa_slug_registry r '
+            . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
+            . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id '
+            . 'WHERE r.scope_id = :scope_id AND r.slug >= :minimum_slug AND r.slug <= :maximum_slug '
+            . 'ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC' . $suffix,
+        );
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the Registry slug range lookup.');
+        }
+        $statement->execute([
+            'scope_id' => $scopeId,
+            'minimum_slug' => $minimumSlug,
+            'maximum_slug' => $maximumSlug,
+        ]);
+        $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
+
+        return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $rows);
+    }
+
     public function insertClaim(int $scopeId, int $bindingId, Slug $slug, RegistryRoleEnum $role): RegistryClaimRecord
     {
         $now = $this->timestamp();
