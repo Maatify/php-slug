@@ -9,6 +9,7 @@ use DateTimeZone;
 use Maatify\SharedCommon\Contracts\ClockInterface;
 use Maatify\Slug\Command\AddAliasCommand;
 use Maatify\Slug\Command\ChangeExactCommand;
+use Maatify\Slug\Command\ChangeGeneratedCommand;
 use Maatify\Slug\Contract\ReservedSlugPolicyInterface;
 use Maatify\Slug\DTO\AuditContextDTO;
 use Maatify\Slug\DTO\BindingIdentityDTO;
@@ -80,6 +81,12 @@ try {
     if ($mode === 'alias') {
         $result = $service->addAlias(new AddAliasCommand($identity, $slug, 1, new AuditContextDTO()));
         echo "OK\tALIAS\t" . $result->revision . "\n";
+    } elseif ($mode === 'generated') {
+        $result = $service->changeGenerated(new ChangeGeneratedCommand($identity, $slug, 1, new AuditContextDTO()));
+        if ($result->currentSlug === null) {
+            throw new \RuntimeException('Lifecycle generated change returned no current slug.');
+        }
+        echo "OK\t" . $result->currentSlug->value . "\t" . $result->revision . "\n";
     } else {
         $result = $service->changeExact(new ChangeExactCommand($identity, $slug, 1, new AuditContextDTO()));
         if ($result->currentSlug === null) {

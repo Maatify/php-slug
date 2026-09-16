@@ -229,9 +229,12 @@ final class SlugLifecycleService
             $this->assertRevision($binding, $expectedRevision);
             $this->assertCurrentBearingBinding($binding);
             $scopeId = $this->scopeId($claims);
+            $current = $this->currentClaim($claims);
+            $currentDto = $current->toDto($this->profiles);
             $selectedSlug = null;
             $selectedClaim = null;
             $action = 'new';
+            $currentDemoted = false;
             foreach ($candidateList as $candidate) {
                 $same = $this->claimInRecords($claims, $candidate);
                 if ($same !== null) {
@@ -242,6 +245,10 @@ final class SlugLifecycleService
                         break;
                     }
                     if ($same->role === RegistryRoleEnum::HISTORICAL_CANONICAL) {
+                        if (! $currentDemoted) {
+                            $this->registry->updateClaimRole($current->id, RegistryRoleEnum::HISTORICAL_CANONICAL);
+                            $currentDemoted = true;
+                        }
                         $selectedClaim = $same;
                         $selectedSlug = $candidate;
                         $action = 'restore';
@@ -262,8 +269,12 @@ final class SlugLifecycleService
                     }
                     continue;
                 }
+                if (! $currentDemoted) {
+                    $this->registry->updateClaimRole($current->id, RegistryRoleEnum::HISTORICAL_CANONICAL);
+                    $currentDemoted = true;
+                }
                 try {
-                    $selectedClaim = $this->registry->insertClaim($scopeId, $binding->id, $candidate, RegistryRoleEnum::HISTORICAL_CANONICAL);
+                    $selectedClaim = $this->registry->insertClaim($scopeId, $binding->id, $candidate, RegistryRoleEnum::CURRENT_CANONICAL);
                 } catch (PDOException $exception) {
                     if (! $this->duplicate($exception, 'uk_registry_scope_slug')) {
                         throw $exception;
@@ -279,8 +290,6 @@ final class SlugLifecycleService
             if ($selectedSlug === null) {
                 throw new SlugAllocationExhaustedException('All generated slug candidates are unavailable.');
             }
-            $current = $this->currentClaim($claims);
-            $currentDto = $current->toDto($this->profiles);
             if ($action === 'noop') {
                 $after = $this->requiredBinding($identity, true);
                 return $this->finishMutation($operation, $reservation, $binding, $after, $this->claimsDto($binding->id, true), $currentDto->slug, $currentDto->slug, ChangeTypeEnum::CHANGED, []);
@@ -290,15 +299,12 @@ final class SlugLifecycleService
                 if ($selectedClaim === null) {
                     throw new SlugPersistenceInvariantException('Historical change target disappeared before mutation.');
                 }
-                $this->registry->updateClaimRole($current->id, RegistryRoleEnum::HISTORICAL_CANONICAL);
                 $this->registry->updateClaimRole($selectedClaim->id, RegistryRoleEnum::CURRENT_CANONICAL);
                 $selectedDto = $selectedClaim->toDto($this->profiles);
             } else {
                 if ($selectedClaim === null) {
-                    throw new SlugPersistenceInvariantException('New change claim was not retained before mutation.');
+                    throw new SlugPersistenceInvariantException('New change claim was not inserted as current.');
                 }
-                $this->registry->updateClaimRole($current->id, RegistryRoleEnum::HISTORICAL_CANONICAL);
-                $selectedClaim = $this->registry->updateClaimRole($selectedClaim->id, RegistryRoleEnum::CURRENT_CANONICAL);
                 $selectedDto = $selectedClaim->toDto($this->profiles);
             }
             $events = $this->appendEvents($binding->id, $binding->state->historySequence, [$this->claimEvent($eventType, $identity, $selectedDto->slug, $currentDto->slug, RegistryRoleEnum::CURRENT_CANONICAL, RegistryRoleEnum::CURRENT_CANONICAL, null, null, $reservation, $audit)]);
@@ -737,6 +743,8 @@ final class SlugLifecycleService
             $replacement = null;
             $replacementEvent = null;
             if ($originalRole === RegistryRoleEnum::CURRENT_CANONICAL) {
+                $current = $this->currentClaim($sourceClaims);
+                $this->registry->updateClaimRole($current->id, RegistryRoleEnum::HISTORICAL_CANONICAL);
                 [$replacement, $replacementEvent] = $this->prepareTransferReplacement(
                     $command,
                     $source,
@@ -746,8 +754,6 @@ final class SlugLifecycleService
                     $transferredSlug,
                     $reservation,
                 );
-                $current = $this->currentClaim($sourceClaims);
-                $this->registry->updateClaimRole($current->id, RegistryRoleEnum::HISTORICAL_CANONICAL);
                 if ($replacement['kind'] === 'RESTORED') {
                     if ($replacement['claim'] === null) {
                         throw new SlugPersistenceInvariantException('Historical replacement claim disappeared before transfer.');
@@ -755,9 +761,8 @@ final class SlugLifecycleService
                     $replacement['claim'] = $this->registry->updateClaimRole($replacement['claim']->id, RegistryRoleEnum::CURRENT_CANONICAL);
                 } else {
                     if ($replacement['claim'] === null) {
-                        throw new SlugPersistenceInvariantException('New replacement claim disappeared before transfer.');
+                        throw new SlugPersistenceInvariantException('New replacement claim was not inserted as current.');
                     }
-                    $replacement['claim'] = $this->registry->updateClaimRole($replacement['claim']->id, RegistryRoleEnum::CURRENT_CANONICAL);
                 }
             }
 
@@ -1342,6 +1347,10 @@ final class SlugLifecycleService
     }
 
     /**
+     * The source current claim has already been demoted by the caller. A new
+     * replacement is inserted directly as CURRENT_CANONICAL here so a
+     * uniqueness race never creates a synthetic historical row.
+     *
      * @param list<RegistryClaimRecord> $sourceClaims
      * @param list<RegistryClaimRecord> $lockedClaims
      * @param list<Slug> $candidates
@@ -1360,7 +1369,6 @@ final class SlugLifecycleService
         if ($intent === null) {
             throw new SlugTransferReplacementConflictException('Current transfer requires a replacement intent.');
         }
-        $scopeId = $this->scopeId($sourceClaims);
         $selection = null;
         foreach ($candidates as $candidate) {
             if ($candidate->value === $moved->value) {
@@ -1394,7 +1402,7 @@ final class SlugLifecycleService
                 continue;
             }
             try {
-                $newClaim = $this->registry->insertClaim($scopeId, $source->id, $candidate, RegistryRoleEnum::HISTORICAL_CANONICAL);
+                $newClaim = $this->registry->insertClaim($this->scopeId($sourceClaims), $source->id, $candidate, RegistryRoleEnum::CURRENT_CANONICAL);
             } catch (PDOException $exception) {
                 if (! $this->duplicate($exception, 'uk_registry_scope_slug')) {
                     throw $exception;

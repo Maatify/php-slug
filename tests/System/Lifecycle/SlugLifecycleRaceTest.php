@@ -101,6 +101,57 @@ final class SlugLifecycleRaceTest extends MySqlIntegrationTestCase
         self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
     }
 
+    public function testConcurrentExactChangesLeaveNoFailedCandidateHistory(): void
+    {
+        self::assertTrue(function_exists('proc_open'), 'WU-05 real lifecycle concurrency evidence requires proc_open.');
+        $service = $this->service();
+        $service->assignExact(new AssignExactCommand($this->identity('exact-race-a'), 'exact-old-a', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($this->identity('exact-race-b'), 'exact-old-b', null, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['exact-race-a', 'exact-race-target', 'change', 'READ COMMITTED'],
+            ['exact-race-b', 'exact-race-target', 'change', 'READ COMMITTED'],
+        ]);
+
+        self::assertCount(1, array_filter($results, static fn(array $result): bool => $result['status'] === 'OK'));
+        $failures = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'ERR'));
+        self::assertCount(1, $failures);
+        self::assertSame(SlugAlreadyClaimedException::class, $failures[0]['class']);
+        self::assertSame(3, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND claim_role = :role', ['slug' => 'exact-race-target', 'role' => 'CURRENT_CANONICAL']));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND claim_role = :role', ['slug' => 'exact-race-target', 'role' => 'HISTORICAL_CANONICAL']));
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE claim_role = :role', ['role' => 'CURRENT_CANONICAL']));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug IN (:first, :second) AND claim_role = :role', ['first' => 'exact-old-a', 'second' => 'exact-old-b', 'role' => 'CURRENT_CANONICAL']));
+        self::assertSame(3, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_bindings WHERE revision = 1'));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_bindings WHERE revision = 2'));
+    }
+
+    public function testConcurrentGeneratedChangesSkipLostBaseWithoutSyntheticHistory(): void
+    {
+        self::assertTrue(function_exists('proc_open'), 'WU-05 real lifecycle concurrency evidence requires proc_open.');
+        $service = $this->service();
+        $service->assignExact(new AssignExactCommand($this->identity('generated-race-a'), 'generated-old-a', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($this->identity('generated-race-b'), 'generated-old-b', null, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['generated-race-a', 'generated-race', 'generated', 'READ COMMITTED'],
+            ['generated-race-b', 'generated-race', 'generated', 'READ COMMITTED'],
+        ]);
+
+        self::assertCount(2, array_filter($results, static fn(array $result): bool => $result['status'] === 'OK'));
+        $values = array_map(static fn(array $result): string => $result['value'], $results);
+        sort($values);
+        self::assertSame(['generated-race', 'generated-race-2'], $values);
+        self::assertSame(4, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND claim_role = :role', ['slug' => 'generated-race', 'role' => 'CURRENT_CANONICAL']));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND claim_role = :role', ['slug' => 'generated-race-2', 'role' => 'CURRENT_CANONICAL']));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug IN (:first, :second) AND claim_role = :role', ['first' => 'generated-race', 'second' => 'generated-race-2', 'role' => 'HISTORICAL_CANONICAL']));
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug IN (:first, :second) AND claim_role = :role', ['first' => 'generated-old-a', 'second' => 'generated-old-b', 'role' => 'HISTORICAL_CANONICAL']));
+        self::assertSame(4, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_bindings WHERE revision = 2'));
+    }
+
     public function testCrossBindingAliasAddsDoNotInvertRetainedAndCandidateClaims(): void
     {
         self::assertTrue(function_exists('proc_open'), 'WU-05 real lifecycle concurrency evidence requires proc_open.');
