@@ -54,13 +54,16 @@ final readonly class RegistryClaimCoordinator
     ): OwnershipClaimResult {
         $profile = $this->profiles->get($binding->scopeProfile->expectedProfileKey);
         $slug = $profile->canonicalizeClaim($slugCandidate)->slug;
-        $scope = $this->registry->ensureScope(
-            $binding->scopeProfile->scope,
-            $binding->scopeProfile->expectedProfileKey,
-        );
         $this->registry->assertInstalledSchemaSupported();
 
-        return $this->transactions->run(fn(): OwnershipClaimResult => $this->claimExactInsideTransaction($binding, $scope, $slug, $expectedRevision));
+        return $this->transactions->run(function () use ($binding, $slug, $expectedRevision): OwnershipClaimResult {
+            $scope = $this->registry->ensureScope(
+                $binding->scopeProfile->scope,
+                $binding->scopeProfile->expectedProfileKey,
+            );
+
+            return $this->claimExactInsideTransaction($binding, $scope, $slug, $expectedRevision);
+        });
     }
 
     public function allocateGenerated(
@@ -70,15 +73,16 @@ final readonly class RegistryClaimCoordinator
     ): OwnershipClaimResult {
         $profile = $this->profiles->get($binding->scopeProfile->expectedProfileKey);
         $candidates = $this->candidates->fromSource($profile, $sourceText);
-        $scope = $this->registry->ensureScope(
-            $binding->scopeProfile->scope,
-            $binding->scopeProfile->expectedProfileKey,
-        );
         $this->registry->assertInstalledSchemaSupported();
 
-        return $this->transactions->run(
-            fn(): OwnershipClaimResult => $this->allocateInsideTransaction($binding, $scope, $candidates, $expectedRevision),
-        );
+        return $this->transactions->run(function () use ($binding, $candidates, $expectedRevision): OwnershipClaimResult {
+            $scope = $this->registry->ensureScope(
+                $binding->scopeProfile->scope,
+                $binding->scopeProfile->expectedProfileKey,
+            );
+
+            return $this->allocateInsideTransaction($binding, $scope, $candidates, $expectedRevision);
+        });
     }
 
     private function claimExactInsideTransaction(

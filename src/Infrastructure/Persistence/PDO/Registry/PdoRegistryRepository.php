@@ -86,7 +86,7 @@ final readonly class PdoRegistryRepository
     {
         $row = $this->findBindingRow($scope->id, $entity, true);
         if ($row !== null) {
-            return $this->bindingFromRow($row, false);
+            return $this->validatedBindingRecord($scope, $entity, false);
         }
 
         $now = $this->timestamp();
@@ -122,7 +122,7 @@ final readonly class PdoRegistryRepository
             throw new SlugPersistenceInvariantException('Binding disappeared during Registry bootstrap.');
         }
 
-        return $this->bindingFromRow($row, $created);
+        return $this->validatedBindingRecord($scope, $entity, $created);
     }
 
     public function findClaimByScopeSlug(int $scopeId, Slug $slug, bool $forUpdate = false): ?RegistryClaimRecord
@@ -268,20 +268,23 @@ final readonly class PdoRegistryRepository
         return PdoRowHydrator::one($statement->fetch(PDO::FETCH_ASSOC));
     }
 
-    /** @param array<string, mixed> $row */
-    private function bindingFromRow(array $row, bool $created): RegistryBindingRecord
+    private function validatedBindingRecord(ScopeDTO $scope, EntityReference $entity, bool $created): RegistryBindingRecord
     {
-        $status = BindingStatusEnum::tryFrom(PdoRowHydrator::string($row, 'status'));
-        if ($status === null) {
-            throw new SlugPersistenceInvariantException('Binding contains an unknown status.');
+        $binding = $this->scopes->findBinding(
+            new ScopeProfileRequestDTO($scope->scope, $scope->profileKey),
+            $entity,
+            true,
+        );
+        if ($binding === null) {
+            throw new SlugPersistenceInvariantException('Binding disappeared during invariant validation.');
         }
 
         return new RegistryBindingRecord(
-            PdoRowHydrator::nonNegativeInt($row, 'id'),
-            PdoRowHydrator::nonNegativeInt($row, 'scope_id'),
-            $status,
-            $row['current_registry_id'] === null ? null : PdoRowHydrator::nonNegativeInt($row, 'current_registry_id'),
-            PdoRowHydrator::nonNegativeInt($row, 'revision'),
+            $binding->id,
+            $scope->id,
+            $binding->state->status,
+            $binding->currentClaim?->id,
+            $binding->state->revision,
             $created,
         );
     }
