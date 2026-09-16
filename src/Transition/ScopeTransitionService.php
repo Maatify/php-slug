@@ -100,16 +100,53 @@ final readonly class ScopeTransitionService
             $sourceScope = $lockedScopes[$this->scopeKey($command->source->scopeProfile)];
             $targetScope = $lockedScopes[$this->scopeKey($command->targetScope)];
 
-            $sourceRecord = $this->registry->findBindingRecord($sourceScope, $command->source->entity, true);
-            if ($sourceRecord === null) {
-                throw new SlugNotFoundException('The transition source Binding was not found.');
+            /** @var list<array{is_source: bool, scope: \Maatify\Slug\DTO\ScopeDTO, entity: \Maatify\Slug\Identity\EntityReference, existing: ?RegistryBindingRecord}> $bindingPlan */
+            $bindingPlan = [
+                ['is_source' => true, 'scope' => $sourceScope, 'entity' => $command->source->entity, 'existing' => null],
+                ['is_source' => false, 'scope' => $targetScope, 'entity' => $command->source->entity, 'existing' => null],
+            ];
+            foreach ($bindingPlan as $index => $participant) {
+                $bindingPlan[$index]['existing'] = $this->registry->findBindingRecord($participant['scope'], $participant['entity']);
             }
-            $targetRecord = $this->registry->findBindingRecord($targetScope, $command->source->entity, true);
-            $targetWasPresent = $targetRecord !== null;
+            usort($bindingPlan, static function (array $left, array $right): int {
+                $leftId = $left['existing'] === null ? PHP_INT_MAX : $left['existing']->id;
+                $rightId = $right['existing'] === null ? PHP_INT_MAX : $right['existing']->id;
+
+                return $left['scope']->id <=> $right['scope']->id
+                    ?: strcmp($left['entity']->entityType, $right['entity']->entityType)
+                    ?: strcmp($left['entity']->entityKey, $right['entity']->entityKey)
+                    ?: ($leftId <=> $rightId);
+            });
+
+            $sourceRecord = null;
+            $targetRecord = null;
+            $targetWasPresent = false;
             $targetCreated = false;
-            if ($targetRecord === null) {
-                $targetRecord = $this->registry->lockOrCreateBindingRecord($targetScope, $command->source->entity);
-                $targetCreated = $targetRecord->createdInCurrentTransaction;
+            foreach ($bindingPlan as $participant) {
+                if ($participant['is_source']) {
+                    if ($participant['existing'] === null) {
+                        throw new SlugNotFoundException('The transition source Binding was not found.');
+                    }
+                    $sourceRecord = $this->registry->findBindingRecord($participant['scope'], $participant['entity'], true);
+                    if ($sourceRecord === null) {
+                        throw new SlugPersistenceInvariantException('Transition source Binding disappeared before lock.');
+                    }
+                    continue;
+                }
+
+                $targetWasPresent = $participant['existing'] !== null;
+                if ($participant['existing'] === null) {
+                    $targetRecord = $this->registry->lockOrCreateBindingRecord($participant['scope'], $participant['entity']);
+                    $targetCreated = $targetRecord->createdInCurrentTransaction;
+                } else {
+                    $targetRecord = $this->registry->findBindingRecord($participant['scope'], $participant['entity'], true);
+                    if ($targetRecord === null) {
+                        throw new SlugPersistenceInvariantException('Transition target Binding disappeared before lock.');
+                    }
+                }
+            }
+            if ($sourceRecord === null || $targetRecord === null) {
+                throw new SlugPersistenceInvariantException('Transition Binding lock plan did not produce both participants.');
             }
             $targetIdentity = new BindingIdentityDTO($command->targetScope, $command->source->entity);
             $sourceBefore = $this->requiredBinding($command->source, false);

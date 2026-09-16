@@ -72,6 +72,9 @@ final readonly class SlugManagementQuery implements SlugManagementQueryInterface
     public function inspectRegistry(RegistryCriteria $criteria): PageResult
     {
         $this->capabilities->assertInstalledSchemaSupported();
+        if ($criteria->binding !== null && ! $this->sameScopeProfile($criteria->scopeProfile, $criteria->binding->scopeProfile)) {
+            throw new SlugScopeProfileMismatchException('Registry criteria Binding does not belong to the requested Scope.');
+        }
         $scope = $this->registry->findScope($criteria->scopeProfile->scope, $criteria->scopeProfile->expectedProfileKey);
         $binding = $criteria->binding === null ? null : $this->registry->binding($criteria->binding);
         if ($binding !== null && ! $this->sameScopeProfile($criteria->scopeProfile, $binding->identity->scopeProfile)) {

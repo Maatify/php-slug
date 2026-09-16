@@ -157,6 +157,19 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
         $engine->inspectRegistry(new RegistryCriteria($requestedScope, new PageRequest(), $binding));
     }
 
+    public function testRegistryCriteriaRejectsAbsentBindingFromAnotherScopeBeforeLookup(): void
+    {
+        $engine = $this->engine();
+        $absentBinding = new BindingIdentityDTO(
+            new ScopeProfileRequestDTO(new SlugScope('absent-binding-scope', null, null), new SlugProfileKey('ascii-v1')),
+            new EntityReference('product', 'absent-binding'),
+        );
+        $requestedScope = new ScopeProfileRequestDTO(new SlugScope('requested-scope', null, null), new SlugProfileKey('ascii-v1'));
+
+        $this->expectException(SlugScopeProfileMismatchException::class);
+        $engine->inspectRegistry(new RegistryCriteria($requestedScope, new PageRequest(), $absentBinding));
+    }
+
     public function testManagementSortAndPageConfigurationUsesSharedPaginator(): void
     {
         $engine = $this->engine();

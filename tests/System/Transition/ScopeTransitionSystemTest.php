@@ -120,8 +120,12 @@ final class ScopeTransitionSystemTest extends MySqlIntegrationTestCase
     {
         self::assertTrue(function_exists('proc_open'), 'WU-06 real transition concurrency requires proc_open.');
         $engine = $this->engine();
+        $engine->ensureScope($this->scope('transition-race-target'));
         $engine->assignExact(new AssignExactCommand($this->identityInScope('transition-race-source-a', 'shared-target'), 'source-a', null, new AuditContextDTO()));
         $engine->assignExact(new AssignExactCommand($this->identityInScope('transition-race-source-b', 'shared-target'), 'source-b', null, new AuditContextDTO()));
+
+        self::assertLessThan($this->scopeId('transition-race-source-a'), $this->scopeId('transition-race-target'));
+        self::assertLessThan($this->scopeId('transition-race-source-b'), $this->scopeId('transition-race-target'));
 
         $results = $this->runWorkers([
             ['transition-race-source-a', 'transition-race-target', 'shared-target', 'exact', 'shared-target-slug', '1', ''],
@@ -289,6 +293,14 @@ final class ScopeTransitionSystemTest extends MySqlIntegrationTestCase
     {
         $statement = $this->pdo->query($sql);
         self::assertNotFalse($statement);
+        return (int) $statement->fetchColumn();
+    }
+
+    private function scopeId(string $namespace): int
+    {
+        $statement = $this->pdo->prepare('SELECT id FROM maa_slug_scopes WHERE namespace = :namespace');
+        self::assertNotFalse($statement);
+        $statement->execute(['namespace' => $namespace]);
         return (int) $statement->fetchColumn();
     }
 
