@@ -6,6 +6,4 @@ namespace Maatify\Slug\Exception;
 
 use Maatify\Exceptions\Exception\NotFound\ResourceNotFoundMaatifyException;
 
-abstract class SlugNotFoundBaseException extends ResourceNotFoundMaatifyException implements SlugDomainExceptionInterface
-{
-}
+abstract class SlugNotFoundBaseException extends ResourceNotFoundMaatifyException implements SlugDomainExceptionInterface {}

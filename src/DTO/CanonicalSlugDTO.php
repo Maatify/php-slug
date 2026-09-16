@@ -14,8 +14,7 @@ final readonly class CanonicalSlugDTO implements JsonSerializable
         public SlugProfileKey $profileKey,
         public string $input,
         public Slug $slug,
-    ) {
-    }
+    ) {}
 
     /** @return array<string, mixed> */
     public function jsonSerialize(): array

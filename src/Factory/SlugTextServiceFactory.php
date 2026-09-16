@@ -15,7 +15,5 @@ final class SlugTextServiceFactory
         return new SlugTextService($profiles);
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

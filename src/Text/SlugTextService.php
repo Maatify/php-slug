@@ -13,9 +13,7 @@ use Maatify\Slug\Profile\Contracts\SlugProfileRegistryInterface;
 
 final class SlugTextService implements SlugTextServiceInterface
 {
-    public function __construct(private SlugProfileRegistryInterface $profiles)
-    {
-    }
+    public function __construct(private SlugProfileRegistryInterface $profiles) {}
 
     public function generateFromSource(SlugProfileKey $profile, string $source): GeneratedSlugDTO
     {

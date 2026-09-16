@@ -72,7 +72,7 @@ final class RegistryAndFactoryTest extends TestCase
         $textFactory = new ReflectionMethod(SlugTextServiceFactory::class, 'create');
         self::assertCount(0, $builtInFactory->getParameters());
         self::assertSame(SlugProfileRegistryInterface::class, $this->typeName($textFactory->getParameters()[0]));
-        self::assertNotContains(\PDO::class, array_map(fn (ReflectionParameter $parameter): ?string => $this->typeName($parameter), $textFactory->getParameters()));
+        self::assertNotContains(\PDO::class, array_map(fn(ReflectionParameter $parameter): ?string => $this->typeName($parameter), $textFactory->getParameters()));
         self::assertInstanceOf(SlugTextService::class, SlugTextServiceFactory::create(new SlugProfileRegistry()));
     }
 

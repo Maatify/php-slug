@@ -101,11 +101,11 @@ final readonly class AtomicTransferResultDTO implements JsonSerializable
 
         $sourceOut = array_values(array_filter(
             $sourceEvents,
-            static fn (HistoryEventDTO $event): bool => $event->eventType->value === 'OWNERSHIP_TRANSFERRED_OUT',
+            static fn(HistoryEventDTO $event): bool => $event->eventType->value === 'OWNERSHIP_TRANSFERRED_OUT',
         ));
         $targetIn = array_values(array_filter(
             $targetEvents,
-            static fn (HistoryEventDTO $event): bool => $event->eventType->value === 'OWNERSHIP_TRANSFERRED_IN',
+            static fn(HistoryEventDTO $event): bool => $event->eventType->value === 'OWNERSHIP_TRANSFERRED_IN',
         ));
         if (count($sourceOut) !== 1 || count($targetIn) !== 1) {
             throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('Transfer must contain one source out event and one target in event.');

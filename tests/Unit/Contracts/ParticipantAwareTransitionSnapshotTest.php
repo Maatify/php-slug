@@ -264,8 +264,7 @@ final class DifferentialFixtureProfile implements SlugProfileInterface
     public function __construct(
         private SlugProfileKey $profileKey,
         private string $prefix,
-    ) {
-    }
+    ) {}
 
     public function key(): SlugProfileKey
     {

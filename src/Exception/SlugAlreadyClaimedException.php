@@ -4,6 +4,4 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Exception;
 
-final class SlugAlreadyClaimedException extends SlugConflictException
-{
-}
+final class SlugAlreadyClaimedException extends SlugConflictException {}

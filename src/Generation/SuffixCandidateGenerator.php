@@ -29,7 +29,5 @@ final class SuffixCandidateGenerator
         return $candidates;
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

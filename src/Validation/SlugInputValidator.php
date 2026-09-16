@@ -35,7 +35,5 @@ final class SlugInputValidator
         return mb_strlen($value, 'UTF-8');
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

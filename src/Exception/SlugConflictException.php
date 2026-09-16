@@ -6,6 +6,4 @@ namespace Maatify\Slug\Exception;
 
 use Maatify\Exceptions\Exception\Conflict\GenericConflictMaatifyException;
 
-abstract class SlugConflictException extends GenericConflictMaatifyException implements SlugDomainExceptionInterface
-{
-}
+abstract class SlugConflictException extends GenericConflictMaatifyException implements SlugDomainExceptionInterface {}

@@ -109,7 +109,5 @@ final class IdentityValidator
         }
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

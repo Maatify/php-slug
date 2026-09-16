@@ -11,6 +11,5 @@ final readonly class ResolutionCriteria
     public function __construct(
         public ScopeProfileRequestDTO $scopeProfile,
         public string $decodedSegment,
-    ) {
-    }
+    ) {}
 }

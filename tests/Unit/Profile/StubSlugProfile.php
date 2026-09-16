@@ -13,9 +13,7 @@ use Maatify\Slug\Profile\Contracts\SlugProfileInterface;
 
 final class StubSlugProfile implements SlugProfileInterface
 {
-    public function __construct(private SlugProfileKey $profileKey)
-    {
-    }
+    public function __construct(private SlugProfileKey $profileKey) {}
 
     public function key(): SlugProfileKey
     {
@@ -37,7 +35,5 @@ final class StubSlugProfile implements SlugProfileInterface
         throw new LogicException('Stub profile lookup canonicalization is not used.');
     }
 
-    public function assertCanonicalSlug(string $candidate): void
-    {
-    }
+    public function assertCanonicalSlug(string $candidate): void {}
 }

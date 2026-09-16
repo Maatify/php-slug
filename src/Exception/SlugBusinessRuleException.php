@@ -6,6 +6,4 @@ namespace Maatify\Slug\Exception;
 
 use Maatify\Exceptions\Exception\BusinessRule\BusinessRuleMaatifyException;
 
-abstract class SlugBusinessRuleException extends BusinessRuleMaatifyException implements SlugDomainExceptionInterface
-{
-}
+abstract class SlugBusinessRuleException extends BusinessRuleMaatifyException implements SlugDomainExceptionInterface {}

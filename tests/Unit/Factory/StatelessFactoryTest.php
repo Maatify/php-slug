@@ -24,7 +24,7 @@ final class StatelessFactoryTest extends TestCase
         self::assertCount(1, $textMethod->getParameters());
         self::assertSame(SlugProfileRegistryInterface::class, $this->typeName($textMethod->getParameters()[0]));
         self::assertSame(SlugTextServiceInterface::class, $this->returnTypeName($textMethod));
-        self::assertNotContains(\PDO::class, array_map(fn (ReflectionParameter $parameter): ?string => $this->typeName($parameter), $textMethod->getParameters()));
+        self::assertNotContains(\PDO::class, array_map(fn(ReflectionParameter $parameter): ?string => $this->typeName($parameter), $textMethod->getParameters()));
     }
 
     private function typeName(ReflectionParameter $parameter): ?string

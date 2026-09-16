@@ -9,9 +9,7 @@ use Maatify\Slug\Profile\Contracts\SlugProfileInterface;
 
 final readonly class Slug implements JsonSerializable
 {
-    private function __construct(public string $value)
-    {
-    }
+    private function __construct(public string $value) {}
 
     public static function fromProfile(SlugProfileInterface $profile, string $canonicalValue): self
     {

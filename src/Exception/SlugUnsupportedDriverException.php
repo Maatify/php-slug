@@ -4,6 +4,4 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Exception;
 
-final class SlugUnsupportedDriverException extends SlugUnsupportedException
-{
-}
+final class SlugUnsupportedDriverException extends SlugUnsupportedException {}

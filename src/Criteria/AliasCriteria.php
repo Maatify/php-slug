@@ -12,6 +12,5 @@ final readonly class AliasCriteria
     public function __construct(
         public BindingIdentityDTO $binding,
         public PageRequest $pageRequest,
-    ) {
-    }
+    ) {}
 }

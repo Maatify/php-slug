@@ -6,6 +6,4 @@ namespace Maatify\Slug\Exception;
 
 use Maatify\Exceptions\Exception\Unsupported\UnsupportedOperationMaatifyException;
 
-abstract class SlugUnsupportedException extends UnsupportedOperationMaatifyException implements SlugDomainExceptionInterface
-{
-}
+abstract class SlugUnsupportedException extends UnsupportedOperationMaatifyException implements SlugDomainExceptionInterface {}

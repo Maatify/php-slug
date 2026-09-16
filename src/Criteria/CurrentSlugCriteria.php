@@ -8,7 +8,5 @@ use Maatify\Slug\DTO\BindingIdentityDTO;
 
 final readonly class CurrentSlugCriteria
 {
-    public function __construct(public BindingIdentityDTO $binding)
-    {
-    }
+    public function __construct(public BindingIdentityDTO $binding) {}
 }

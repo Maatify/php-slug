@@ -4,6 +4,4 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Exception;
 
-final class SlugCannotBeGeneratedException extends SlugBusinessRuleException
-{
-}
+final class SlugCannotBeGeneratedException extends SlugBusinessRuleException {}

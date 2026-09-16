@@ -4,6 +4,4 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Exception;
 
-final class SlugInvalidArgumentException extends SlugValidationException
-{
-}
+final class SlugInvalidArgumentException extends SlugValidationException {}

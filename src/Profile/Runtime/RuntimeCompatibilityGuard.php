@@ -49,9 +49,7 @@ final class RuntimeCompatibilityGuard
         }
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 
     private static function versionPart(mixed $value): int
     {

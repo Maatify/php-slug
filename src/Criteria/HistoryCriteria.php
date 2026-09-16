@@ -14,6 +14,5 @@ final readonly class HistoryCriteria
         public BindingIdentityDTO $binding,
         public PageRequest $pageRequest,
         public ?HistoryEventTypeEnum $eventType = null,
-    ) {
-    }
+    ) {}
 }

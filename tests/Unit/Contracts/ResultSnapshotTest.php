@@ -224,8 +224,7 @@ final class ResultSnapshotTest extends TestCase
         ?int $expectedSchemaVersion = null,
         ?string $expectedOperationType = null,
         ?string $expectedOperationKey = null,
-    ): void
-    {
+    ): void {
         try {
             ResultSnapshotDecoder::decode(
                 $payload,

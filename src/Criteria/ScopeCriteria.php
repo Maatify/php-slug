@@ -8,7 +8,5 @@ use Maatify\Slug\DTO\ScopeProfileRequestDTO;
 
 final readonly class ScopeCriteria
 {
-    public function __construct(public ScopeProfileRequestDTO $scopeProfile)
-    {
-    }
+    public function __construct(public ScopeProfileRequestDTO $scopeProfile) {}
 }

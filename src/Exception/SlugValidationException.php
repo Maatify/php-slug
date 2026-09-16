@@ -6,6 +6,4 @@ namespace Maatify\Slug\Exception;
 
 use Maatify\Exceptions\Exception\Validation\InvalidArgumentMaatifyException;
 
-abstract class SlugValidationException extends InvalidArgumentMaatifyException implements SlugDomainExceptionInterface
-{
-}
+abstract class SlugValidationException extends InvalidArgumentMaatifyException implements SlugDomainExceptionInterface {}

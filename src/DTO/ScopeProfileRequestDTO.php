@@ -13,8 +13,7 @@ final readonly class ScopeProfileRequestDTO implements JsonSerializable
     public function __construct(
         public SlugScope $scope,
         public SlugProfileKey $expectedProfileKey,
-    ) {
-    }
+    ) {}
 
     /** @return array<string, mixed> */
     public function jsonSerialize(): array

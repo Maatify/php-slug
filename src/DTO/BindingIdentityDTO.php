@@ -12,8 +12,7 @@ final readonly class BindingIdentityDTO implements JsonSerializable
     public function __construct(
         public ScopeProfileRequestDTO $scopeProfile,
         public EntityReference $entity,
-    ) {
-    }
+    ) {}
 
     /** @return array<string, mixed> */
     public function jsonSerialize(): array

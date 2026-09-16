@@ -4,6 +4,4 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Exception;
 
-class SlugNotFoundException extends SlugNotFoundBaseException
-{
-}
+class SlugNotFoundException extends SlugNotFoundBaseException {}

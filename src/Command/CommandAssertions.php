@@ -29,7 +29,5 @@ final class CommandAssertions
         }
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

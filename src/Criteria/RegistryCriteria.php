@@ -16,6 +16,5 @@ final readonly class RegistryCriteria
         public PageRequest $pageRequest,
         public ?BindingIdentityDTO $binding = null,
         public ?RegistryRoleEnum $role = null,
-    ) {
-    }
+    ) {}
 }

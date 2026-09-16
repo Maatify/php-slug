@@ -14,8 +14,7 @@ final readonly class GeneratedSlugDTO implements JsonSerializable
         public SlugProfileKey $profileKey,
         public string $source,
         public Slug $slug,
-    ) {
-    }
+    ) {}
 
     /** @return array<string, mixed> */
     public function jsonSerialize(): array

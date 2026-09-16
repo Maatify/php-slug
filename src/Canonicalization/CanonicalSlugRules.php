@@ -41,7 +41,5 @@ final class CanonicalSlugRules
             && strlen($value) <= self::MAX_CODE_POINTS;
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }

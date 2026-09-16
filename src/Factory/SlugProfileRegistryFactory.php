@@ -19,7 +19,5 @@ final class SlugProfileRegistryFactory
         return $registry;
     }
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }
