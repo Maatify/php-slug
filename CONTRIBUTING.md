@@ -31,14 +31,14 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 - **Extensions:** `intl`, `mbstring`, `pdo`, `pdo_mysql`
 - **Database:** A MySQL database. The CI verification target is `8.0.36`, but the package uses standard MySQL-compatible semantics.
 
-For integration DB gates, the following environment variables are strictly required:
+For integration DB gates, the user/CI environment supplies these environment variables:
 - `SLUG_TEST_DB_HOST`
 - `SLUG_TEST_DB_PORT`
 - `SLUG_TEST_DB_NAME`
 - `SLUG_TEST_DB_USER`
 - `SLUG_TEST_DB_PASSWORD`
 
-These should be defined in a `.env.test` file. This file is local-only and must not be committed to the repository. The composite test gates and `integration-env` setups will generate or evaluate this ignored `.env.test`.
+`tools/ci/run-gate.sh` / `integration-env` then writes the ignored local `.env.test` using these variables.
 
 ## Running Tests and Quality Gates
 

@@ -75,11 +75,11 @@ $engine = SlugEngineFactory::create(
 );
 ```
 
-هذه أمثلة contract-only وليست قابلة للتشغيل في الحالة الحالية؛ لا تنشئ أي Factory اتصالًا مخفيًا أو تقرأ `.env` أو تعمل Service Locator.
+هذه أمثلة من الـ Runtime الحالي قابلة للتشغيل؛ حيث لا تنشئ أي Factory اتصالًا مخفيًا أو تقرأ `.env` أو تعمل Service Locator.
 
 ## 4. Runtime وPlatform contract لـRC1
 
-هذه القيم هي العقد المقبول للتنفيذ اللاحق، وليست دليلًا على توفرها في هذا الفرع:
+تم استيفاء المتطلبات التالية وتتوفر بشكل فعلي في المستودع الحالي:
 
 | المتطلب | القيمة |
 |---|---|
@@ -89,7 +89,7 @@ $engine = SlugEngineFactory::create(
 | Database adapter | PDO MySQL (يدعم MySQL-compatible semantics) |
 | MySQL | Server `8.0.36` كـ CI reproducibility target |
 | Runtime packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
-| Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` في `require-dev` لاحقًا |
+| Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` (متوفرة في `require-dev`) |
 
 يجب أن يستخدم التنفيذ `ext-intl` في NFC وICU lowercase/transliteration، وأن يقتصر `ext-mbstring` على code-point length. اختلاف ICU أو Unicode tuple يفشل مغلقًا بـ`SlugRuntimeCompatibilityException` قبل أي mutation؛ لا يثبت PHP `^8.4` دعم أي ICU tuple آخر.
 

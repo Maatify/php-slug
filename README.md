@@ -54,8 +54,9 @@ Composer package: `maatify/php-slug`
 **مثال على إنشاء واستخدام Stateless Factory:**
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
-$textService = SlugTextServiceFactory::createDefault($profiles);
-$slug = $textService->generateSlug($profiles->get('standard'), 'My New Article!');
+$textService = SlugTextServiceFactory::create($profiles);
+
+$generated = $textService->generateFromSource(new SlugProfileKey('ascii-v1'), 'My New Article!');
 ```
 
 **مثال على إنشاء Persisted Engine عبر `SlugEngineFactory`:**
@@ -66,8 +67,9 @@ $engine = SlugEngineFactory::create(
     $reservedPolicy,       // ReservedSlugPolicyInterface
     $clock                 // ClockInterface (UTC)
 );
-$lifecycle = $engine->getLifecycle();
-$query = $engine->getQuery();
+
+// يمكن استخدام $engine كـ facade للعمليات، مثلاً:
+$resolution = $engine->resolve($criteria);
 ```
 
 ## المعاملات والتزامن (Transactions & Concurrency)
