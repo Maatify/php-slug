@@ -129,7 +129,7 @@ final readonly class PdoSchemaVerifier
             'maa_slug_history.operation_key',
         ];
         $statement = $this->pdo->query(
-            "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATETIME_PRECISION, COLLATION_NAME, EXTRA "
+            "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE, DATETIME_PRECISION, COLLATION_NAME, EXTRA, COLUMN_COMMENT "
             . "FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'maa_slug_%'",
         );
         if ($statement === false) {
@@ -139,6 +139,10 @@ final readonly class PdoSchemaVerifier
             $table = PdoRowHydrator::string($row, 'TABLE_NAME');
             $column = PdoRowHydrator::string($row, 'COLUMN_NAME');
             $dataType = strtolower(PdoRowHydrator::string($row, 'DATA_TYPE'));
+            $comment = $row['COLUMN_COMMENT'] ?? null;
+            if (! is_string($comment) || mb_strlen(trim($comment), 'UTF-8') < 8) {
+                throw new SlugPersistenceInvariantException(sprintf('Column %s.%s must have a meaningful schema comment.', $table, $column));
+            }
             if ($dataType === 'json' || str_contains(strtolower(PdoRowHydrator::string($row, 'EXTRA')), 'generated')) {
                 throw new SlugPersistenceInvariantException('Package schema must not depend on native JSON or generated columns.');
             }

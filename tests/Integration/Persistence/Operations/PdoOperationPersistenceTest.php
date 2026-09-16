@@ -16,6 +16,7 @@ use Maatify\Slug\Infrastructure\Persistence\PDO\Scope\PdoScopeRepository;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Enum\OperationTypeEnum;
 use Maatify\Slug\Exception\SlugIdempotencyConflictException;
+use Maatify\Slug\Exception\SlugTransactionParticipationException;
 use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotMetadata;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
@@ -37,27 +38,136 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
         $fingerprint = str_repeat('b', 64);
         $operationRepository = new PdoOperationRepository($this->pdo, $this->clock(), $capabilities);
 
-        $reservation = $operationRepository->reserve(
-            $operationKey,
-            OperationTypeEnum::ASSIGN_EXACT,
-            $fingerprint,
-            'mutation',
-            1,
-            [new OperationParticipant($binding->id, 'request-42', 'SINGLE')],
+        self::assertTrue($this->pdo->beginTransaction());
+        try {
+            $reservation = $operationRepository->reserve(
+                $operationKey,
+                OperationTypeEnum::ASSIGN_EXACT,
+                $fingerprint,
+                'mutation',
+                1,
+                [new OperationParticipant($binding->id, 'request-42', 'SINGLE')],
+            );
+
+            self::assertTrue($reservation->created);
+            $fixture = ContractFixtures::mutation();
+            $snapshot = \Maatify\Slug\Contract\ResultSnapshot\ResultSnapshotEncoder::encode($fixture);
+            $snapshot = str_replace('"operation_key":null', '"operation_key":"' . $operationKey . '"', $snapshot);
+            $metadata = new ResultSnapshotMetadata('mutation', 1, OperationTypeEnum::ASSIGN_EXACT, $operationKey, $snapshot);
+            $operationRepository->commitSnapshot($reservation->operation->id, $metadata, $profiles);
+
+            $stored = $operationRepository->findByParticipant($binding->id, 'request-42');
+            self::assertNotNull($stored);
+            self::assertSame('COMMITTED', $stored->status);
+            self::assertNotNull($stored->resultSnapshot);
+            self::assertSame($operationKey, $stored->operationKey);
+            self::assertTrue($this->pdo->commit());
+        } catch (\Throwable $throwable) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $throwable;
+        }
+    }
+
+    public function testOperationReservationCannotBeUsedWithoutCallerTransaction(): void
+    {
+        $profiles = $this->profiles();
+        $scopeRepository = new PdoScopeRepository($this->pdo, $profiles, $this->clock(), new PdoCapabilityGuard($this->pdo));
+        $binding = $scopeRepository->ensureBindingPlaceholder(
+            new ScopeProfileRequestDTO(new SlugScope('catalog', null, null), new SlugProfileKey('ascii-v1')),
+            new EntityReference('product', 'transaction-required'),
         );
+        $repository = new PdoOperationRepository($this->pdo, $this->clock(), new PdoCapabilityGuard($this->pdo));
 
-        self::assertTrue($reservation->created);
-        $fixture = ContractFixtures::mutation();
-        $snapshot = \Maatify\Slug\Contract\ResultSnapshot\ResultSnapshotEncoder::encode($fixture);
-        $snapshot = str_replace('"operation_key":null', '"operation_key":"' . $operationKey . '"', $snapshot);
-        $metadata = new ResultSnapshotMetadata('mutation', 1, OperationTypeEnum::ASSIGN_EXACT, $operationKey, $snapshot);
-        $operationRepository->commitSnapshot($reservation->operation->id, $metadata, $profiles);
+        $this->expectException(SlugTransactionParticipationException::class);
+        try {
+            $repository->reserve(
+                str_repeat('a', 32),
+                OperationTypeEnum::ASSIGN_EXACT,
+                str_repeat('b', 64),
+                'mutation',
+                1,
+                [new OperationParticipant($binding->id, 'transaction-required', 'SINGLE')],
+            );
+        } finally {
+            $statement = $this->pdo->query("SELECT COUNT(*) FROM maa_slug_operations WHERE status = 'IN_PROGRESS'");
+            self::assertNotFalse($statement);
+            self::assertSame('0', (string) $statement->fetchColumn());
+        }
+    }
 
-        $stored = $operationRepository->findByParticipant($binding->id, 'request-42');
-        self::assertNotNull($stored);
-        self::assertSame('COMMITTED', $stored->status);
-        self::assertNotNull($stored->resultSnapshot);
-        self::assertSame($operationKey, $stored->operationKey);
+    public function testReservationAndSnapshotAreInvisibleUntilFinalCallerCommit(): void
+    {
+        $profiles = $this->profiles();
+        $scopeRepository = new PdoScopeRepository($this->pdo, $profiles, $this->clock(), new PdoCapabilityGuard($this->pdo));
+        $binding = $scopeRepository->ensureBindingPlaceholder(
+            new ScopeProfileRequestDTO(new SlugScope('catalog', null, null), new SlugProfileKey('ascii-v1')),
+            new EntityReference('product', 'visibility'),
+        );
+        $repository = new PdoOperationRepository($this->pdo, $this->clock(), new PdoCapabilityGuard($this->pdo));
+        $independent = $this->newTestConnection();
+        $operationKey = str_repeat('a', 32);
+
+        self::assertTrue($this->pdo->beginTransaction());
+        try {
+            $reservation = $repository->reserve(
+                $operationKey,
+                OperationTypeEnum::ASSIGN_EXACT,
+                str_repeat('b', 64),
+                'mutation',
+                1,
+                [new OperationParticipant($binding->id, 'visibility', 'SINGLE')],
+            );
+            self::assertSame('0', $this->countRows($independent, "SELECT COUNT(*) FROM maa_slug_operations WHERE status = 'IN_PROGRESS'"));
+
+            $snapshot = $this->snapshotWithOperationKey(ResultSnapshotEncoder::encode(ContractFixtures::mutation()), $operationKey);
+            $repository->commitSnapshot(
+                $reservation->operation->id,
+                new ResultSnapshotMetadata('mutation', 1, OperationTypeEnum::ASSIGN_EXACT, $operationKey, $snapshot),
+                $profiles,
+            );
+            self::assertSame('0', $this->countRows($independent, 'SELECT COUNT(*) FROM maa_slug_operations'));
+            self::assertTrue($this->pdo->commit());
+        } catch (\Throwable $throwable) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $throwable;
+        }
+
+        self::assertSame('0', $this->countRows($independent, "SELECT COUNT(*) FROM maa_slug_operations WHERE status = 'IN_PROGRESS'"));
+        self::assertSame('1', $this->countRows($independent, "SELECT COUNT(*) FROM maa_slug_operations WHERE status = 'COMMITTED'"));
+    }
+
+    public function testFailureAfterReservationRollsBackOperationAndParticipants(): void
+    {
+        $profiles = $this->profiles();
+        $scopeRepository = new PdoScopeRepository($this->pdo, $profiles, $this->clock(), new PdoCapabilityGuard($this->pdo));
+        $binding = $scopeRepository->ensureBindingPlaceholder(
+            new ScopeProfileRequestDTO(new SlugScope('catalog', null, null), new SlugProfileKey('ascii-v1')),
+            new EntityReference('product', 'failed-operation'),
+        );
+        $repository = new PdoOperationRepository($this->pdo, $this->clock(), new PdoCapabilityGuard($this->pdo));
+        self::assertTrue($this->pdo->beginTransaction());
+        try {
+            $repository->reserve(
+                str_repeat('c', 32),
+                OperationTypeEnum::ASSIGN_EXACT,
+                str_repeat('d', 64),
+                'mutation',
+                1,
+                [new OperationParticipant($binding->id, 'failed-operation', 'SINGLE')],
+            );
+            throw new \RuntimeException('forced lifecycle failure after reservation');
+        } catch (\RuntimeException $throwable) {
+            self::assertSame('forced lifecycle failure after reservation', $throwable->getMessage());
+            self::assertTrue($this->pdo->rollBack());
+        }
+
+        $independent = $this->newTestConnection();
+        self::assertSame('0', $this->countRows($independent, 'SELECT COUNT(*) FROM maa_slug_operations'));
+        self::assertSame('0', $this->countRows($independent, 'SELECT COUNT(*) FROM maa_slug_operation_bindings'));
     }
 
     public function testAllFourResultTypesRoundTripThroughRealDatabaseStorageWithMicroseconds(): void
@@ -90,21 +200,30 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
         foreach ($definitions as $index => [$resultType, $fixture, $participants]) {
             $operationKey = str_repeat((string) ($index + 1), 32);
             $snapshot = $this->snapshotWithOperationKey(ResultSnapshotEncoder::encode($fixture), $operationKey);
-            $reservation = $operationRepository->reserve(
-                $operationKey,
-                $fixture->operationType,
-                str_repeat((string) ($index + 5), 64),
-                $resultType,
-                1,
-                $participants,
-            );
-            self::assertTrue($reservation->created, $resultType);
+            self::assertTrue($this->pdo->beginTransaction());
+            try {
+                $reservation = $operationRepository->reserve(
+                    $operationKey,
+                    $fixture->operationType,
+                    str_repeat((string) ($index + 5), 64),
+                    $resultType,
+                    1,
+                    $participants,
+                );
+                self::assertTrue($reservation->created, $resultType);
 
-            $operationRepository->commitSnapshot(
-                $reservation->operation->id,
-                new ResultSnapshotMetadata($resultType, 1, $fixture->operationType, $operationKey, $snapshot),
-                $profiles,
-            );
+                $operationRepository->commitSnapshot(
+                    $reservation->operation->id,
+                    new ResultSnapshotMetadata($resultType, 1, $fixture->operationType, $operationKey, $snapshot),
+                    $profiles,
+                );
+                self::assertTrue($this->pdo->commit());
+            } catch (\Throwable $throwable) {
+                if ($this->pdo->inTransaction()) {
+                    $this->pdo->rollBack();
+                }
+                throw $throwable;
+            }
             $replayed = $operationRepository->decodeCommitted($reservation->operation->id, $profiles);
             self::assertTrue($replayed->replayed, $resultType);
             self::assertSame($snapshot, ResultSnapshotEncoder::encode($replayed->withReplayed(false)), $resultType);
@@ -127,18 +246,37 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
         $operationKey = str_repeat('a', 32);
         $fingerprint = str_repeat('b', 64);
         $participant = new OperationParticipant($binding->id, 'replay-key', 'SINGLE');
-        $reservation = $repository->reserve($operationKey, OperationTypeEnum::ASSIGN_EXACT, $fingerprint, 'mutation', 1, [$participant]);
-        $snapshot = $this->snapshotWithOperationKey(ResultSnapshotEncoder::encode(ContractFixtures::mutation()), $operationKey);
-        $repository->commitSnapshot($reservation->operation->id, new ResultSnapshotMetadata('mutation', 1, OperationTypeEnum::ASSIGN_EXACT, $operationKey, $snapshot), $profiles);
+        self::assertTrue($this->pdo->beginTransaction());
+        try {
+            $reservation = $repository->reserve($operationKey, OperationTypeEnum::ASSIGN_EXACT, $fingerprint, 'mutation', 1, [$participant]);
+            $snapshot = $this->snapshotWithOperationKey(ResultSnapshotEncoder::encode(ContractFixtures::mutation()), $operationKey);
+            $repository->commitSnapshot($reservation->operation->id, new ResultSnapshotMetadata('mutation', 1, OperationTypeEnum::ASSIGN_EXACT, $operationKey, $snapshot), $profiles);
+            self::assertTrue($this->pdo->commit());
+        } catch (\Throwable $throwable) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $throwable;
+        }
 
-        $replay = $repository->reserve($operationKey, OperationTypeEnum::ASSIGN_EXACT, $fingerprint, 'mutation', 1, [$participant]);
-        self::assertFalse($replay->created);
-        self::assertTrue($replay->isReplay());
+        self::assertTrue($this->pdo->beginTransaction());
+        try {
+            $replay = $repository->reserve($operationKey, OperationTypeEnum::ASSIGN_EXACT, $fingerprint, 'mutation', 1, [$participant]);
+            self::assertFalse($replay->created);
+            self::assertTrue($replay->isReplay());
+            self::assertTrue($this->pdo->commit());
+        } catch (\Throwable $throwable) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $throwable;
+        }
 
         $otherBinding = $scopeRepository->ensureBindingPlaceholder(
             new ScopeProfileRequestDTO(new SlugScope('catalog', null, null), new SlugProfileKey('ascii-v1')),
             new EntityReference('product', 'replay-other'),
         );
+        self::assertTrue($this->pdo->beginTransaction());
         try {
             $repository->reserve(
                 $operationKey,
@@ -153,10 +291,16 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
             $statement = $this->pdo->query("SELECT COUNT(*) FROM maa_slug_operations WHERE status = 'IN_PROGRESS'");
             self::assertNotFalse($statement);
             self::assertSame('0', (string) $statement->fetchColumn());
+            self::assertTrue($this->pdo->rollBack());
         }
 
-        $this->expectException(SlugIdempotencyConflictException::class);
-        $repository->reserve($operationKey, OperationTypeEnum::ASSIGN_EXACT, str_repeat('c', 64), 'mutation', 1, [$participant]);
+        self::assertTrue($this->pdo->beginTransaction());
+        try {
+            $repository->reserve($operationKey, OperationTypeEnum::ASSIGN_EXACT, str_repeat('c', 64), 'mutation', 1, [$participant]);
+            self::fail('A fingerprint mismatch must be an idempotency conflict.');
+        } catch (SlugIdempotencyConflictException) {
+            self::assertTrue($this->pdo->rollBack());
+        }
     }
 
     public function testParticipantRaceDoesNotLeaveAnOrphanInProgressOperation(): void
@@ -203,6 +347,7 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
                         }
                     },
                 );
+                self::assertTrue($childPdo->beginTransaction());
                 $childRepository->reserve(
                     $loserOperationKey,
                     OperationTypeEnum::ASSIGN_EXACT,
@@ -213,7 +358,13 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
                 );
                 file_put_contents($resultFile, json_encode(['class' => null], JSON_THROW_ON_ERROR));
             } catch (\Throwable $throwable) {
+                if (isset($childPdo) && $childPdo->inTransaction()) {
+                    $childPdo->rollBack();
+                }
                 file_put_contents($resultFile, json_encode(['class' => $throwable::class], JSON_THROW_ON_ERROR));
+            }
+            if (isset($childPdo) && $childPdo->inTransaction()) {
+                $childPdo->rollBack();
             }
             exit(0);
         }
@@ -293,5 +444,13 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
     private function snapshotWithOperationKey(string $snapshot, string $operationKey): string
     {
         return str_replace('"operation_key":null', '"operation_key":"' . $operationKey . '"', $snapshot);
+    }
+
+    private function countRows(\PDO $pdo, string $sql): string
+    {
+        $statement = $pdo->query($sql);
+        self::assertNotFalse($statement);
+
+        return (string) $statement->fetchColumn();
     }
 }

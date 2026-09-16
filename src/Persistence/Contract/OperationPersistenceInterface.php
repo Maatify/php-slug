@@ -15,6 +15,9 @@ use Maatify\Slug\Profile\Contracts\SlugProfileRegistryInterface;
 interface OperationPersistenceInterface
 {
     /**
+     * Must participate in a caller-owned transaction that also commits the
+     * final Result Snapshot. The repository never commits IN_PROGRESS alone.
+     *
      * @param list<OperationParticipant> $participants
      */
     public function reserve(

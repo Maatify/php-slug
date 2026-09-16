@@ -93,6 +93,7 @@ final readonly class PdoCapabilityGuard
         $outerTransaction = $this->pdo->inTransaction();
         $startedTransaction = false;
         $savepoint = $this->savepointName('connection');
+        $failure = null;
 
         try {
             if ($outerTransaction) {
@@ -113,27 +114,26 @@ final readonly class PdoCapabilityGuard
                 throw new SlugRuntimeCompatibilityException('Transactional SELECT is required.');
             }
         } catch (SlugRuntimeCompatibilityException $exception) {
-            throw $exception;
+            $failure = $exception;
         } catch (Throwable $throwable) {
-            throw new SlugRuntimeCompatibilityException('The PDO connection does not support transactions/savepoints.', 0, $throwable);
-        } finally {
-            if ($startedTransaction) {
-                if ($this->pdo->inTransaction()) {
-                    try {
-                        $this->pdo->rollBack();
-                    } catch (Throwable) {
-                    }
-                }
-            } elseif ($outerTransaction && $this->pdo->inTransaction()) {
-                try {
-                    $this->pdo->exec(sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint));
-                } catch (Throwable) {
-                }
-                try {
-                    $this->pdo->exec(sprintf('RELEASE SAVEPOINT %s', $savepoint));
-                } catch (Throwable) {
-                }
+            $failure = new SlugRuntimeCompatibilityException('The PDO connection does not support transactions/savepoints.', 0, $throwable);
+        }
+
+        try {
+            $this->cleanupProbeTransaction($outerTransaction, $startedTransaction, $savepoint);
+        } catch (Throwable $cleanupFailure) {
+            if ($failure !== null) {
+                throw new SlugRuntimeCompatibilityException(
+                    'Capability probing failed and its transaction cleanup also failed: ' . $cleanupFailure->getMessage(),
+                    0,
+                    $failure,
+                );
             }
+            throw $cleanupFailure;
+        }
+
+        if ($failure !== null) {
+            throw $failure;
         }
     }
 
@@ -217,6 +217,7 @@ final readonly class PdoCapabilityGuard
         $savepoint = $this->savepointName('schema');
         $namespace = '__cap_' . strtolower(bin2hex(random_bytes(8)));
         $now = '2026-01-01 00:00:00.123456';
+        $failure = null;
 
         try {
             if ($outerTransaction) {
@@ -275,25 +276,57 @@ final readonly class PdoCapabilityGuard
                 }
             }
         } catch (SlugRuntimeCompatibilityException $exception) {
-            throw $exception;
+            $failure = $exception;
         } catch (Throwable $throwable) {
-            throw new SlugRuntimeCompatibilityException('The installed package schema does not satisfy the RC1 capability contract.', 0, $throwable);
-        } finally {
-            if ($startedTransaction && $this->pdo->inTransaction()) {
-                try {
-                    $this->pdo->rollBack();
-                } catch (Throwable) {
-                }
-            } elseif ($outerTransaction && $this->pdo->inTransaction()) {
-                try {
-                    $this->pdo->exec(sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint));
-                } catch (Throwable) {
-                }
-                try {
-                    $this->pdo->exec(sprintf('RELEASE SAVEPOINT %s', $savepoint));
-                } catch (Throwable) {
-                }
+            $failure = new SlugRuntimeCompatibilityException('The installed package schema does not satisfy the RC1 capability contract.', 0, $throwable);
+        }
+
+        try {
+            $this->cleanupProbeTransaction($outerTransaction, $startedTransaction, $savepoint);
+        } catch (Throwable $cleanupFailure) {
+            if ($failure !== null) {
+                throw new SlugRuntimeCompatibilityException(
+                    'Schema capability probing failed and its transaction cleanup also failed: ' . $cleanupFailure->getMessage(),
+                    0,
+                    $failure,
+                );
             }
+            throw $cleanupFailure;
+        }
+
+        if ($failure !== null) {
+            throw $failure;
+        }
+    }
+
+    private function cleanupProbeTransaction(bool $outerTransaction, bool $startedTransaction, string $savepoint): void
+    {
+        if ($startedTransaction) {
+            if (! $this->pdo->inTransaction()) {
+                throw new SlugRuntimeCompatibilityException('Capability probe transaction disappeared before rollback.');
+            }
+            try {
+                if (! $this->pdo->rollBack()) {
+                    throw new SlugRuntimeCompatibilityException('Capability probe rollback failed.');
+                }
+            } catch (SlugRuntimeCompatibilityException $exception) {
+                throw $exception;
+            } catch (Throwable $throwable) {
+                throw new SlugRuntimeCompatibilityException('Capability probe rollback failed.', 0, $throwable);
+            }
+            return;
+        }
+
+        if (! $outerTransaction) {
+            return;
+        }
+        if (! $this->pdo->inTransaction()) {
+            throw new SlugRuntimeCompatibilityException('Caller transaction disappeared during capability probe cleanup.');
+        }
+        $this->exec($this->pdo, sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint), 'Capability probe rollback to savepoint failed.');
+        $this->exec($this->pdo, sprintf('RELEASE SAVEPOINT %s', $savepoint), 'Capability probe savepoint release failed.');
+        if (! $this->pdo->inTransaction()) {
+            throw new SlugRuntimeCompatibilityException('Caller transaction was lost during capability probe cleanup.');
         }
     }
 

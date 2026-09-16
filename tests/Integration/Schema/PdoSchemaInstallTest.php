@@ -17,6 +17,10 @@ final class PdoSchemaInstallTest extends MySqlIntegrationTestCase
         $row = $statement->fetch(\PDO::FETCH_ASSOC);
         self::assertIsArray($row);
         self::assertSame('utf8mb4_bin', $row['COLLATION_NAME']);
+
+        $statement = $this->pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'maa_slug_%' AND (COLUMN_COMMENT IS NULL OR CHAR_LENGTH(TRIM(COLUMN_COMMENT)) < 8)");
+        self::assertNotFalse($statement);
+        self::assertSame('0', (string) $statement->fetchColumn(), 'Every package column must carry a meaningful schema comment.');
     }
 
     public function testSchemaInstallAndCleanupAreRepeatableTwice(): void

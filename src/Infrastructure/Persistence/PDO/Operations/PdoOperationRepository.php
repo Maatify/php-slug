@@ -25,7 +25,8 @@ use Maatify\Slug\Internal\ResultSnapshot\OperationSnapshotState;
 use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotMetadata;
 use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotStorage;
 use Maatify\Slug\Internal\Transaction\PdoTransactionCoordinator;
-use Maatify\Slug\Internal\Transaction\OperationReservationRaceException;
+use Maatify\Slug\Internal\Transaction\PdoTransactionRollback;
+use Maatify\Slug\Exception\SlugTransactionParticipationException;
 use Maatify\Slug\Persistence\Contract\OperationParticipant;
 use Maatify\Slug\Persistence\Contract\OperationPersistenceInterface;
 use Maatify\Slug\Persistence\Contract\OperationRecord;
@@ -61,56 +62,61 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
     ): OperationReservation {
         $this->assertReservationInput($operationKey, $requestFingerprint, $resultType, $resultSchemaVersion, $participants);
         $this->assertResultOperationCompatibility($resultType, $operationType);
+        $this->assertCallerTransaction();
         $this->capabilities->assertInstalledSchemaSupported();
 
-        try {
-            return $this->transactions->run(function () use ($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion, $participants): OperationReservation {
+        /** @var OperationReservation|OperationRecord $result */
+        $result = $this->transactions->run(function () use ($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion, $participants): OperationReservation|PdoTransactionRollback {
+            foreach ($participants as $participant) {
+                $existing = $this->findParticipantRow($participant->bindingId, $participant->idempotencyKey, true);
+                if ($existing !== null) {
+                    $operation = $this->operationFromRow($existing);
+                    $this->assertReservationMatches($operation, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
+                    $this->assertCommittedReplayEvidence($operation);
+
+                    return new OperationReservation($operation, false);
+                }
+            }
+
+            $operationId = $this->insertOperation($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
+            if ($operationId instanceof PdoTransactionRollback) {
+                return $operationId;
+            }
+            if ($this->beforeParticipantInsert !== null) {
+                ($this->beforeParticipantInsert)($operationId);
+            }
+            try {
                 foreach ($participants as $participant) {
-                    $existing = $this->findParticipantRow($participant->bindingId, $participant->idempotencyKey, true);
-                    if ($existing !== null) {
-                        $operation = $this->operationFromRow($existing);
-                        $this->assertReservationMatches($operation, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
-                        $this->assertCommittedReplayEvidence($operation);
-
-                        return new OperationReservation($operation, false);
-                    }
+                    $this->insertParticipant($operationId, $participant);
+                }
+            } catch (PDOException $exception) {
+                if (! PdoDuplicateClassifier::matches($exception, 'uk_operation_binding_idempotency')) {
+                    throw $exception;
                 }
 
-                $operationId = $this->insertOperation($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
-                if ($this->beforeParticipantInsert !== null) {
-                    ($this->beforeParticipantInsert)($operationId);
-                }
-                try {
-                    foreach ($participants as $participant) {
-                        $this->insertParticipant($operationId, $participant);
-                    }
-                } catch (PDOException $exception) {
-                    if (! PdoDuplicateClassifier::matches($exception, 'uk_operation_binding_idempotency')) {
-                        throw $exception;
-                    }
-
-                    $existing = $this->findExistingParticipant($participants);
-                    if ($existing === null) {
-                        throw new SlugPersistenceInvariantException('Operation participant duplicate has no readable evidence.', 0, $exception);
-                    }
-
-                    throw new OperationReservationRaceException($existing);
+                $existing = $this->findExistingParticipant($participants);
+                if ($existing === null) {
+                    throw new SlugPersistenceInvariantException('Operation participant duplicate has no readable evidence.', 0, $exception);
                 }
 
-                $operation = $this->findOperationById($operationId, true);
-                if ($operation === null) {
-                    throw new SlugPersistenceInvariantException('Operation disappeared after reservation.');
-                }
+                return new PdoTransactionRollback($existing);
+            }
 
-                return new OperationReservation($operation, true);
-            });
-        } catch (OperationReservationRaceException $race) {
-            $operation = $race->operation;
-            $this->assertReservationMatches($operation, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
-            $this->assertCommittedReplayEvidence($operation);
+            $operation = $this->findOperationById($operationId, true);
+            if ($operation === null) {
+                throw new SlugPersistenceInvariantException('Operation disappeared after reservation.');
+            }
 
-            return new OperationReservation($operation, false);
+            return new OperationReservation($operation, true);
+        });
+
+        if ($result instanceof OperationRecord) {
+            $this->assertReservationMatches($result, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
+            $this->assertCommittedReplayEvidence($result);
+
+            return new OperationReservation($result, false);
         }
+        return $result;
     }
 
     public function findByParticipant(int $bindingId, string $idempotencyKey, bool $forUpdate = false): ?OperationRecord
@@ -129,6 +135,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         if ($operationId < 0) {
             throw new SlugPersistenceInvariantException('Operation id cannot be negative.');
         }
+        $this->assertCallerTransaction();
         $this->capabilities->assertInstalledSchemaSupported();
 
         $this->transactions->run(function () use ($operationId, $metadata, $profiles): void {
@@ -257,7 +264,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
     }
 
-    private function insertOperation(string $operationKey, OperationTypeEnum $operationType, string $requestFingerprint, string $resultType, int $resultSchemaVersion): int
+    private function insertOperation(string $operationKey, OperationTypeEnum $operationType, string $requestFingerprint, string $resultType, int $resultSchemaVersion): int|PdoTransactionRollback
     {
         try {
             $statement = $this->pdo->prepare(
@@ -285,7 +292,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
             if ($existing === null) {
                 throw new SlugPersistenceInvariantException('Operation key duplicate has no readable evidence.', 0, $exception);
             }
-            throw new OperationReservationRaceException($existing);
+            return new PdoTransactionRollback($existing);
         }
 
         $id = filter_var($this->pdo->lastInsertId(), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -294,6 +301,15 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
 
         return $id;
+    }
+
+    private function assertCallerTransaction(): void
+    {
+        if (! $this->pdo->inTransaction()) {
+            throw new SlugTransactionParticipationException(
+                'Operation reservation and snapshot commit require a caller-owned transaction; an IN_PROGRESS operation cannot be committed independently.',
+            );
+        }
     }
 
     private function insertParticipant(int $operationId, OperationParticipant $participant): void

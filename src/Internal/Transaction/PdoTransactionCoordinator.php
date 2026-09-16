@@ -34,9 +34,15 @@ final readonly class PdoTransactionCoordinator
             try {
                 $result = $callback();
             } catch (Throwable $throwable) {
-                $this->rollbackIfActive();
+                $this->rollbackOwnedPreserving($throwable);
 
                 throw $throwable;
+            }
+
+            if ($result instanceof PdoTransactionRollback) {
+                $this->rollbackOwnedOrThrow();
+
+                return $result->value;
             }
 
             try {
@@ -44,10 +50,26 @@ final readonly class PdoTransactionCoordinator
                     throw new SlugTransactionParticipationException('Unable to commit the package transaction.');
                 }
             } catch (SlugTransactionParticipationException $exception) {
-                $this->rollbackIfActive();
+                try {
+                    $this->rollbackOwnedOrThrow();
+                } catch (Throwable $rollbackFailure) {
+                    throw new SlugTransactionParticipationException(
+                        'Package transaction commit failed and rollback also failed: ' . $rollbackFailure->getMessage(),
+                        0,
+                        $exception,
+                    );
+                }
                 throw $exception;
             } catch (Throwable $throwable) {
-                $this->rollbackIfActive();
+                try {
+                    $this->rollbackOwnedOrThrow();
+                } catch (Throwable $rollbackFailure) {
+                    throw new SlugTransactionParticipationException(
+                        'Package transaction commit failed and rollback also failed: ' . $rollbackFailure->getMessage(),
+                        0,
+                        $throwable,
+                    );
+                }
                 throw new SlugTransactionParticipationException('Unable to commit the package transaction.', 0, $throwable);
             }
 
@@ -63,9 +85,23 @@ final readonly class PdoTransactionCoordinator
         try {
             $result = $callback();
         } catch (Throwable $throwable) {
-            $this->rollbackToSavepoint($savepoint);
+            try {
+                $this->rollbackToSavepoint($savepoint);
+            } catch (Throwable $cleanupFailure) {
+                throw new SlugTransactionParticipationException(
+                    'Package savepoint cleanup failed after the original failure: ' . $cleanupFailure->getMessage(),
+                    0,
+                    $throwable,
+                );
+            }
 
             throw $throwable;
+        }
+
+        if ($result instanceof PdoTransactionRollback) {
+            $this->rollbackToSavepoint($savepoint);
+
+            return $result->value;
         }
 
         try {
@@ -74,7 +110,15 @@ final readonly class PdoTransactionCoordinator
                 'Unable to release the package savepoint.',
             );
         } catch (Throwable $throwable) {
-            $this->rollbackToSavepoint($savepoint);
+            try {
+                $this->rollbackToSavepoint($savepoint);
+            } catch (Throwable $cleanupFailure) {
+                throw new SlugTransactionParticipationException(
+                    'Package savepoint cleanup failed after release failure: ' . $cleanupFailure->getMessage(),
+                    0,
+                    $throwable,
+                );
+            }
 
             throw $throwable;
         }
@@ -99,29 +143,43 @@ final readonly class PdoTransactionCoordinator
 
     private function rollbackToSavepoint(string $savepoint): void
     {
-        try {
-            $this->pdo->exec(sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint));
-        } catch (Throwable) {
-            // The operation's original Throwable remains authoritative.
-        }
-
-        try {
-            $this->pdo->exec(sprintf('RELEASE SAVEPOINT %s', $savepoint));
-        } catch (Throwable) {
-            // The operation's original Throwable remains authoritative.
-        }
+        $this->execOrThrow(
+            sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint),
+            'Unable to roll back the package savepoint.',
+        );
+        $this->execOrThrow(
+            sprintf('RELEASE SAVEPOINT %s', $savepoint),
+            'Unable to release the rolled-back package savepoint.',
+        );
     }
 
-    private function rollbackIfActive(): void
+    private function rollbackOwnedOrThrow(): void
     {
         if (! $this->pdo->inTransaction()) {
             return;
         }
 
         try {
-            $this->pdo->rollBack();
-        } catch (Throwable) {
-            // The operation's original Throwable remains authoritative.
+            if (! $this->pdo->rollBack()) {
+                throw new SlugTransactionParticipationException('Unable to roll back the package transaction.');
+            }
+        } catch (SlugTransactionParticipationException $exception) {
+            throw $exception;
+        } catch (Throwable $throwable) {
+            throw new SlugTransactionParticipationException('Unable to roll back the package transaction.', 0, $throwable);
+        }
+    }
+
+    private function rollbackOwnedPreserving(Throwable $original): void
+    {
+        try {
+            $this->rollbackOwnedOrThrow();
+        } catch (Throwable $rollbackFailure) {
+            throw new SlugTransactionParticipationException(
+                'Package transaction rollback failed after the original failure: ' . $rollbackFailure->getMessage(),
+                0,
+                $original,
+            );
         }
     }
 

@@ -99,6 +99,71 @@ final class PdoScopePersistenceTest extends MySqlIntegrationTestCase
         $repository->ensureBindingPlaceholder(new ScopeProfileRequestDTO($scope, $other), new EntityReference('product', 'mismatch'));
     }
 
+    public function testFirstUseSameProfileScopeRaceProducesOneCompleteScope(): void
+    {
+        $results = $this->runFirstUseScopeRace(false);
+        $successful = array_values(array_filter($results, static fn(array $result): bool => ($result['ok'] ?? false) === true));
+
+        self::assertCount(2, $successful);
+        self::assertSame($successful[0]['id'], $successful[1]['id']);
+        self::assertSame('ascii-v1', $successful[0]['profile']);
+
+        $statement = $this->pdo->query("SELECT COUNT(*) FROM maa_slug_scopes WHERE namespace = 'race-same-profile'");
+        self::assertNotFalse($statement);
+        self::assertSame('1', (string) $statement->fetchColumn());
+        $statement = $this->pdo->query('SELECT COUNT(*) FROM maa_slug_bindings');
+        self::assertNotFalse($statement);
+        self::assertSame('0', (string) $statement->fetchColumn());
+    }
+
+    public function testFirstUseConflictingProfileScopeRaceLeavesOneAuthorityAndRejectsTheOther(): void
+    {
+        $results = $this->runFirstUseScopeRace(true);
+        $successful = array_values(array_filter($results, static fn(array $result): bool => ($result['ok'] ?? false) === true));
+        $mismatches = array_values(array_filter($results, static fn(array $result): bool => ($result['class'] ?? null) === SlugScopeProfileMismatchException::class));
+
+        self::assertCount(1, $successful);
+        self::assertCount(1, $mismatches);
+        self::assertContains($successful[0]['profile'], ['ascii-v1', 'custom-v1']);
+
+        $statement = $this->pdo->query("SELECT profile_key, COUNT(*) AS total FROM maa_slug_scopes WHERE namespace = 'race-conflicting-profile' GROUP BY profile_key");
+        self::assertNotFalse($statement);
+        $row = $statement->fetch(\PDO::FETCH_ASSOC);
+        self::assertIsArray($row);
+        self::assertContains($row['total'], [1, '1']);
+        self::assertSame($successful[0]['profile'], $row['profile_key']);
+        $statement = $this->pdo->query('SELECT COUNT(*) FROM maa_slug_bindings');
+        self::assertNotFalse($statement);
+        self::assertSame('0', (string) $statement->fetchColumn());
+    }
+
+    public function testHostOuterRollbackRemovesSuccessfulPackageScopeAndBindingBootstrap(): void
+    {
+        $profiles = new SlugProfileRegistry();
+        $profiles->register(new StubSlugProfile(new SlugProfileKey('ascii-v1')));
+        $repository = new PdoScopeRepository($this->pdo, $profiles, $this->clock(), new PdoCapabilityGuard($this->pdo));
+        $request = new ScopeProfileRequestDTO(new SlugScope('host-rollback', null, null), new SlugProfileKey('ascii-v1'));
+        $independent = $this->newTestConnection();
+
+        self::assertTrue($this->pdo->beginTransaction());
+        try {
+            $binding = $repository->ensureBindingPlaceholder($request, new EntityReference('product', 'host-rollback'));
+            self::assertGreaterThan(0, $binding->id);
+            self::assertTrue($this->pdo->inTransaction());
+            self::assertSame('0', $this->countRows($independent, "SELECT COUNT(*) FROM maa_slug_scopes WHERE namespace = 'host-rollback'"));
+            self::assertSame('0', $this->countRows($independent, "SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = 'host-rollback'"));
+            self::assertTrue($this->pdo->rollBack());
+        } catch (\Throwable $throwable) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+            throw $throwable;
+        }
+
+        self::assertSame('0', $this->countRows($independent, "SELECT COUNT(*) FROM maa_slug_scopes WHERE namespace = 'host-rollback'"));
+        self::assertSame('0', $this->countRows($independent, "SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = 'host-rollback'"));
+    }
+
     public function testReleasedBindingWithLiveClaimIsRejectedAsCorrupt(): void
     {
         $profiles = new SlugProfileRegistry();
@@ -173,5 +238,126 @@ final class PdoScopePersistenceTest extends MySqlIntegrationTestCase
         $statement = $this->pdo->query("SELECT namespace FROM maa_slug_scopes WHERE namespace IN ('outer-failure', 'outer-success') ORDER BY namespace");
         self::assertNotFalse($statement);
         self::assertSame(['outer-success'], $statement->fetchAll(\PDO::FETCH_COLUMN));
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function runFirstUseScopeRace(bool $conflicting): array
+    {
+        if (! function_exists('pcntl_fork')) {
+            self::fail('WU-03 Scope concurrency evidence requires pcntl_fork.');
+        }
+
+        $readyFiles = [];
+        $resultFiles = [];
+        $startFile = tempnam(sys_get_temp_dir(), 'slug-wu03-scope-start-');
+        self::assertNotFalse($startFile);
+        unlink($startFile);
+        for ($index = 0; $index < 2; $index++) {
+            $readyFiles[$index] = tempnam(sys_get_temp_dir(), 'slug-wu03-scope-ready-');
+            $resultFiles[$index] = tempnam(sys_get_temp_dir(), 'slug-wu03-scope-result-');
+            self::assertNotFalse($readyFiles[$index]);
+            self::assertNotFalse($resultFiles[$index]);
+            unlink($readyFiles[$index]);
+            unlink($resultFiles[$index]);
+        }
+
+        $children = [];
+        for ($index = 0; $index < 2; $index++) {
+            $childPid = pcntl_fork();
+            self::assertNotSame(-1, $childPid);
+            if ($childPid === 0) {
+                try {
+                    $pdo = $this->newTestConnection();
+                    $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+                    file_put_contents($readyFiles[$index], 'ready');
+                    for ($attempt = 0; $attempt < 1000 && ! is_file($startFile); $attempt++) {
+                        usleep(10000);
+                    }
+                    if (! is_file($startFile)) {
+                        throw new \RuntimeException('Scope race barrier was not released.');
+                    }
+
+                    $profileKey = $conflicting && $index === 1 ? 'custom-v1' : 'ascii-v1';
+                    $profiles = new SlugProfileRegistry();
+                    $profiles->register(new StubSlugProfile(new SlugProfileKey($profileKey)));
+                    $repository = new PdoScopeRepository($pdo, $profiles, $this->clock(), new PdoCapabilityGuard($pdo));
+                    $scope = $repository->ensureScope(new ScopeProfileRequestDTO(
+                        new SlugScope($conflicting ? 'race-conflicting-profile' : 'race-same-profile', null, null),
+                        new SlugProfileKey($profileKey),
+                    ));
+                    file_put_contents($resultFiles[$index], json_encode([
+                        'ok' => true,
+                        'id' => $scope->id,
+                        'profile' => $scope->profileKey->value,
+                    ], JSON_THROW_ON_ERROR));
+                } catch (\Throwable $throwable) {
+                    file_put_contents($resultFiles[$index], json_encode(['class' => $throwable::class], JSON_THROW_ON_ERROR));
+                }
+                exit(0);
+            }
+            $children[] = $childPid;
+        }
+
+        $this->pdo = $this->newTestConnection();
+        try {
+            for ($attempt = 0; $attempt < 500; $attempt++) {
+                if (is_file($readyFiles[0]) && is_file($readyFiles[1])) {
+                    break;
+                }
+                usleep(10000);
+            }
+            self::assertFileExists($readyFiles[0]);
+            self::assertFileExists($readyFiles[1]);
+            file_put_contents($startFile, 'go');
+            foreach ($children as $childPid) {
+                pcntl_waitpid($childPid, $childStatus);
+            }
+            $results = [];
+            foreach ($resultFiles as $resultFile) {
+                self::assertFileExists($resultFile);
+                $results[] = $this->decodeRaceResult($resultFile);
+            }
+        } catch (\Throwable $throwable) {
+            file_put_contents($startFile, 'abort');
+            foreach ($children as $childPid) {
+                pcntl_waitpid($childPid, $childStatus);
+            }
+            throw $throwable;
+        } finally {
+            foreach ([$startFile, ...$readyFiles, ...$resultFiles] as $file) {
+                if (is_string($file) && is_file($file)) {
+                    unlink($file);
+                }
+            }
+        }
+
+        return $results;
+    }
+
+    private function countRows(\PDO $pdo, string $sql): string
+    {
+        $statement = $pdo->query($sql);
+        self::assertNotFalse($statement);
+
+        return (string) $statement->fetchColumn();
+    }
+
+    /** @return array<string, mixed> */
+    private function decodeRaceResult(string $file): array
+    {
+        $decoded = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
+        if (! is_array($decoded)) {
+            self::fail('Scope race child result must be a JSON object.');
+        }
+
+        $result = [];
+        foreach ($decoded as $key => $value) {
+            if (! is_string($key)) {
+                self::fail('Scope race child result keys must be strings.');
+            }
+            $result[$key] = $value;
+        }
+
+        return $result;
     }
 }
