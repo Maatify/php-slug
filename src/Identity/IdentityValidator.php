@@ -69,6 +69,21 @@ final class IdentityValidator
         }
     }
 
+    public static function assertReason(string $value, int $maxCodePoints = 500, string $field = 'reason'): void
+    {
+        if ($value === '' || preg_match('//u', $value) !== 1) {
+            throw new SlugInvalidArgumentException(sprintf('%s must be non-empty valid UTF-8.', $field));
+        }
+
+        if (preg_match('/[\p{Cc}\p{Cs}\p{Cf}]/u', $value) === 1) {
+            throw new SlugInvalidArgumentException(sprintf('%s contains a forbidden character.', $field));
+        }
+
+        if (mb_strlen($value, 'UTF-8') > $maxCodePoints) {
+            throw new SlugInvalidArgumentException(sprintf('%s exceeds its maximum length.', $field));
+        }
+    }
+
     public static function assertNonNegativeRevision(?int $revision): void
     {
         if ($revision !== null && $revision < 0) {

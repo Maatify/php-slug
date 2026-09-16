@@ -19,7 +19,7 @@ final readonly class AuditContextDTO implements JsonSerializable
             IdentityValidator::assertAuditString($actorKey, 191, 'actorKey');
         }
         if ($reason !== null) {
-            IdentityValidator::assertAuditString($reason, 500, 'reason', true);
+            IdentityValidator::assertReason($reason);
         }
         if ($correlationKey !== null) {
             IdentityValidator::assertAuditString($correlationKey, 191, 'correlationKey');

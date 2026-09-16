@@ -21,8 +21,8 @@ final readonly class BindingSearchCriteria
         if ($entityType !== null) {
             IdentityValidator::assertDimension($entityType, 63, 'entityType');
         }
-        if ($entityKeyPrefix !== null && $entityKeyPrefix === '') {
-            throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('entityKeyPrefix must be non-empty when supplied.');
+        if ($entityKeyPrefix !== null) {
+            IdentityValidator::assertDimension($entityKeyPrefix, 191, 'entityKeyPrefix');
         }
     }
 }

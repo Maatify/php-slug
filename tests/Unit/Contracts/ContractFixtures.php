@@ -191,12 +191,12 @@ final class ContractFixtures
         $targetIdentity = self::identity(2);
         $sourceBefore = self::binding($sourceIdentity, 100, 'hello', 200, BindingStatusEnum::ACTIVE, 1);
         $sourceAfter = self::binding($sourceIdentity, 100, 'replacement', 202, BindingStatusEnum::ACTIVE, 2);
-        $sourceReleased = self::binding($sourceIdentity, 100, 'hello', 200, BindingStatusEnum::RELEASED, 2);
+        $targetBefore = self::binding($targetIdentity, 300, 'hello', 201, BindingStatusEnum::RELEASED, 0);
         $targetAfter = self::binding($targetIdentity, 300, 'hello', 201, BindingStatusEnum::ACTIVE, 1);
         $hello = self::slug('hello');
         $replacement = self::slug('replacement');
         $sourceReplacementEvent = self::history(100, 506, 2, $sourceIdentity, HistoryEventTypeEnum::CHANGED, $replacement, RegistryRoleEnum::CURRENT_CANONICAL, $hello, RegistryRoleEnum::CURRENT_CANONICAL);
-        $sourceTransferEvent = self::history(100, 504, 1, $sourceIdentity, HistoryEventTypeEnum::OWNERSHIP_TRANSFERRED_OUT, $hello, RegistryRoleEnum::CURRENT_CANONICAL);
+        $sourceTransferEvent = self::history(100, 504, 3, $sourceIdentity, HistoryEventTypeEnum::OWNERSHIP_TRANSFERRED_OUT, $hello, RegistryRoleEnum::CURRENT_CANONICAL);
         $targetTransferEvent = self::history(300, 505, 1, $targetIdentity, HistoryEventTypeEnum::OWNERSHIP_TRANSFERRED_IN, $hello, RegistryRoleEnum::CURRENT_CANONICAL);
         $transferredClaim = $targetAfter->currentClaim;
         $replacementClaim = $sourceAfter->currentClaim;
@@ -207,8 +207,8 @@ final class ContractFixtures
             OperationTypeEnum::ATOMIC_TRANSFER,
             null,
             false,
-            new BindingStateResultDTO($sourceBefore, $sourceReleased, true, 2, [$sourceTransferEvent]),
-            new BindingStateResultDTO(null, $targetAfter, true, 1, [$targetTransferEvent]),
+            new BindingStateResultDTO($sourceBefore, $sourceAfter, true, 2, [$sourceReplacementEvent, $sourceTransferEvent]),
+            new BindingStateResultDTO($targetBefore, $targetAfter, true, 1, [$targetTransferEvent]),
             $transferredClaim,
             new SlugMutationResultDTO(
                 OperationTypeEnum::ATOMIC_TRANSFER,
@@ -225,7 +225,7 @@ final class ContractFixtures
             ),
             2,
             1,
-            [$sourceTransferEvent, $targetTransferEvent],
+            [$sourceReplacementEvent, $sourceTransferEvent, $targetTransferEvent],
         );
     }
 

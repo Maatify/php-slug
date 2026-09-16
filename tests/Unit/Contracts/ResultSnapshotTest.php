@@ -88,6 +88,71 @@ final class ResultSnapshotTest extends TestCase
         }
     }
 
+    public function testDecoderRejectsAllRequiredStorageAndTransferInvariantFailures(): void
+    {
+        $mutation = $this->decodeObject(ResultSnapshotEncoder::encode(ContractFixtures::mutation()));
+        $mutationResult = $this->objectValue($mutation['result'], 'mutation result');
+
+        $cases = [];
+        $unknownType = $mutation;
+        $unknownType['result_type'] = 'unknown';
+        $cases['unknown result type'] = [$this->encodeObject($unknownType), null, null, null, null];
+        $unknownVersion = $mutation;
+        $unknownVersion['result_schema_version'] = 2;
+        $cases['unknown schema version'] = [$this->encodeObject($unknownVersion), null, null, null, null];
+        $wrongEnum = $this->withResultField($mutation, 'change_type', 'UNKNOWN');
+        $cases['wrong enum token'] = [$this->encodeObject($wrongEnum), null, null, null, null];
+        $badTimestampResult = $this->withNestedObjectField($mutationResult, 'after', 'created_at', '0999-12-31T23:59:59.999999Z');
+        $badTimestamp = $this->withResultField($mutation, 'after', $badTimestampResult['after']);
+        $cases['out of range timestamp'] = [$this->encodeObject($badTimestamp), null, null, null, null];
+        $wrongList = $this->withResultField($mutation, 'affected_claims', ['claim' => []]);
+        $cases['wrong list type'] = [$this->encodeObject($wrongList), null, null, null, null];
+        $claims = $this->listValue($mutationResult['affected_claims'], 'affected claims');
+        $claim = $this->objectValue($claims[0], 'affected claim');
+        $claim['id'] = 199;
+        $outOfOrder = $this->withResultField($mutation, 'affected_claims', [$claims[0], $claim]);
+        $cases['out of order list'] = [$this->encodeObject($outOfOrder), null, null, null, null];
+        $incompatible = $this->withResultField($mutation, 'operation_type', 'TRANSITION_SCOPE');
+        $cases['incompatible operation type'] = [$this->encodeObject($incompatible), null, null, null, null];
+        $cases['storage result type mismatch'] = [ResultSnapshotEncoder::encode(ContractFixtures::mutation()), 'adoption', null, null, null];
+        $cases['storage schema version mismatch'] = [ResultSnapshotEncoder::encode(ContractFixtures::mutation()), null, 2, null, null];
+        $cases['storage operation type mismatch'] = [ResultSnapshotEncoder::encode(ContractFixtures::mutation()), null, null, 'CHANGE_EXACT', null];
+        $cases['storage operation key mismatch'] = [ResultSnapshotEncoder::encode(ContractFixtures::mutation()), null, null, null, str_repeat('a', 32)];
+
+        $transfer = $this->decodeObject(ResultSnapshotEncoder::encode(ContractFixtures::transfer()));
+        $transferResult = $this->objectValue($transfer['result'], 'transfer result');
+        $replacement = $this->objectValue($transferResult['source_replacement_result'] ?? null, 'source replacement result');
+        $noReplacement = $this->withResultField($transfer, 'source_replacement_result', null);
+        $cases['invalid current replacement presence'] = [$this->encodeObject($noReplacement), null, null, null, null];
+
+        $badNestedOperation = $this->withNestedResultField($transfer, 'source_replacement_result', $this->withObjectField($replacement, 'operation_type', 'CHANGE_EXACT'));
+        $cases['invalid nested operation type'] = [$this->encodeObject($badNestedOperation), null, null, null, null];
+
+        $outerNestedKeyMismatch = $this->withResultField($transfer, 'operation_key', str_repeat('a', 32));
+        $outerNestedKeyMismatch = $this->withNestedResultField($outerNestedKeyMismatch, 'source_replacement_result', $this->withObjectField($replacement, 'operation_key', str_repeat('b', 32)));
+        $cases['outer nested operation key mismatch'] = [$this->encodeObject($outerNestedKeyMismatch), null, null, null, null];
+
+        $outerNestedReplayMismatch = $this->withNestedResultField($transfer, 'source_replacement_result', $this->withObjectField($replacement, 'replayed', true));
+        $cases['outer nested replay mismatch'] = [$this->encodeObject($outerNestedReplayMismatch), null, null, null, null];
+
+        $badChangeType = $this->withNestedResultField($transfer, 'source_replacement_result', $this->withObjectField($replacement, 'change_type', 'ASSIGNED'));
+        $cases['invalid replacement change type'] = [$this->encodeObject($badChangeType), null, null, null, null];
+
+        $replacementAfter = $this->objectValue($replacement['after'] ?? null, 'replacement after');
+        $replacementAfterState = $this->objectValue($replacementAfter['state'] ?? null, 'replacement after state');
+        $replacementAfterState['status'] = 'RELEASED';
+        $replacementAfterState['current_slug'] = null;
+        $replacementAfter['state'] = $replacementAfterState;
+        $replacementAfter['current_claim'] = null;
+        $transientReplacement = $this->withObjectField($replacement, 'after', $replacementAfter);
+        $transient = $this->withNestedResultField($transfer, 'source_replacement_result', $transientReplacement);
+        $cases['transient source replacement state'] = [$this->encodeObject($transient), null, null, null, null];
+
+        foreach ($cases as $name => [$payload, $resultType, $schemaVersion, $operationType, $operationKey]) {
+            $this->decodeMustFail($payload, $name, $resultType, $schemaVersion, $operationType, $operationKey);
+        }
+    }
+
     public function testDecoderHonorsStorageDiscriminators(): void
     {
         $json = ResultSnapshotEncoder::encode(ContractFixtures::mutation());
@@ -113,14 +178,106 @@ final class ResultSnapshotTest extends TestCase
         return $object;
     }
 
-    private function decodeMustFail(string $payload, string $name): void
+    private function decodeMustFail(
+        string $payload,
+        string $name,
+        ?string $expectedResultType = null,
+        ?int $expectedSchemaVersion = null,
+        ?string $expectedOperationType = null,
+        ?string $expectedOperationKey = null,
+    ): void
     {
         try {
-            ResultSnapshotDecoder::decode($payload, ContractFixtures::registry());
+            ResultSnapshotDecoder::decode(
+                $payload,
+                ContractFixtures::registry(),
+                $expectedResultType,
+                $expectedSchemaVersion,
+                $expectedOperationType,
+                $expectedOperationKey,
+            );
         } catch (SlugPersistenceInvariantException $exception) {
             self::assertInstanceOf(SlugPersistenceInvariantException::class, $exception);
             return;
         }
         self::fail(sprintf('Case %s was accepted.', $name));
+    }
+
+    /** @param array<string, mixed> $object */
+    private function encodeObject(array $object): string
+    {
+        return json_encode(
+            $object,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR,
+        );
+    }
+
+    /** @return array<string, mixed> */
+    private function objectValue(mixed $value, string $label): array
+    {
+        if (! is_array($value) || array_is_list($value)) {
+            self::fail(sprintf('%s must be a JSON object.', $label));
+        }
+        $object = [];
+        foreach ($value as $key => $item) {
+            if (! is_string($key)) {
+                self::fail(sprintf('%s must have string keys.', $label));
+            }
+            $object[$key] = $item;
+        }
+        return $object;
+    }
+
+    /** @return list<mixed> */
+    private function listValue(mixed $value, string $label): array
+    {
+        if (! is_array($value) || ! array_is_list($value)) {
+            self::fail(sprintf('%s must be a JSON list.', $label));
+        }
+        return $value;
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     * @return array<string, mixed>
+     */
+    private function withResultField(array $snapshot, string $field, mixed $value): array
+    {
+        $result = $this->objectValue($snapshot['result'] ?? null, 'result');
+        $result[$field] = $value;
+        $snapshot['result'] = $result;
+        return $snapshot;
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     * @return array<string, mixed>
+     */
+    private function withObjectField(array $result, string $field, mixed $value): array
+    {
+        $result[$field] = $value;
+        return $result;
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     * @param array<string, mixed> $value
+     * @return array<string, mixed>
+     */
+    private function withNestedResultField(array $snapshot, string $field, array $value): array
+    {
+        return $this->withResultField($snapshot, $field, $value);
+    }
+
+    /**
+     * @param array<string, mixed> $result
+     * @return array<string, mixed>
+     */
+    private function withNestedObjectField(array $result, string $objectField, string $field, mixed $value): array
+    {
+        $nested = $this->objectValue($result[$objectField] ?? null, $objectField);
+        $nested[$field] = $value;
+        $result[$objectField] = $nested;
+        return $result;
     }
 }
