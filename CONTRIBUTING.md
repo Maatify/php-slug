@@ -62,7 +62,7 @@ Run the tests against the lowest dependencies:
 bash tools/ci/run-gate.sh lowest-tests
 ```
 
-**Note:** Test gates require a clean MySQL testing database configured via your `.env.test`.
+**Note:** Test gates require a clean MySQL testing database. As documented above, PHPUnit consumes the ignored `.env.test` file generated dynamically by `integration-env` / composite DB gates based on the `SLUG_TEST_DB_*` environment variables you export.
 
 ### 3. Verification Harness
 

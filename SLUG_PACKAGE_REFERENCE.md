@@ -444,9 +444,8 @@ SlugUnsupportedDriverException, SlugPersistenceInvariantException
 - PHPStan `level: max` وPHPUnit والـstyle/whitespace gates.
 - Unit وIntegration وSystem/Concurrency/Transaction evidence مع بيئة MySQL الحقيقية.
 - Consumer Verification Harness من Composer root مستقل مرتين من clean states.
-- مراجعة accumulated diff وFull Applicable Integration Gate وفق المعايير.
 
-نجاح هذه الأدلة يثبت الـ implementation completion فقط ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
+**ملاحظة:** المراجعة النهائية (Fresh Full Acceptance Review, مراجعة accumulated diff, و Full Applicable Integration Gate) تبقى معلقة ولن تكتمل حتى يتم قبول هذا الفرع تنفيذيًا. نجاح أدلة الـ CI المذكورة أعلاه يثبت اجتياز بوابات الجودة الحالية، ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
 
 ## 13. Supporting documents
 

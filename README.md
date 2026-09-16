@@ -75,7 +75,8 @@ $resolution = $engine->resolve($criteria);
 ## المعاملات والتزامن (Transactions & Concurrency)
 
 - **Transactions:** إذا لم يوفر الـ Host معاملة (outer transaction)، تقوم الحزمة بإدارة المعاملة لضمان الـ atomic persistence الخاص بها. تستخدم الحزمة `savepoint` لعمليات الـ nested participation. في حال الفشل، تعيد الحزمة الـ Throwable الأصلي بعد الـ rollback دون ابتلاعه.
-- **Concurrency & Idempotency:** يوفر الـ Engine ضمانات Concurrency باستخدام MySQL constraints كـ claim authority النهائية، بالإضافة إلى Compare-and-Swap (CAS) لحماية الـ lifecycle state. العمليات توفر Idempotency عن طريق تسجيل Result Snapshots آمنة يمكن إعادة تشغيلها بأمان تام. لمزيد من التفاصيل، انظر [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
+- **Concurrency & Idempotency:** يوفر الـ Engine ضمانات Concurrency باستخدام MySQL constraints كـ claim authority النهائية، بالإضافة إلى Compare-and-Swap (CAS) لحماية الـ lifecycle state. يطبق الـ replay/idempotency بشكل آمن عبر Result Snapshots **فقط عند توفير idempotency key** وفقًا لعقد الـ mutation.
+- **Schema:** مسار مخطط قاعدة البيانات متوفر في `schema/mysql/001_slug_rc1.sql`. لمزيد من التفاصيل، انظر [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
 
 ## حدود الأمان والثقة
 
