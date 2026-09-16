@@ -2,7 +2,7 @@
 
 > **Canonical root Package Reference** للحزمة `maatify/php-slug`.
 >
-> **الحالة الحالية:** Preparation Closure لـRC1. هذا الملف يسجل عقد RC1 المقبول وحدود الحزمة كما هي في المراجع الحالية؛ لا يثبت وجود Runtime أو Composer package قابل للتثبيت أو نسخة منشورة.
+> **الحالة الحالية:** تم الانتهاء من تنفيذ RC1. هذا الملف يسجل العقد المنفذ فعليًا وحدود الحزمة كما هي متوفرة حالياً في الـ Runtime (من الكود المصدري) و Tests و CI. الحزمة غير منشورة بعد على Packagist (لا توجد نسخة Stable أو SemVer RC منشورة للاستخدام العام).
 
 ## 1. هوية الحزمة وحالتها
 
@@ -13,19 +13,17 @@
 | Namespace | `Maatify\\Slug\\` |
 | Artifact | standalone reusable PHP/Composer library |
 | Host model | Host-agnostic |
-| Current workflow state | RC1 Preparation Closure |
+| Current workflow state | Implemented (Unpublished) |
 | Published Stable line | لا توجد |
-| Published SemVer RC | لا تُثبتها الحالة الحالية |
+| Published SemVer RC | لا توجد |
 
-عند هذه الحالة لا يحتوي المستودع على `composer.json` أو `src/` أو `tests/` أو `schema/` أو CI workflow. لذلك لا يوجد أمر تثبيت عامل، ولا يجوز التعامل مع هذا الفرع أو Draft PR على أنه Release Candidate منشور أو Stable release أو Runtime جاهز للإنتاج. العقد المسجل أدناه هو نطاق RC1 المقبول للتنفيذ اللاحق، وليس تقرير تنفيذ.
+هذا المستودع يحتوي على التنفيذ الفعلي (الـ Runtime، Tests، Schema، CI)، ولكن لا يتوفر أمر تثبيت عبر `composer require` متاح للعموم قبل النشر الرسمي.
 
 المراجع الدائمة المرتبطة بهذا الملف:
 
 - [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md): supporting architecture and public-contract contract.
 - [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md): execution source، dependency graph، evidence، وgates.
 - [`docs/php-engineering-standards/STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md): Local Resolver Record لمجموعة المعايير المنطبقة.
-
-مسودة النقاش السابقة كانت temporary preparation document وليست Package Reference. بعد نقل قراراتها المقبولة إلى الـBlueprint والـPlan وهذا المرجع، لا تُستخدم كمصدر إضافي للحقيقة.
 
 ## 2. الغرض وحدود الملكية
 
@@ -448,7 +446,7 @@ SlugUnsupportedDriverException, SlugPersistenceInvariantException
 - Consumer Verification Harness من Composer root مستقل مرتين من clean states.
 - مراجعة accumulated diff وFull Applicable Integration Gate وفق المعايير.
 
-لا توجد حاليًا tests أو CI أو Composer أو schema لتشغيل هذه الأدلة؛ لذلك لا يُستخدم هذا المرجع أو Draft PR لإثبات implementation completion أو security audit أو production deployment أو Stable/RC publication. لا يدخل Stable tag أو Release أو Packagist publication ضمن RC1 Preparation Closure، ولا يحدث Merge إلى `main` إلا بقرار المالك.
+تم تشغيل Consumer Verification Harness بنجاح وكذلك الـ CI Gates. نجاح هذه الأدلة يثبت الـ implementation completion ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
 
 ## 13. Supporting documents
 
