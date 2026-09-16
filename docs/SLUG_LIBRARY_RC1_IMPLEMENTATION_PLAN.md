@@ -17,7 +17,7 @@
 Package Foundation (Composer/autoload/PHPStan/PHPUnit)
 → Profile/Text
 → Scope + EntityReference
-→ PDO MySQL persistence
+→ direct PDO/pdo_mysql persistence
 → Registry ownership/allocation
 → Lifecycle + Alias + History
 → Transition + Atomic Transfer + Adoption
@@ -214,7 +214,7 @@ tests/Unit/Factory/
 
 Property tests لـidempotence، data-driven vectors لكل Profile، runtime extension-missing tests التي تفشل مغلقًا، وtests تثبت أن source وclaim وlookup ليست aliases مخفية لبعضها.
 
-## 6. Work Unit WU-03 — MySQL schema وPDO boundary
+## 6. Work Unit WU-03 — MySQL-compatible schema وPDO boundary
 
 ### 6.1 Owned paths
 
@@ -240,27 +240,28 @@ tests/Unit/Persistence/Scope/
 
 ### 6.2 المسؤولية
 
-إنشاء schema وفق Blueprint §12–§14، direct PDO repositories/row hydration، MySQL driver guard، scope first-use/bootstrap، package-owned transaction/savepoint coordinator، وClock persistence adapter.
+إنشاء Schema واحدة وفق Blueprint §12–§14، direct PDO repositories/row hydration، capability guard لحد `pdo_mysql`، scope first-use/bootstrap، package-owned transaction/savepoint coordinator، وClock persistence adapter.
 
 ### 6.3 Acceptance criteria
 
-- schema يعمل على MySQL 8.0.36 فقط، ينشئ الجداول بترتيب Blueprint §12، ويحتوي prefix `maa_slug_` وجميع named indexes/checks/FKs package-local، بما فيها status CHECK للحالات الثلاث.
+- schema واحدة تعمل على MySQL-compatible verification target يحقق capabilities Blueprint §11، وتنشئ الجداول بترتيب §12، وتحتوي prefix `maa_slug_` وجميع named unique indexes/FKs package-local. تتحقق package من status/role/event/cross-field invariants؛ لا تتطلب schema generated columns أو CHECK enforcement أو vendor/version branch.
 - `current_registry_id` nullable بلا circular FK، وplaceholder sequence §14 قابل للتنفيذ atomic.
 - `utf8mb4_bin` و`ascii_bin` موجودتان حيث قررهما Blueprint، ولا تعتمد schema على collation normalization.
-- `current_marker` يفرض current claim واحدة لكل Binding، و`uk_registry_scope_slug` authority نهائية.
+- قفل Binding مع `current_registry_id` والتحقق داخل transaction يفرضان current claim واحدة لكل Binding، و`uk_registry_scope_slug` authority نهائية؛ لا يعتمد التنفيذ على generated columns.
 - `maa_slug_operations` يحتفظ بـoperation identity وoperation type وfingerprint وversioned result snapshot، و`maa_slug_operation_bindings` يثبت participants وunique replay lookup للـsingle/source/target. participant FK لا يُدرج إلا بعد أن يوجد Binding ID؛ first-create sequencing هو §29.
+- `result_snapshot` يُخزن كنص UTF-8 exact-safe بعد validation؛ لا يعتمد WU-03 على native JSON functions أو JSON server behavior.
 - keyed operations تنفذ identity/bootstrap ثم participant reservation داخل transaction بحالة `IN_PROGRESS` غير المرئية للقراء، ثم mutation وHistory ثم تنتقل مرة واحدة إلى `COMMITTED` مع snapshot؛ لا يبقى `IN_PROGRESS` ملتزمًا ولا يقبل snapshot تعديلًا بعد commit، وفشل أي خطوة يمحو الصفوف وplaceholder الجزئية.
 - Result Snapshot Encoder/Decoder الداخلي يطبق §35.6 حرفيًا داخل حدود WU-03: `result_type` يطابق DTO، `result_schema_version = 1`، exact top-level/nested shape وfield order، flags، UTC `DateTimeImmutable` بستة microseconds، nullable/list/enum rules، ورفض أي missing/extra/duplicate/unknown key أو mismatch بـ`SlugPersistenceInvariantException`.
 - عند decode من صف `COMMITTED` يثبت WU-03 مساواة JSON `result_type`/`result_schema_version`/`result.operation_type` مع الأعمدة الثلاثة، وnon-null مساواة `result.operation_key` مع عمود `operation_key`، ومساواة operation key في كل History event وnested result؛ كل mismatch يرمى `SlugPersistenceInvariantException` قبل hydration أو replay.
 - كل successful keyed operation يكتب snapshot النتيجة الأصلية الكاملة مرة واحدة بـ`replayed=false` بعد live state وHistory؛ أي UPDATE لاحق لـ`result_snapshot` أو discriminator/version مرفوض invariantيًا. replay يقرأ snapshot الملتزم ويفككه فقط، يعيد نفس DTO مع `replayed=true` في الذاكرة دون تعديل snapshot أو live state، ولا يستعمل Registry/Binding الحالية لإعادة البناء؛ retention وpurge يطبقان §12.5 و§29، مع FK/index names المحددة.
-- driver يرفض أي DB غير MySQL 8.0.36 بعقد واضح، ولا يضيف SQLite fallback.
+- capability guard يثبت `pdo_mysql` وtransactional/InnoDB semantics وsavepoints وrow locks وunique/FK وexact-string و`DATETIME(6)` capabilities قبل mutation؛ لا يرفض runtime بسبب product/version string، ولا يضيف PostgreSQL أو SQLite fallback.
 - PDO config وunique placeholders وint LIMIT/OFFSET وmixed-row annotations مطبقة.
-- duplicate conversion محصورة في MySQL `errorInfo[1] === 1062` مع constraint context؛ duplicate `uk_binding_identity` في first-create لمسارات `assignExact`/`assignGenerated`/`adoptCurrent` وtarget `transitionScope` race متوقع لا infrastructure failure: تعتبر `INSERT` statement نفسها failed، ولا يوجد savepoint خاص بالإدراج ولا rollback له، ويستمر التنفيذ داخل package transaction أو savepoint الحالية؛ ثم يعاد قراءة Binding الفائزة تحت `SELECT ... FOR UPDATE`، ويطبق §29 و§26.3: نفس key وfingerprint مع evidence `COMMITTED` يعيد replay snapshot، ونفس key مع fingerprint مختلف `SlugIdempotencyConflictException`، وغياب evidence `SlugRevisionConflictException` كـsemantic/CAS conflict. إذا انتهت classification بفشل semantic أو فشل لاحق، يطبق rollback العام في §26 على مستوى العملية كاملة، وليس rollback خاصًا ببيان `INSERT`. أي duplicate آخر يتبع تصنيفه المحدد في Blueprint §11.1 و§29.
+- duplicate conversion محصورة في `pdo_mysql`-compatible `errorInfo[1] === 1062` مع constraint context؛ duplicate `uk_binding_identity` في first-create لمسارات `assignExact`/`assignGenerated`/`adoptCurrent` وtarget `transitionScope` race متوقع لا infrastructure failure: تعتبر `INSERT` statement نفسها failed، ولا يوجد savepoint خاص بالإدراج ولا rollback له، ويستمر التنفيذ داخل package transaction أو savepoint الحالية؛ ثم يعاد قراءة Binding الفائزة تحت `SELECT ... FOR UPDATE`، ويطبق §29 و§26.3: نفس key وfingerprint مع evidence `COMMITTED` يعيد replay snapshot، ونفس key مع fingerprint مختلف `SlugIdempotencyConflictException`، وغياب evidence `SlugRevisionConflictException` كـsemantic/CAS conflict. إذا انتهت classification بفشل semantic أو فشل لاحق، يطبق rollback العام في §26 على مستوى العملية كاملة، وليس rollback خاصًا ببيان `INSERT`. أي duplicate آخر يتبع تصنيفه المحدد في Blueprint §11.1 و§29.
 - package-owned transaction rollback وcaller savepoint setup يحدثان قبل mutation.
 
 ### 6.4 Evidence
 
-Real MySQL schema install، constraint violation tests، pointer bootstrap tests، profile first-use race، direct PDO integration، cleanup/repeatability مرتان، وtransaction evidence في §10.
+Real MySQL-compatible schema install، capability/constraint violation tests، pointer bootstrap tests، profile first-use race، direct PDO integration، cleanup/repeatability مرتان، وtransaction evidence في §10.
 
 ## 7. Work Unit WU-04 — Registry claim/allocation/availability
 
@@ -295,7 +296,7 @@ tests/System/Claim/
 
 ### 7.4 Evidence
 
-System workflows من public API لـassign exact/generated، real MySQL race workers، vectors للأطوال، same slug في Scopes مختلفة، وavailability-vs-claim race.
+System workflows من public API لـassign exact/generated، real MySQL-compatible race workers، vectors للأطوال، same slug في Scopes مختلفة، وavailability-vs-claim race.
 
 ## 8. Work Unit WU-05 — Lifecycle وaliases وhistory وrelease وtransfer
 
@@ -333,7 +334,7 @@ tests/System/Transfer/
 - current atomic transfer فقط يملأ `sourceReplacementResult`: nested `operationType = ATOMIC_TRANSFER`، و`operationKey/replayed` يساويان outer، وكلا replay flags يبدآن `false` ويتحولان معًا إلى `true` في الذاكرة. non-current transfer يثبت `sourceReplacementResult = null`؛ nested before/after/revision/historyEvents نهائية وقابلة للملاحظة، و`changeType` وreplacement history يقتصران على `CHANGED` أو `RESTORED` دون transient DB state أو transfer out/in duplication.
 - عند وجود idempotency key فقط تُحفظ key/fingerprint والـresult snapshot في operations evidence؛ transfer/transition يستخدمان operation واحدًا ومشاركي SOURCE/TARGET، ولا يكتفيان بإعادة قراءة current state. في first-create، duplicate `uk_binding_identity` يعاد معه lock/read وفحص evidence قبل تصنيف النتيجة؛ نفس key/fingerprint replay، المختلف `SlugIdempotencyConflictException`، وبدون evidence `SlugRevisionConflictException`. بدون key لا تُنشأ operation أو participant rows.
 - `assignExact` و`assignGenerated` يقبلان Binding absent أو `RELEASED` فقط؛ `null` للـabsent فقط، وrevision الحالية صراحةً لـ`RELEASED`؛ `ACTIVE/INACTIVE` يرفضان بـ`SlugAssignmentNotPermittedException` قبل أي mutation، ولا إعادة فتح مع `null`.
-- History `claim_role_snapshot` و`previous_claim_role_snapshot` وnullable/event applicability checks مطابقة §12.4 و`HistoryEventDTO`؛ release/transfer events لا تعتمد على Registry لاحقة.
+- History `claim_role_snapshot` و`previous_claim_role_snapshot` وnullable/event applicability validation مطابقة §12.4 و`HistoryEventDTO`؛ release/transfer events لا تعتمد على Registry لاحقة.
 
 ### 8.4 Evidence
 
@@ -371,7 +372,7 @@ tests/System/Transition/
 - target profile يطبق على target claim، وprofile mismatch يفشل قبل mutation.
 - target first-create duplicate على `uk_binding_identity` يعاد معه target Binding تحت lock وفحص operation participant evidence قبل التصنيف: نفس key/fingerprint replay، fingerprint مختلف `SlugIdempotencyConflictException`، وغياب evidence `SlugRevisionConflictException`؛ لا يُعاد تشغيل mutation تلقائيًا.
 - `ScopeTransitionResultDTO` و`AdoptionResultDTO` يطبقان `result_type = transition|adoption` وshapes §35.6 كاملة؛ transition يستخدم aggregate واحدًا source/target، adoption يحفظ `adopted_claim` و`history_event` الأصليين، وكلاهما يعاد من snapshot فقط عند replay دون current-state reconstruction.
-- adoptCurrent/adoptHistorical/adoptAlias لها preconditions منفصلة للـabsent/RELEASED/ACTIVE/INACTIVE وrole/status/revision/history في Blueprint §31، وتمر بنفس canonical/profile/ownership/reservation rules؛ `originalOccurredAt` يقبل timezone-aware `DateTimeImmutable` بأي timezone، يتحول إلى UTC، يحفظ 6 microseconds دون rounding، ويرفض فقط خارج مدى MySQL `DATETIME(6)` دون future/past comparison.
+- adoptCurrent/adoptHistorical/adoptAlias لها preconditions منفصلة للـabsent/RELEASED/ACTIVE/INACTIVE وrole/status/revision/history في Blueprint §31، وتمر بنفس canonical/profile/ownership/reservation rules؛ `originalOccurredAt` يقبل timezone-aware `DateTimeImmutable` بأي timezone، يتحول إلى UTC، يحفظ 6 microseconds دون rounding، ويرفض فقط خارج مدى `DATETIME(6)` المطلوب دون future/past comparison.
 - `adoptCurrent` يقبل `null` revision فقط عند غياب Binding؛ إعادة فتح Binding `RELEASED` تتطلب revision الحالية، و`adoptHistorical` و`adoptAlias` يتطلبان revision صريحة لBinding موجود.
 - resolve يفصل `matchKind`, `bindingStatus`, `inputFormCanonicality` ويشير إلى current مباشرة.
 - released claim لا تحل، وretained history لا تظهر كlive ownership.
@@ -411,10 +412,10 @@ tests/System/Transactions/
 
 ### 10.3 Integration evidence
 
-مع اتصال PDO حقيقي إلى MySQL 8.0.36:
+مع اتصال PDO حقيقي إلى MySQL-compatible verification target يحقق capabilities Blueprint §11:
 
-- schema creation/constraints/indexes/collations، بما فيها `maa_slug_operations` و`maa_slug_operation_bindings` وresult snapshots؛
-- insert/read-back لـResult Snapshot JSON v1 يثبت أن كل result type round-trips عبر MySQL JSON دون فقد field أو null أو microseconds، وأن snapshot الأصلي يبقى ثابتًا بعد replay؛
+- schema creation/unique indexes/foreign keys/collations والـcapability evidence، بما فيها `maa_slug_operations` و`maa_slug_operation_bindings` وresult snapshots؛
+- insert/read-back لـResult Snapshot JSON v1 يثبت أن كل result type round-trips عبر exact-safe text storage دون فقد field أو null أو microseconds، وأن snapshot الأصلي يبقى ثابتًا بعد replay؛
 - scope first use/profile mismatch/current-pointer bootstrap؛
 - Registry roles and uniqueness؛
 - Clock UTC `DATETIME(6)` وHistory snapshots/sequences/role applicability وoperation evidence/replay retention؛
@@ -447,7 +448,7 @@ adopt current/historical/alias
 - two generated allocators؛
 - two same-binding mutations with same revision؛
 - assign/adoptCurrent على Binding absent مقابل Binding `RELEASED` يثبتان أن `null` لا يعيد فتح الصف الموجود وأن revision الحالية هي شرط CAS؛
-- adoption timestamps تقبل أي timezone-aware `DateTimeImmutable`، تتحول إلى UTC، تحفظ microseconds الست، وترفض فقط خارج مدى MySQL `DATETIME(6)`؛ لا توجد قاعدة future/past بالنسبة إلى Clock.
+- adoption timestamps تقبل أي timezone-aware `DateTimeImmutable`، تتحول إلى UTC، تحفظ microseconds الست، وترفض فقط خارج مدى `DATETIME(6)` المطلوب؛ لا توجد قاعدة future/past بالنسبة إلى Clock.
 - same idempotency key with same/different fingerprint، بعد تغير live state، يعيد snapshot أو conflict دون mutation جديدة؛
 - كل result type (`mutation`, `transition`, `transfer`, `adoption`) يُعاد replay له بعد تغيير live Registry/Binding/History، ويثبت الاختبار أن DTO المعاد مطابق للأصل عدا `replayed=true` وأن decoder لا يستدعي current-state reconstruction؛
 - current atomic transfer يُعاد replay له بعد تغيير live state، ويثبت أن outer وnested `sourceReplacementResult` يعيدان نفس النتيجة الأصلية مع `replayed=true` معًا، دون تعديل snapshot أو أعمدة operation أو إنشاء History/revision جديدة؛
@@ -527,7 +528,7 @@ vendor/bin/phpstan analyse src tests --level=max
 - Composer constraint هو `php ^8.4` ولا يغلق runtime على PHP 8.4 أو 8.5؛ كل PHP 8.x stable minor يسمح به القيد وتقبله CI Standard يدخل المصفوفة. القيم الحالية هي PHP 8.4 كـminimum وPHP 8.5 كـlatest released compatible minor، ويضاف أي minor لاحق قبل release وفق الـStandard بلا ceiling أو exception.
 - lowest dependency resolution يعمل على PHP 8.4، وlatest compatible resolution يعمل على PHP 8.5 حاليًا، ومع كل minor لاحق داخل القيد عند إضافته؛ foundation autoload gate يستخدم بالضبط `composer dump-autoload --optimize --strict-psr`.
 - runtime extensions/dependencies هي القيم في Blueprint §34، وPHPUnit configuration هو `phpunit.xml.dist`، وPHPStan configuration هو `phpstan.neon` على `level: max`، وstyle configuration هو `.php-cs-fixer.php`.
-- Persistence service هو MySQL `8.0.36` فقط، وschema هو `schema/mysql/001_slug_rc1.sql`، وConsumer Verification Harness هو `tests/Consumer/` مع clean repeatability مرتين.
+- Persistence service هو direct PDO عبر `pdo_mysql` إلى MySQL-compatible target يحقق capabilities §11؛ schema هو `schema/mysql/001_slug_rc1.sql`، وConsumer Verification Harness هو `tests/Consumer/` مع clean repeatability مرتين. أي server version تُختار للـCI هي verification target ثابتة وليست minimum/maximum أو Runtime gate.
 
 تدخل هذه القيم في jobs الخاصة بالحزمة حيث يطلب الـStandard، وتبقى بقية القواعد والأوامر العامة محكومة مباشرةً بالـCI Standard دون نسخة محلية متعارضة.
 
@@ -557,7 +558,7 @@ Composer install/resolve
 → cleanup package DB state
 ```
 
-ينفذ Harness مرتين من consumer state وdatabase state نظيفين، ويثبت عدم الاعتماد على vendor/generated state سابق. إذا كانت persistence مطلوبة، يستخدم MySQL 8.0.36 الحقيقي لا SQLite/mock.
+ينفذ Harness مرتين من consumer state وdatabase state نظيفين، ويثبت عدم الاعتماد على vendor/generated state سابق. إذا كانت persistence مطلوبة، يستخدم MySQL-compatible server حقيقيًا يحقق capabilities §11، لا SQLite/mock؛ نسخة الاختبار المختارة دليل reproducibility فقط وليست support floor.
 
 ## 13. Acceptance criteria على مستوى Execution Batch
 
@@ -569,14 +570,14 @@ Composer install/resolve
 - risk gates R1 إلى R7 في Blueprint §39 لها evidence مستقل.
 - unit/integration/system/concurrency/transaction tests ناجحة؛ لا يعتبر unrun أو blocked نجاحًا.
 - Consumer Verification Harness نجح مرتين من clean states، ومعه production autoload proof.
-- MySQL 8.0.36 هو DB evidence الوحيد المعلن، ولا توجد portability claims إضافية.
+- DB evidence يثبت target/version ثابتًا يحقق capabilities §11، ويُذكر بوصفه verification target فقط؛ لا توجد minimum/maximum version claim ولا ادعاء دعم كل MySQL/MariaDB environments.
 - Full Applicable CI Standard gate، مع package-specific values في §11.4، ناجح؛ لا تنشئ الخطة gate موازيًا أو أضيق من الـStandard.
 - `git diff --check` وstaged diff checks نظيفة، وchanged files داخل Work Branch scope.
 - direct review راجعت accumulated diff مقابل أحدث base، وبعد أي remediation تجرى Fresh Full Acceptance Review.
 
 ## 14. Phase Integration Gate
 
-عند إغلاق RC1 Full Lifecycle Batch تطبق Full Applicable Verification Set المحكومة مباشرةً بالـCI Standard، لا subset انتقائيًا. القيم الحالية الخاصة بالمصفوفة هي PHP `8.4` و`8.5` وفق §11.4، مع إدخال كل stable minor لاحق داخل `^8.4` قبل release، وMySQL `8.0.36`، schema/runner/configuration paths المحددة هناك، وجميع WU behavioral/concurrency/transaction evidence وConsumer Harness. لا تضيف هذه الخطة قواعد aggregate أو security أو execution reliability محلية؛ consistency review المعمارية وBlueprint/Plan review جزء من إغلاق Phase، لا بديل عن الـCI gate.
+عند إغلاق RC1 Full Lifecycle Batch تطبق Full Applicable Verification Set المحكومة مباشرةً بالـCI Standard، لا subset انتقائيًا. القيم الحالية الخاصة بالمصفوفة هي PHP `8.4` و`8.5` وفق §11.4، مع إدخال كل stable minor لاحق داخل `^8.4` قبل release، وMySQL-compatible verification target(s) ثابتة تحقق capabilities §11، schema/runner/configuration paths المحددة هناك، وجميع WU behavioral/concurrency/transaction evidence وConsumer Harness. لا تضيف هذه الخطة قواعد aggregate أو security أو execution reliability محلية؛ consistency review المعمارية وBlueprint/Plan review جزء من إغلاق Phase، لا بديل عن الـCI gate.
 
 تطبق دلالة الـaggregate gate وحالات unexpected skipped أو cancelled أو failure وفق `CI_WORKFLOW_STANDARD.md`؛ documentation-only current task لا تشغل هذه المصفوفة لأنها لا تنتج Runtime، لكن Implementation Batch لا تتجاوزها.
 
@@ -600,7 +601,7 @@ Composer install/resolve
 
 | القرار | WU/بوابة التنفيذ | Evidence |
 |---:|---|---|
-| 1 | WU-03 وWU-07 | MySQL 8.0.36 real integration؛ لا drivers إضافية |
+| 1 | WU-03 وWU-07 | real integration عبر direct PDO/`pdo_mysql` على MySQL-compatible verification target يحقق capabilities §11؛ لا drivers إضافية |
 | 2 | WU-02 | stateless registry/text factories، built-in/custom registration بدون replacement، وprofile vector names |
 | 3 | WU-02 | source generation vectors |
 | 4 | WU-02 وWU-04 | exact claim rejection/equivalence tests |
@@ -613,7 +614,7 @@ Composer install/resolve
 | 11 | WU-03 | collation/equality integration assertions |
 | 12 | WU-01 وWU-03 | null/empty scope uniqueness tests |
 | 13 | WU-01 وWU-03 | identity validation and exact stored representation |
-| 14 | WU-03 وWU-04 | role CHECK/current-marker/unique constraints |
+| 14 | WU-03 وWU-04 | package-enforced role/status/current-pointer invariants وunique constraints |
 | 15 | WU-03 | placeholder-pointer bootstrap and invariant failure tests |
 | 16 | WU-01 وWU-05 | status transition system matrix |
 | 17 | WU-03 وWU-05 | per-binding History sequence، operation_id، وtransfer out/in snapshots |
@@ -639,11 +640,11 @@ Composer install/resolve
 
 هذه العناصر ليست gaps يجب ملؤها داخل WUs:
 
-- MariaDB/PostgreSQL/SQLite أو أي DB adapter آخر.
+- PostgreSQL/SQLite أو أي DB adapter غير `pdo_mysql`؛ ولا تُفهم MariaDB كـsupported أو unsupported بالاسم، بل تُقبل فقط إذا حققت capabilities الموثقة عبر `pdo_mysql`، دون ادعاء اختبار كل إصداراتها.
 - profile migration أو تغيير profile لـpopulated Scope.
 - full URL/path/router/HTTP/SEO/framework integrations وautomatic title monitoring.
 - Host entity persistence/existence/auth/authorization/Admin UI.
-- generic ETL، batch/dry-run adoption، أو distributed lock خارج MySQL transaction.
+- generic ETL، batch/dry-run adoption، أو distributed lock خارج MySQL-compatible transaction.
 - event dispatcher كشرط core أو package-local ordering/pagination replacement.
 - Stable tag/Release/Packagist publication وقرار Merge إلى `main`.
 - Real Host Validation في مشروعين مستقلين؛ هذا شرط first Stable release بعد RC1 وفق release controls.
@@ -668,7 +669,7 @@ source branch/SHA وstarting state
 Work Branch وCommits بالترتيب
 exact changed files وstaged checks
 WU acceptance وtest counts
-MySQL/transaction/concurrency evidence
+MySQL-compatible/transaction/concurrency evidence
 PHPStan max وComposer/CI gates
 Harness run 1/run 2 وproduction autoload
 Remote HEAD وmerge-base مع phase-draft/rc-1
