@@ -141,6 +141,30 @@ final readonly class PdoRegistryRepository
         ], $forUpdate);
     }
 
+    /** @return list<RegistryClaimRecord> */
+    public function findClaimsForBinding(int $bindingId, bool $forUpdate = false): array
+    {
+        if ($bindingId < 0) {
+            throw new SlugPersistenceInvariantException('Binding id cannot be negative.');
+        }
+        $suffix = $forUpdate ? ' FOR UPDATE' : '';
+        $statement = $this->pdo->prepare(
+            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at, '
+            . 's.namespace, s.locale_key, s.context_key, s.profile_key, b.entity_type, b.entity_key '
+            . 'FROM maa_slug_registry r '
+            . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
+            . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id '
+            . 'WHERE r.binding_id = :binding_id ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC' . $suffix,
+        );
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the Registry claim list lookup.');
+        }
+        $statement->execute(['binding_id' => $bindingId]);
+        $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
+
+        return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $rows);
+    }
+
     public function insertClaim(int $scopeId, int $bindingId, Slug $slug, RegistryRoleEnum $role): RegistryClaimRecord
     {
         $now = $this->timestamp();
@@ -192,6 +216,79 @@ final readonly class PdoRegistryRepository
         ]);
         if ($statement->rowCount() !== 1) {
             throw new SlugRevisionConflictException('Binding revision changed before current ownership activation.');
+        }
+    }
+
+    public function mutateBinding(
+        int $bindingId,
+        int $expectedRevision,
+        BindingStatusEnum $status,
+        ?int $currentRegistryId,
+        int $historySequence,
+    ): void {
+        if ($bindingId < 0 || $expectedRevision < 0 || $historySequence < 0) {
+            throw new SlugPersistenceInvariantException('Binding mutation identity is invalid.');
+        }
+        $statement = $this->pdo->prepare(
+            'UPDATE maa_slug_bindings SET current_registry_id = :current_registry_id, status = :status, '
+            . 'revision = revision + 1, history_sequence = :history_sequence, updated_at = :updated_at '
+            . 'WHERE id = :binding_id AND revision = :expected_revision',
+        );
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the Binding lifecycle update.');
+        }
+        $statement->execute([
+            'current_registry_id' => $currentRegistryId,
+            'status' => $status->value,
+            'history_sequence' => $historySequence,
+            'updated_at' => $this->timestamp(),
+            'binding_id' => $bindingId,
+            'expected_revision' => $expectedRevision,
+        ]);
+        if ($statement->rowCount() !== 1) {
+            throw new SlugRevisionConflictException('Binding revision changed before lifecycle mutation.');
+        }
+    }
+
+    public function updateClaimRole(int $registryId, RegistryRoleEnum $role): RegistryClaimRecord
+    {
+        if ($registryId < 0) {
+            throw new SlugPersistenceInvariantException('Registry id cannot be negative.');
+        }
+        $statement = $this->pdo->prepare(
+            'UPDATE maa_slug_registry SET claim_role = :claim_role, updated_at = :updated_at WHERE id = :registry_id',
+        );
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the Registry role update.');
+        }
+        $statement->execute([
+            'claim_role' => $role->value,
+            'updated_at' => $this->timestamp(),
+            'registry_id' => $registryId,
+        ]);
+        if ($statement->rowCount() !== 1) {
+            throw new SlugPersistenceInvariantException('Registry role update did not affect exactly one claim.');
+        }
+        $claim = $this->findClaimById($registryId, true);
+        if ($claim === null) {
+            throw new SlugPersistenceInvariantException('Updated Registry claim cannot be read back.');
+        }
+
+        return $claim;
+    }
+
+    public function deleteClaim(int $registryId): void
+    {
+        if ($registryId < 0) {
+            throw new SlugPersistenceInvariantException('Registry id cannot be negative.');
+        }
+        $statement = $this->pdo->prepare('DELETE FROM maa_slug_registry WHERE id = :registry_id');
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the Registry claim delete.');
+        }
+        $statement->execute(['registry_id' => $registryId]);
+        if ($statement->rowCount() !== 1) {
+            throw new SlugPersistenceInvariantException('Registry claim delete did not affect exactly one claim.');
         }
     }
 

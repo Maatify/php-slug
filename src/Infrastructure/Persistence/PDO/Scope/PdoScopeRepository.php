@@ -330,7 +330,7 @@ final readonly class PdoScopeRepository implements SlugScopeRegistryInterface, S
             . 'FROM maa_slug_registry r '
             . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
             . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id '
-            . 'WHERE r.binding_id = :binding_id ORDER BY r.id ASC' . $suffix,
+            . 'WHERE r.binding_id = :binding_id ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC' . $suffix,
         );
         if ($statement === false) {
             throw new SlugPersistenceInvariantException('Unable to prepare the current claim lookup.');
