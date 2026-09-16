@@ -198,6 +198,27 @@ require __DIR__ . '/vendor/autoload.php';
 
 expect(! class_exists('Maatify\\Slug\\Tests\\Integration\\Schema\\MySqlIntegrationTestCase'), 'The package test namespace was loaded into the consumer.');
 
+final class AcceptAllReservedSlugPolicy implements ReservedSlugPolicyInterface
+{
+    public function isReserved(SlugScope $scope, \Maatify\Slug\Identity\Slug $slug): bool
+    {
+        return false;
+    }
+}
+
+final class FrozenClock implements ClockInterface
+{
+    public function now(): DateTimeImmutable
+    {
+        return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
+    }
+
+    public function getTimezone(): DateTimeZone
+    {
+        return new DateTimeZone('UTC');
+    }
+}
+
 $configuration = databaseConfiguration();
 $run = getenv('SLUG_HARNESS_RUN');
 $schemaFile = getenv('SLUG_HARNESS_SCHEMA_FILE');
@@ -272,27 +293,6 @@ try {
 }
 
 echo sprintf("CONSUMER_WORKFLOW_RUN=%s PASS\n", $run);
-
-final class AcceptAllReservedSlugPolicy implements ReservedSlugPolicyInterface
-{
-    public function isReserved(SlugScope $scope, \Maatify\Slug\Identity\Slug $slug): bool
-    {
-        return false;
-    }
-}
-
-final class FrozenClock implements ClockInterface
-{
-    public function now(): DateTimeImmutable
-    {
-        return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
-    }
-
-    public function getTimezone(): DateTimeZone
-    {
-        return new DateTimeZone('UTC');
-    }
-}
 
 /** @return array{SLUG_TEST_DB_HOST: string, SLUG_TEST_DB_PORT: string, SLUG_TEST_DB_NAME: string, SLUG_TEST_DB_USER: string, SLUG_TEST_DB_PASSWORD: string} */
 function databaseConfiguration(): array
