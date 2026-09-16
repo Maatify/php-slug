@@ -237,12 +237,13 @@ final readonly class PdoRegistryRepository
 
     /**
      * Read one deterministic Registry key range and, when requested, retain
-     * its row/gap locks for the remainder of the enclosing transaction.
+     * its Registry row locks for the remainder of the enclosing transaction.
      *
      * The range is intentionally scoped to one Scope. Callers must include
      * every existing participant key and every candidate key before mutation;
-     * the binary Scope/slug index then acquires the complete range in
-     * (scope_id, slug, id) order, including absent candidate gaps.
+     * the binary Scope/slug index then acquires the existing range in
+     * (scope_id, slug, id) order. Correctness for an absent candidate does not
+     * depend on a gap lock; the unique Registry key handles a later insert race.
      *
      * @return list<RegistryClaimRecord>
      */
@@ -264,11 +265,8 @@ final readonly class PdoRegistryRepository
 
         $suffix = $forUpdate ? ' FOR UPDATE' : '';
         $statement = $this->pdo->prepare(
-            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at, '
-            . 's.namespace, s.locale_key, s.context_key, s.profile_key, b.entity_type, b.entity_key '
+            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at '
             . 'FROM maa_slug_registry r '
-            . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
-            . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id '
             . 'WHERE r.scope_id = :scope_id AND r.slug >= :minimum_slug AND r.slug <= :maximum_slug '
             . 'ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC' . $suffix,
         );
@@ -281,8 +279,34 @@ final readonly class PdoRegistryRepository
             'maximum_slug' => $maximumSlug,
         ]);
         $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
+        if ($rows === []) {
+            return [];
+        }
 
-        return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $rows);
+        $ids = array_map(static fn(array $row): int => PdoRowHydrator::nonNegativeInt($row, 'id'), $rows);
+        $placeholders = [];
+        $parameters = [];
+        foreach ($ids as $index => $id) {
+            $parameter = 'registry_id_' . $index;
+            $placeholders[] = ':' . $parameter;
+            $parameters[$parameter] = $id;
+        }
+        $hydration = $this->pdo->prepare(
+            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at, '
+            . 's.namespace, s.locale_key, s.context_key, s.profile_key, b.entity_type, b.entity_key '
+            . 'FROM maa_slug_registry r '
+            . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
+            . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id '
+            . 'WHERE r.id IN (' . implode(', ', $placeholders) . ') '
+            . 'ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC',
+        );
+        if ($hydration === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the Registry claim hydration.');
+        }
+        $hydration->execute($parameters);
+        $hydratedRows = PdoRowHydrator::many($hydration->fetchAll(PDO::FETCH_ASSOC));
+
+        return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $hydratedRows);
     }
 
     public function insertClaim(int $scopeId, int $bindingId, Slug $slug, RegistryRoleEnum $role): RegistryClaimRecord
@@ -309,7 +333,7 @@ final readonly class PdoRegistryRepository
         if ($id === false) {
             throw new SlugPersistenceInvariantException('Registry claim insert did not return a valid id.');
         }
-        $claim = $this->findClaimById($id, true);
+        $claim = $this->findClaimById($id, false);
         if ($claim === null) {
             throw new SlugPersistenceInvariantException('Inserted Registry claim cannot be read back.');
         }
@@ -389,7 +413,7 @@ final readonly class PdoRegistryRepository
         if ($statement->rowCount() !== 1) {
             throw new SlugPersistenceInvariantException('Registry role update did not affect exactly one claim.');
         }
-        $claim = $this->findClaimById($registryId, true);
+        $claim = $this->findClaimById($registryId, false);
         if ($claim === null) {
             throw new SlugPersistenceInvariantException('Updated Registry claim cannot be read back.');
         }

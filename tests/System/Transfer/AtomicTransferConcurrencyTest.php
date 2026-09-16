@@ -135,7 +135,7 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
         $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($competitor, 1, new AuditContextDTO()));
 
         $results = $this->runWorkers([
-            ['current-transfer', 'current-replacement-source', 'current-replacement-target', 'current-moved', '1', '2', 'EXACT', 'current-replacement'],
+            ['current-transfer', 'current-replacement-source', 'current-replacement-target', 'current-moved', '1', '2', 'EXACT', 'current-replacement', 'READ COMMITTED'],
             ['claim', 'current-replacement-owner', '', 'current-replacement', '2', '0'],
         ]);
         $successes = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'OK'));
@@ -180,8 +180,8 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
         $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($targetB, 1, new AuditContextDTO()));
 
         $results = $this->runWorkers([
-            ['current-transfer', 'cross-source-b', 'cross-target-b', 'cross-moved-b', '2', '2', 'EXACT', 'cross-replacement-a'],
-            ['current-transfer', 'cross-source-a', 'cross-target-a', 'cross-moved-a', '2', '2', 'EXACT', 'cross-replacement-b'],
+            ['current-transfer', 'cross-source-b', 'cross-target-b', 'cross-moved-b', '2', '2', 'EXACT', 'cross-replacement-a', 'READ COMMITTED'],
+            ['current-transfer', 'cross-source-a', 'cross-target-a', 'cross-moved-a', '2', '2', 'EXACT', 'cross-replacement-b', 'READ COMMITTED'],
         ]);
 
         self::assertCount(2, $results);
@@ -210,7 +210,7 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
         $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($competitor, 1, new AuditContextDTO()));
 
         $results = $this->runWorkers([
-            ['current-transfer', 'generated-current-source', 'generated-current-target', 'generated-moved', '1', '2', 'GENERATED', 'generated-moved'],
+            ['current-transfer', 'generated-current-source', 'generated-current-target', 'generated-moved', '1', '2', 'GENERATED', 'generated-moved', 'READ COMMITTED'],
             ['claim', 'generated-current-writer', '', 'generated-moved-2', '2', '0'],
         ]);
         $transferResults = array_values(array_filter($results, static fn(array $result): bool => $result['operation'] === 'TRANSFER'));

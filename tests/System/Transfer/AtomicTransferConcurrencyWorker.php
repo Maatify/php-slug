@@ -39,6 +39,7 @@ $sourceRevision = (int) ($argv[5] ?? 0);
 $targetRevision = (int) ($argv[6] ?? 0);
 $replacementMode = $argv[7] ?? '';
 $replacementValue = $argv[8] ?? '';
+$isolation = $argv[9] ?? '';
 if (fgets(STDIN) === false) {
     exit(2);
 }
@@ -55,6 +56,9 @@ $pdo = new PDO(
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false],
 );
 $pdo->exec('SET NAMES utf8mb4 COLLATE utf8mb4_bin');
+if ($isolation === 'READ COMMITTED') {
+    $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+}
 $profiles = new SlugProfileRegistry();
 $profiles->register(new TestSlugProfile());
 $clock = new class implements ClockInterface {

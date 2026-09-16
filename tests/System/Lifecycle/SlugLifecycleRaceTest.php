@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\System\Lifecycle;
 
+use Maatify\Slug\Command\AddAliasCommand;
 use Maatify\Slug\Command\AssignExactCommand;
 use Maatify\Slug\DTO\AuditContextDTO;
 use Maatify\Slug\DTO\BindingIdentityDTO;
 use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Exception\SlugAlreadyClaimedException;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
 use Maatify\Slug\Identity\EntityReference;
 use Maatify\Slug\Identity\SlugProfileKey;
@@ -74,6 +76,100 @@ final class SlugLifecycleRaceTest extends MySqlIntegrationTestCase
         self::assertSame(SlugRevisionConflictException::class, $failures[0]['class']);
         self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cas-race']));
         self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+    }
+
+    public function testCrossBindingExactChangesDoNotInvertRetainedAndCandidateClaims(): void
+    {
+        self::assertTrue(function_exists('proc_open'), 'WU-05 real lifecycle concurrency evidence requires proc_open.');
+        $service = $this->service();
+        $service->assignExact(new AssignExactCommand($this->identity('cross-exact-a'), 'z', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($this->identity('cross-exact-b'), 'a', null, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['cross-exact-a', 'a', 'change', 'READ COMMITTED'],
+            ['cross-exact-b', 'z', 'change', 'READ COMMITTED'],
+        ]);
+
+        self::assertCount(2, $results);
+        foreach ($results as $result) {
+            self::assertSame('ERR', $result['status']);
+            self::assertSame(SlugAlreadyClaimedException::class, $result['class']);
+        }
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-exact-a']));
+        self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-exact-b']));
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+    }
+
+    public function testCrossBindingAliasAddsDoNotInvertRetainedAndCandidateClaims(): void
+    {
+        self::assertTrue(function_exists('proc_open'), 'WU-05 real lifecycle concurrency evidence requires proc_open.');
+        $service = $this->service();
+        $service->assignExact(new AssignExactCommand($this->identity('cross-alias-a'), 'z', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($this->identity('cross-alias-b'), 'a', null, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['cross-alias-a', 'a', 'alias', 'READ COMMITTED'],
+            ['cross-alias-b', 'z', 'alias', 'READ COMMITTED'],
+        ]);
+
+        self::assertCount(2, $results);
+        foreach ($results as $result) {
+            self::assertSame('ERR', $result['status']);
+            self::assertSame(SlugAlreadyClaimedException::class, $result['class']);
+        }
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-alias-a']));
+        self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'cross-alias-b']));
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+    }
+
+    /** @param list<list<string>> $arguments
+     *  @return list<array{status: string, value: string, class: string}>
+     */
+    private function runWorkers(array $arguments): array
+    {
+        $workers = [];
+        foreach ($arguments as $workerArguments) {
+            $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+            $process = proc_open(
+                [PHP_BINARY, __DIR__ . '/SlugLifecycleRaceWorker.php', ...$workerArguments],
+                $descriptors,
+                $pipes,
+                dirname(__DIR__, 3),
+            );
+            if (! is_resource($process)) {
+                self::fail('Unable to start lifecycle race worker.');
+            }
+            $workers[] = [$process, $pipes];
+        }
+
+        foreach ($workers as [$process, $pipes]) {
+            self::assertSame("READY\n", fgets($pipes[1]));
+        }
+        foreach ($workers as [$process, $pipes]) {
+            fwrite($pipes[0], "GO\n");
+            fclose($pipes[0]);
+        }
+
+        $results = [];
+        foreach ($workers as [$process, $pipes]) {
+            $line = fgets($pipes[1]);
+            self::assertIsString($line);
+            $parts = explode("\t", trim($line));
+            $results[] = [
+                'status' => $parts[0],
+                'value' => $parts[0] === 'OK' ? ($parts[1] ?? '') : '',
+                'class' => $parts[0] === 'ERR' ? ($parts[1] ?? '') : '',
+            ];
+            stream_set_blocking($pipes[2], false);
+            $diagnostic = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            self::assertSame(0, proc_close($process), trim((string) $diagnostic));
+        }
+
+        return $results;
     }
 
     private function service(): SlugLifecycleService
