@@ -51,6 +51,19 @@ abstract class AbstractBuiltinSlugProfile implements SlugProfileInterface
         SlugInputValidator::assertSafe($value, $field);
     }
 
+    protected function assertCanonicalRepresentation(string $value, string $field): void
+    {
+        $this->assertSafe($value, $field);
+
+        if ($this->normalize($value, $field) !== $value) {
+            throw new SlugInvalidArgumentException(sprintf('%s must already be NFC.', $field));
+        }
+
+        if ($this->lower($value, $field) !== $value) {
+            throw new SlugInvalidArgumentException(sprintf('%s must already be ICU-lowercase.', $field));
+        }
+    }
+
     protected function truncateGenerated(string $value): string
     {
         $value = mb_substr($value, 0, 160, 'UTF-8');

@@ -29,6 +29,18 @@ final class RuntimeCompatibilityTest extends TestCase
         RuntimeCompatibilityGuard::assertTupleSupported(74, 15, 1, false, true);
     }
 
+    public function testMissingTransliteratorCapabilityFailsClosed(): void
+    {
+        $this->expectException(SlugRuntimeCompatibilityException::class);
+        RuntimeCompatibilityGuard::assertTupleSupported(74, 15, 1, true, false);
+    }
+
+    public function testUnicodeDataMismatchFailsClosed(): void
+    {
+        $this->expectException(SlugRuntimeCompatibilityException::class);
+        RuntimeCompatibilityGuard::assertTupleSupported(74, 15, 2);
+    }
+
     public function testBuiltInFactoryFollowsTheActualRuntimeTuple(): void
     {
         try {

@@ -66,6 +66,7 @@ final class AsciiSlugProfile extends AbstractBuiltinSlugProfile
 
     public function assertCanonicalSlug(string $candidate): void
     {
+        $this->assertCanonicalRepresentation($candidate, 'canonical slug');
         CanonicalSlugRules::assertAscii($candidate);
     }
 

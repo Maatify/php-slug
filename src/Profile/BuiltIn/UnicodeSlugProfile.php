@@ -62,6 +62,7 @@ final class UnicodeSlugProfile extends AbstractBuiltinSlugProfile
 
     public function assertCanonicalSlug(string $candidate): void
     {
+        $this->assertCanonicalRepresentation($candidate, 'canonical slug');
         CanonicalSlugRules::assertUnicode($candidate);
     }
 
