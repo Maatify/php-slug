@@ -161,9 +161,15 @@ final class ContractFixtures
     {
         $sourceIdentity = self::identity(1, 'catalog');
         $targetIdentity = self::identity(1, 'store');
-        $sourceAfter = self::binding($sourceIdentity, 100, 'hello', 200, BindingStatusEnum::RELEASED, 2);
+        $sourceBefore = self::binding($sourceIdentity, 100, 'hello', 200, BindingStatusEnum::ACTIVE, 1);
+        $sourceAfter = self::binding($sourceIdentity, 100, 'hello', 200, BindingStatusEnum::INACTIVE, 2);
         $targetAfter = self::binding($targetIdentity, 300, 'hello', 201, BindingStatusEnum::ACTIVE, 1);
-        $sourceEvent = self::history(100, 501, 1, $sourceIdentity, HistoryEventTypeEnum::SCOPE_TRANSITIONED_OUT, self::slug('hello'), RegistryRoleEnum::CURRENT_CANONICAL);
+        $sourceClaim = $sourceAfter->currentClaim;
+        $targetClaim = $targetAfter->currentClaim;
+        if ($sourceClaim === null || $targetClaim === null) {
+            throw new \LogicException('MOVE transition bindings must have current claims.');
+        }
+        $sourceEvent = self::history(100, 501, 2, $sourceIdentity, HistoryEventTypeEnum::SCOPE_TRANSITIONED_OUT, self::slug('hello'), RegistryRoleEnum::CURRENT_CANONICAL);
         $targetEvent = self::history(300, 502, 1, $targetIdentity, HistoryEventTypeEnum::SCOPE_TRANSITIONED_IN, self::slug('hello'), RegistryRoleEnum::CURRENT_CANONICAL);
         return new ScopeTransitionResultDTO(
             OperationTypeEnum::TRANSITION_SCOPE,
@@ -171,14 +177,14 @@ final class ContractFixtures
             false,
             ScopeTransitionModeEnum::MOVE,
             true,
-            new BindingStateResultDTO(null, $sourceAfter, true, 2, [$sourceEvent]),
+            new BindingStateResultDTO($sourceBefore, $sourceAfter, true, 2, [$sourceEvent]),
             new BindingStateResultDTO(null, $targetAfter, true, 1, [$targetEvent]),
-            null,
+            $sourceBefore,
             $sourceAfter,
             null,
             $targetAfter,
-            null,
-            $targetAfter->state->currentSlug,
+            $sourceClaim->slug,
+            $targetClaim->slug,
             2,
             1,
             [$sourceEvent, $targetEvent],

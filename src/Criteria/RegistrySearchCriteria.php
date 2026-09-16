@@ -20,7 +20,7 @@ final readonly class RegistrySearchCriteria
         public ?BindingStatusEnum $bindingStatus = null,
     ) {
         if ($slugPrefix !== null) {
-            IdentityValidator::assertOpaqueString($slugPrefix, 160, 'slugPrefix');
+            IdentityValidator::assertValidUtf8($slugPrefix, 'slugPrefix');
         }
     }
 }

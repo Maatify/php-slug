@@ -10,6 +10,8 @@ use Maatify\Slug\DTO\AdoptionResultDTO;
 use Maatify\Slug\DTO\AtomicTransferResultDTO;
 use Maatify\Slug\DTO\ScopeTransitionResultDTO;
 use Maatify\Slug\DTO\SlugMutationResultDTO;
+use Maatify\Slug\Enum\BindingStatusEnum;
+use Maatify\Slug\Enum\HistoryEventTypeEnum;
 use Maatify\Slug\Exception\SlugPersistenceInvariantException;
 use PHPUnit\Framework\TestCase;
 
@@ -58,6 +60,43 @@ final class ResultSnapshotTest extends TestCase
         self::assertTrue($replayed->replayed);
         self::assertSame($json, ResultSnapshotEncoder::encode($replayed->withReplayed(false)));
         self::assertFalse($result->replayed);
+    }
+
+    public function testMoveTransitionFixtureKeepsFinalAggregateEvidenceConsistent(): void
+    {
+        $result = ContractFixtures::transition();
+        $sourceBefore = $result->sourceBefore;
+        $sourceAfter = $result->sourceAfter;
+        $sourceClaim = $result->sourceClaim;
+        $targetClaim = $result->targetClaim;
+        self::assertNotNull($sourceBefore);
+        self::assertNotNull($sourceClaim);
+        self::assertNotNull($targetClaim);
+
+        self::assertSame($sourceBefore, $result->sourceResult->before);
+        self::assertSame($sourceAfter, $result->sourceResult->after);
+        self::assertSame(BindingStatusEnum::ACTIVE, $sourceBefore->state->status);
+        self::assertSame(BindingStatusEnum::INACTIVE, $sourceAfter->state->status);
+        self::assertSame($sourceAfter->state->currentSlug?->value, $sourceAfter->currentClaim?->slug->value);
+        self::assertSame($sourceAfter->currentClaim?->slug->value, $sourceClaim->value);
+        self::assertSame(1, $sourceBefore->state->revision);
+        self::assertSame(2, $sourceAfter->state->revision);
+        self::assertSame(2, $result->sourceResult->revision);
+        self::assertSame(2, $result->sourceRevision);
+
+        self::assertNull($result->targetBefore);
+        self::assertNull($result->targetResult->before);
+        self::assertSame($result->targetAfter, $result->targetResult->after);
+        self::assertSame($result->targetAfter->currentClaim?->slug->value, $targetClaim->value);
+        self::assertSame(BindingStatusEnum::ACTIVE, $result->targetAfter->state->status);
+        self::assertSame(1, $result->targetAfter->state->revision);
+        self::assertSame(1, $result->targetResult->revision);
+        self::assertSame(1, $result->targetRevision);
+
+        self::assertSame(HistoryEventTypeEnum::SCOPE_TRANSITIONED_OUT, $result->sourceResult->historyEvents[0]->eventType);
+        self::assertSame(HistoryEventTypeEnum::SCOPE_TRANSITIONED_IN, $result->targetResult->historyEvents[0]->eventType);
+        self::assertSame($result->sourceResult->historyEvents[0], $result->historyEvents[0]);
+        self::assertSame($result->targetResult->historyEvents[0], $result->historyEvents[1]);
     }
 
     public function testDecoderRejectsMissingExtraUnknownWrongTypeDuplicateAndReplayFields(): void

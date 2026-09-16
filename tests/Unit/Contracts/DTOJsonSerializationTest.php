@@ -42,7 +42,7 @@ final class DTOJsonSerializationTest extends TestCase
         yield 'scope' => [new ScopeDTO(1, $scope->scope, $scope->expectedProfileKey, ContractFixtures::date(), ContractFixtures::date()), ['id', 'scope', 'profile_key', 'created_at', 'updated_at']];
         yield 'current' => [new CurrentSlugDTO($binding, $claim, 1), ['binding', 'claim', 'revision']];
         yield 'alias' => [new AliasDTO($claim, true, 1), ['claim', 'resolvable_as_alias', 'binding_revision']];
-        yield 'availability' => [new SlugAvailabilityDTO($scope, 'hello', $slug, AvailabilityStatusEnum::AVAILABLE, true), ['scope_profile', 'requested_input', 'canonical_slug', 'status', 'advisory']];
+        yield 'availability' => [new SlugAvailabilityDTO($scope, 'hello', $slug, AvailabilityStatusEnum::AVAILABLE, $binding, true), ['scope_profile', 'requested_input', 'canonical_slug', 'status', 'owner', 'advisory']];
         yield 'resolution' => [new SlugResolutionDTO($scope, 'hello', InputFormCanonicalityEnum::CANONICAL, $slug, $slug, MatchKindEnum::CURRENT, \Maatify\Slug\Enum\BindingStatusEnum::ACTIVE, $slug, $identity->entity, 1), ['scope_profile', 'requested_segment', 'input_canonicality', 'lookup_canonical_slug', 'matched_slug', 'match_kind', 'binding_status', 'current_slug', 'entity', 'binding_revision']];
         yield 'transition intent' => [new ScopeTransitionClaimIntentDTO(ClaimIntentModeEnum::EXACT, 'hello'), ['mode', 'value']];
         yield 'transfer intent' => [new TransferReplacementIntentDTO(ClaimIntentModeEnum::GENERATED, 'Hello source'), ['mode', 'value']];

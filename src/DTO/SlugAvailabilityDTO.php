@@ -15,6 +15,7 @@ final readonly class SlugAvailabilityDTO implements JsonSerializable
         public string $requestedInput,
         public ?Slug $canonicalSlug,
         public AvailabilityStatusEnum $status,
+        public ?BindingDTO $owner,
         public bool $advisory,
     ) {
         if (! $advisory) {
@@ -30,6 +31,7 @@ final readonly class SlugAvailabilityDTO implements JsonSerializable
             'requested_input' => $this->requestedInput,
             'canonical_slug' => $this->canonicalSlug?->value,
             'status' => $this->status->value,
+            'owner' => $this->owner,
             'advisory' => $this->advisory,
         ];
     }

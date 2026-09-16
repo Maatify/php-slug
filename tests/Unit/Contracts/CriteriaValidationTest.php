@@ -12,21 +12,29 @@ use PHPUnit\Framework\TestCase;
 
 final class CriteriaValidationTest extends TestCase
 {
-    public function testSearchPrefixesAcceptOpaqueUnicodeWithoutNormalization(): void
+    public function testRegistrySlugPrefixAcceptsValidUtf8WithoutIdentityNormalization(): void
     {
         $scope = ContractFixtures::identity(1)->scopeProfile;
         $page = new PageRequest(1, 25);
-        $entityPrefix = 'Part ١';
-        $slugPrefix = 'Cafe-١';
+        $accepted = ['', " leading/trailing ", "path\\part", "bad\0value", "bad\u{200D}value", str_repeat('a', 161), 'Cafe-١'];
 
-        $binding = new BindingSearchCriteria($scope, $page, 'product', $entityPrefix);
-        $registry = new RegistrySearchCriteria($scope, $page, $slugPrefix);
+        foreach ($accepted as $slugPrefix) {
+            $registry = new RegistrySearchCriteria($scope, $page, $slugPrefix);
 
-        self::assertSame($entityPrefix, $binding->entityKeyPrefix);
-        self::assertSame($slugPrefix, $registry->slugPrefix);
+            self::assertSame($slugPrefix, $registry->slugPrefix);
+        }
     }
 
-    public function testSearchPrefixesRejectEmptyBoundaryForbiddenAndOversizedValues(): void
+    public function testRegistrySlugPrefixRejectsInvalidUtf8(): void
+    {
+        $scope = ContractFixtures::identity(1)->scopeProfile;
+        $page = new PageRequest(1, 25);
+
+        $this->expectException(SlugInvalidArgumentException::class);
+        new RegistrySearchCriteria($scope, $page, "invalid\xC3\x28");
+    }
+
+    public function testBindingEntityKeyPrefixRetainsOpaqueIdentityEnvelope(): void
     {
         $scope = ContractFixtures::identity(1)->scopeProfile;
         $page = new PageRequest(1, 25);
@@ -36,13 +44,6 @@ final class CriteriaValidationTest extends TestCase
             try {
                 new BindingSearchCriteria($scope, $page, 'product', $value);
                 self::fail('Invalid entityKeyPrefix was accepted.');
-            } catch (SlugInvalidArgumentException $exception) {
-                self::assertInstanceOf(SlugInvalidArgumentException::class, $exception);
-            }
-
-            try {
-                new RegistrySearchCriteria($scope, $page, $value);
-                self::fail('Invalid slugPrefix was accepted.');
             } catch (SlugInvalidArgumentException $exception) {
                 self::assertInstanceOf(SlugInvalidArgumentException::class, $exception);
             }

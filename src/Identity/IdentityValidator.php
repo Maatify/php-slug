@@ -27,6 +27,13 @@ final class IdentityValidator
         self::assertOpaqueString($value, $maxCodePoints, $field);
     }
 
+    public static function assertValidUtf8(string $value, string $field): void
+    {
+        if (preg_match('//u', $value) !== 1) {
+            throw new SlugInvalidArgumentException(sprintf('%s must be valid UTF-8.', $field));
+        }
+    }
+
     public static function assertOpaqueString(string $value, int $maxCodePoints, string $field): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {
