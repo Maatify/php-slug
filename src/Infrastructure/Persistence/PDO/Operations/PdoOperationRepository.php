@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Infrastructure\Persistence\PDO\Operations;
 
+use Closure;
 use DateTimeImmutable;
 use DateTimeZone;
 use PDO;
@@ -24,6 +25,7 @@ use Maatify\Slug\Internal\ResultSnapshot\OperationSnapshotState;
 use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotMetadata;
 use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotStorage;
 use Maatify\Slug\Internal\Transaction\PdoTransactionCoordinator;
+use Maatify\Slug\Internal\Transaction\OperationReservationRaceException;
 use Maatify\Slug\Persistence\Contract\OperationParticipant;
 use Maatify\Slug\Persistence\Contract\OperationPersistenceInterface;
 use Maatify\Slug\Persistence\Contract\OperationRecord;
@@ -42,6 +44,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         private ClockInterface $clock,
         ?PdoCapabilityGuard $capabilities = null,
         ?PdoTransactionCoordinator $transactions = null,
+        private ?Closure $beforeParticipantInsert = null,
     ) {
         $this->capabilities = $capabilities ?? new PdoCapabilityGuard($pdo);
         $this->transactions = $transactions ?? new PdoTransactionCoordinator($pdo);
@@ -58,45 +61,56 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
     ): OperationReservation {
         $this->assertReservationInput($operationKey, $requestFingerprint, $resultType, $resultSchemaVersion, $participants);
         $this->assertResultOperationCompatibility($resultType, $operationType);
-        $this->capabilities->assertSupported();
+        $this->capabilities->assertInstalledSchemaSupported();
 
-        return $this->transactions->run(function () use ($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion, $participants): OperationReservation {
-            foreach ($participants as $participant) {
-                $existing = $this->findParticipantRow($participant->bindingId, $participant->idempotencyKey, true);
-                if ($existing !== null) {
-                    $operation = $this->operationFromRow($existing);
-                    $this->assertReservationMatches($operation, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
-
-                    return new OperationReservation($operation, false);
-                }
-            }
-
-            $operationId = $this->insertOperation($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
-            try {
+        try {
+            return $this->transactions->run(function () use ($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion, $participants): OperationReservation {
                 foreach ($participants as $participant) {
-                    $this->insertParticipant($operationId, $participant);
+                    $existing = $this->findParticipantRow($participant->bindingId, $participant->idempotencyKey, true);
+                    if ($existing !== null) {
+                        $operation = $this->operationFromRow($existing);
+                        $this->assertReservationMatches($operation, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
+                        $this->assertCommittedReplayEvidence($operation);
+
+                        return new OperationReservation($operation, false);
+                    }
                 }
-            } catch (PDOException $exception) {
-                if (! PdoDuplicateClassifier::matches($exception, 'uk_operation_binding_idempotency')) {
-                    throw $exception;
+
+                $operationId = $this->insertOperation($operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
+                if ($this->beforeParticipantInsert !== null) {
+                    ($this->beforeParticipantInsert)($operationId);
+                }
+                try {
+                    foreach ($participants as $participant) {
+                        $this->insertParticipant($operationId, $participant);
+                    }
+                } catch (PDOException $exception) {
+                    if (! PdoDuplicateClassifier::matches($exception, 'uk_operation_binding_idempotency')) {
+                        throw $exception;
+                    }
+
+                    $existing = $this->findExistingParticipant($participants);
+                    if ($existing === null) {
+                        throw new SlugPersistenceInvariantException('Operation participant duplicate has no readable evidence.', 0, $exception);
+                    }
+
+                    throw new OperationReservationRaceException($existing);
                 }
 
-                $existing = $this->findExistingParticipant($participants);
-                if ($existing === null) {
-                    throw new SlugPersistenceInvariantException('Operation participant duplicate has no readable evidence.', 0, $exception);
+                $operation = $this->findOperationById($operationId, true);
+                if ($operation === null) {
+                    throw new SlugPersistenceInvariantException('Operation disappeared after reservation.');
                 }
-                $this->assertReservationMatches($existing, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
 
-                return new OperationReservation($existing, false);
-            }
+                return new OperationReservation($operation, true);
+            });
+        } catch (OperationReservationRaceException $race) {
+            $operation = $race->operation;
+            $this->assertReservationMatches($operation, $participants, $operationKey, $operationType, $requestFingerprint, $resultType, $resultSchemaVersion);
+            $this->assertCommittedReplayEvidence($operation);
 
-            $operation = $this->findOperationById($operationId, true);
-            if ($operation === null) {
-                throw new SlugPersistenceInvariantException('Operation disappeared after reservation.');
-            }
-
-            return new OperationReservation($operation, true);
-        });
+            return new OperationReservation($operation, false);
+        }
     }
 
     public function findByParticipant(int $bindingId, string $idempotencyKey, bool $forUpdate = false): ?OperationRecord
@@ -115,7 +129,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         if ($operationId < 0) {
             throw new SlugPersistenceInvariantException('Operation id cannot be negative.');
         }
-        $this->capabilities->assertSupported();
+        $this->capabilities->assertInstalledSchemaSupported();
 
         $this->transactions->run(function () use ($operationId, $metadata, $profiles): void {
             $operation = $this->findOperationById($operationId, true);
@@ -236,6 +250,13 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
     }
 
+    private function assertCommittedReplayEvidence(OperationRecord $operation): void
+    {
+        if ($operation->status !== 'COMMITTED' || $operation->resultSnapshot === null || $operation->completedAt === null) {
+            throw new SlugPersistenceInvariantException('Existing operation evidence is incomplete and cannot be replayed.');
+        }
+    }
+
     private function insertOperation(string $operationKey, OperationTypeEnum $operationType, string $requestFingerprint, string $resultType, int $resultSchemaVersion): int
     {
         try {
@@ -264,7 +285,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
             if ($existing === null) {
                 throw new SlugPersistenceInvariantException('Operation key duplicate has no readable evidence.', 0, $exception);
             }
-            throw new SlugIdempotencyConflictException('Operation key is already reserved.', 0, $exception);
+            throw new OperationReservationRaceException($existing);
         }
 
         $id = filter_var($this->pdo->lastInsertId(), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

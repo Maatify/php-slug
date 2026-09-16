@@ -21,18 +21,37 @@ final readonly class PdoTransactionCoordinator
     public function run(callable $callback): mixed
     {
         if (! $this->pdo->inTransaction()) {
-            $this->pdo->beginTransaction();
+            try {
+                if (! $this->pdo->beginTransaction()) {
+                    throw new SlugTransactionParticipationException('Unable to begin the package transaction.');
+                }
+            } catch (SlugTransactionParticipationException $exception) {
+                throw $exception;
+            } catch (Throwable $throwable) {
+                throw new SlugTransactionParticipationException('Unable to begin the package transaction.', 0, $throwable);
+            }
 
             try {
                 $result = $callback();
-                $this->pdo->commit();
-
-                return $result;
             } catch (Throwable $throwable) {
                 $this->rollbackIfActive();
 
                 throw $throwable;
             }
+
+            try {
+                if (! $this->pdo->commit()) {
+                    throw new SlugTransactionParticipationException('Unable to commit the package transaction.');
+                }
+            } catch (SlugTransactionParticipationException $exception) {
+                $this->rollbackIfActive();
+                throw $exception;
+            } catch (Throwable $throwable) {
+                $this->rollbackIfActive();
+                throw new SlugTransactionParticipationException('Unable to commit the package transaction.', 0, $throwable);
+            }
+
+            return $result;
         }
 
         $savepoint = $this->newSavepointName();
@@ -43,17 +62,24 @@ final readonly class PdoTransactionCoordinator
 
         try {
             $result = $callback();
-            $this->execOrThrow(
-                sprintf('RELEASE SAVEPOINT %s', $savepoint),
-                'Unable to release the package savepoint.',
-            );
-
-            return $result;
         } catch (Throwable $throwable) {
             $this->rollbackToSavepoint($savepoint);
 
             throw $throwable;
         }
+
+        try {
+            $this->execOrThrow(
+                sprintf('RELEASE SAVEPOINT %s', $savepoint),
+                'Unable to release the package savepoint.',
+            );
+        } catch (Throwable $throwable) {
+            $this->rollbackToSavepoint($savepoint);
+
+            throw $throwable;
+        }
+
+        return $result;
     }
 
     public function newSavepointName(): string

@@ -8,6 +8,7 @@ use PDO;
 use PDOException;
 use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
 use Maatify\Slug\Exception\SlugUnsupportedDriverException;
+use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoRowHydrator;
 use Throwable;
 
 final readonly class PdoCapabilityGuard
@@ -15,10 +16,44 @@ final readonly class PdoCapabilityGuard
     public function __construct(private PDO $pdo) {}
 
     /**
-     * Runs read/rollback-scoped probes and fails closed before package mutation.
-     * No product or server version is inspected.
+     * Verifies connection capabilities that do not require the package schema.
+     *
+     * This method performs no DDL and does not mutate package tables. Runtime
+     * callers must use assertInstalledSchemaSupported() before package writes.
      */
     public function assertSupported(): void
+    {
+        $this->assertDriverAndConnectionAttributes();
+        $this->assertTransactionAndSavepointCapabilities();
+        $this->assertExactStringSemantics();
+        $this->assertDatetimePrecision();
+    }
+
+    /**
+     * Verifies capabilities that require the installed package schema.
+     *
+     * Probes use real package rows inside a transaction/savepoint and leave no
+     * rows or schema objects behind. No product or server version is inspected.
+     */
+    public function assertInstalledSchemaSupported(): void
+    {
+        $this->assertSupported();
+        $this->assertPackageTables();
+        $this->probeInstalledSchemaCapabilities();
+    }
+
+    public function driverName(): ?string
+    {
+        try {
+            $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        } catch (Throwable) {
+            return null;
+        }
+
+        return is_string($driver) ? $driver : null;
+    }
+
+    private function assertDriverAndConnectionAttributes(): void
     {
         $driver = $this->driverName();
         if ($driver !== 'mysql') {
@@ -43,19 +78,6 @@ final readonly class PdoCapabilityGuard
         } catch (Throwable $throwable) {
             throw new SlugRuntimeCompatibilityException('Required PDO connection attributes are unavailable.', 0, $throwable);
         }
-
-        $this->probeTransactionalCapabilities();
-    }
-
-    public function driverName(): ?string
-    {
-        try {
-            $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
-        } catch (Throwable) {
-            return null;
-        }
-
-        return is_string($driver) ? $driver : null;
     }
 
     private function assertConnectionCharset(): void
@@ -66,17 +88,14 @@ final readonly class PdoCapabilityGuard
         }
     }
 
-    private function probeTransactionalCapabilities(): void
+    private function assertTransactionAndSavepointCapabilities(): void
     {
+        $outerTransaction = $this->pdo->inTransaction();
         $startedTransaction = false;
-        try {
-            $savepoint = 'maa_slug_capability_probe_' . strtoupper(bin2hex(random_bytes(8)));
-        } catch (Throwable $throwable) {
-            throw new SlugRuntimeCompatibilityException('Unable to allocate a capability probe savepoint.', 0, $throwable);
-        }
+        $savepoint = $this->savepointName('connection');
 
         try {
-            if ($this->pdo->inTransaction()) {
+            if ($outerTransaction) {
                 $this->exec($this->pdo, sprintf('SAVEPOINT %s', $savepoint), 'Savepoints are required for caller-owned transactions.');
             } else {
                 if (! $this->pdo->beginTransaction()) {
@@ -86,26 +105,26 @@ final readonly class PdoCapabilityGuard
                 $this->exec($this->pdo, sprintf('SAVEPOINT %s', $savepoint), 'Savepoints are required.');
             }
 
-            $this->assertRowLock();
-            $this->assertExactStringSemantics();
-            $this->assertDatetimePrecision();
-            $this->assertUniqueAndDuplicateEvidence();
-            $this->assertForeignKeyEvidence();
+            if (! $this->pdo->inTransaction()) {
+                throw new SlugRuntimeCompatibilityException('The connection ended the transaction during capability probing.');
+            }
+            $statement = $this->pdo->query('SELECT 1');
+            if ($statement === false || (int) $statement->fetchColumn() !== 1) {
+                throw new SlugRuntimeCompatibilityException('Transactional SELECT is required.');
+            }
         } catch (SlugRuntimeCompatibilityException $exception) {
             throw $exception;
         } catch (Throwable $throwable) {
-            throw new SlugRuntimeCompatibilityException('The PDO connection does not satisfy the RC1 capability contract.', 0, $throwable);
+            throw new SlugRuntimeCompatibilityException('The PDO connection does not support transactions/savepoints.', 0, $throwable);
         } finally {
-            $this->dropProbeTables();
-
             if ($startedTransaction) {
-                try {
-                    if ($this->pdo->inTransaction()) {
+                if ($this->pdo->inTransaction()) {
+                    try {
                         $this->pdo->rollBack();
+                    } catch (Throwable) {
                     }
-                } catch (Throwable) {
                 }
-            } elseif ($this->pdo->inTransaction()) {
+            } elseif ($outerTransaction && $this->pdo->inTransaction()) {
                 try {
                     $this->pdo->exec(sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint));
                 } catch (Throwable) {
@@ -115,14 +134,6 @@ final readonly class PdoCapabilityGuard
                 } catch (Throwable) {
                 }
             }
-        }
-    }
-
-    private function assertRowLock(): void
-    {
-        $statement = $this->pdo->query('SELECT 1 FOR UPDATE');
-        if ($statement === false || (int) $statement->fetchColumn() !== 1) {
-            throw new SlugRuntimeCompatibilityException('Row locking with SELECT ... FOR UPDATE is required.');
         }
     }
 
@@ -160,39 +171,139 @@ final readonly class PdoCapabilityGuard
         }
     }
 
-    private function assertUniqueAndDuplicateEvidence(): void
+    private function assertPackageTables(): void
     {
-        $this->exec($this->pdo, 'CREATE TEMPORARY TABLE maa_slug_capability_unique (id INT NOT NULL PRIMARY KEY) ENGINE=InnoDB', 'Unique constraints are required.');
-        $this->pdo->exec('INSERT INTO maa_slug_capability_unique (id) VALUES (1)');
-
-        try {
-            $this->pdo->exec('INSERT INTO maa_slug_capability_unique (id) VALUES (1)');
-        } catch (PDOException $exception) {
-            if (! self::errorNumberIs($exception, 1062)) {
-                throw new SlugRuntimeCompatibilityException('pdo_mysql duplicate-key evidence 1062 is required.', 0, $exception);
-            }
-
-            return;
+        $expected = [
+            'maa_slug_scopes',
+            'maa_slug_bindings',
+            'maa_slug_operations',
+            'maa_slug_operation_bindings',
+            'maa_slug_registry',
+            'maa_slug_history',
+        ];
+        $statement = $this->pdo->query(
+            "SELECT TABLE_NAME, ENGINE, TABLE_COLLATION FROM information_schema.TABLES "
+            . "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'maa_slug_%' ORDER BY TABLE_NAME",
+        );
+        if ($statement === false) {
+            throw new SlugRuntimeCompatibilityException('Package schema metadata is unavailable.');
         }
 
-        throw new SlugRuntimeCompatibilityException('Unique constraints did not produce duplicate-key evidence.');
+        $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
+        $actual = array_map(static function (array $row): string {
+            $name = $row['TABLE_NAME'] ?? null;
+            if (! is_string($name)) {
+                throw new SlugRuntimeCompatibilityException('Package schema metadata has an invalid table name.');
+            }
+
+            return $name;
+        }, $rows);
+        sort($actual);
+        sort($expected);
+        if ($actual !== $expected) {
+            throw new SlugRuntimeCompatibilityException('The installed package table set is not exact.');
+        }
+        foreach ($rows as $row) {
+            if (($row['ENGINE'] ?? null) !== 'InnoDB' || ($row['TABLE_COLLATION'] ?? null) !== 'utf8mb4_bin') {
+                throw new SlugRuntimeCompatibilityException('Package tables require InnoDB and utf8mb4_bin.');
+            }
+        }
     }
 
-    private function assertForeignKeyEvidence(): void
+    private function probeInstalledSchemaCapabilities(): void
     {
-        $this->exec($this->pdo, 'CREATE TEMPORARY TABLE maa_slug_capability_parent (id INT NOT NULL PRIMARY KEY) ENGINE=InnoDB', 'Foreign keys are required.');
-        $this->exec($this->pdo, 'CREATE TEMPORARY TABLE maa_slug_capability_child (parent_id INT NOT NULL, CONSTRAINT fk_capability_parent FOREIGN KEY (parent_id) REFERENCES maa_slug_capability_parent (id)) ENGINE=InnoDB', 'Foreign keys are required.');
+        $outerTransaction = $this->pdo->inTransaction();
+        $startedTransaction = false;
+        $savepoint = $this->savepointName('schema');
+        $namespace = '__cap_' . strtolower(bin2hex(random_bytes(8)));
+        $now = '2026-01-01 00:00:00.123456';
+
         try {
-            $this->pdo->exec('INSERT INTO maa_slug_capability_child (parent_id) VALUES (999)');
-        } catch (PDOException $exception) {
-            if (! self::errorNumberIs($exception, 1452)) {
-                throw new SlugRuntimeCompatibilityException('Foreign-key enforcement is unavailable.', 0, $exception);
+            if ($outerTransaction) {
+                $this->exec($this->pdo, sprintf('SAVEPOINT %s', $savepoint), 'Unable to establish schema capability savepoint.');
+            } else {
+                if (! $this->pdo->beginTransaction()) {
+                    throw new SlugRuntimeCompatibilityException('Unable to begin schema capability probe.');
+                }
+                $startedTransaction = true;
             }
 
-            return;
-        }
+            $insert = $this->pdo->prepare(
+                'INSERT INTO maa_slug_scopes (namespace, locale_key, context_key, profile_key, created_at, updated_at) '
+                . 'VALUES (:namespace, \'\', \'\', \'ascii-v1\', :created_at, :updated_at)',
+            );
+            if ($insert === false) {
+                throw new SlugRuntimeCompatibilityException('Package schema is not writable with native prepares.');
+            }
+            $insert->execute(['namespace' => $namespace, 'created_at' => $now, 'updated_at' => $now]);
+            $scopeId = (int) $this->pdo->lastInsertId();
+            if ($scopeId < 1) {
+                throw new SlugRuntimeCompatibilityException('Package schema did not return a scope identity.');
+            }
 
-        throw new SlugRuntimeCompatibilityException('Foreign-key enforcement did not reject an invalid reference.');
+            $lock = $this->pdo->prepare('SELECT id FROM maa_slug_scopes WHERE id = :id FOR UPDATE');
+            if ($lock === false || ! $lock->execute(['id' => $scopeId]) || (int) $lock->fetchColumn() !== $scopeId) {
+                throw new SlugRuntimeCompatibilityException('Package row-lock semantics are unavailable.');
+            }
+
+            try {
+                $insert->execute(['namespace' => $namespace, 'created_at' => $now, 'updated_at' => $now]);
+            } catch (PDOException $exception) {
+                if (! PdoDuplicateClassifier::matches($exception, 'uk_scope_identity')) {
+                    throw new SlugRuntimeCompatibilityException('Package unique-key evidence is unavailable.', 0, $exception);
+                }
+            }
+
+            $foreignKeyProbe = $this->pdo->prepare(
+                'INSERT INTO maa_slug_bindings '
+                . '(scope_id, entity_type, entity_key, current_registry_id, status, revision, history_sequence, created_at, updated_at) '
+                . 'VALUES (:scope_id, \'capability\', :entity_key, NULL, \'RELEASED\', 0, 0, :created_at, :updated_at)',
+            );
+            if ($foreignKeyProbe === false) {
+                throw new SlugRuntimeCompatibilityException('Package foreign-key probe could not be prepared.');
+            }
+            try {
+                $foreignKeyProbe->execute([
+                    'scope_id' => '9223372036854775807',
+                    'entity_key' => $namespace,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+            } catch (PDOException $exception) {
+                if (! self::errorNumberIs($exception, 1452) || ! self::errorMentions($exception, 'fk_binding_scope')) {
+                    throw new SlugRuntimeCompatibilityException('Package foreign-key enforcement is unavailable.', 0, $exception);
+                }
+            }
+        } catch (SlugRuntimeCompatibilityException $exception) {
+            throw $exception;
+        } catch (Throwable $throwable) {
+            throw new SlugRuntimeCompatibilityException('The installed package schema does not satisfy the RC1 capability contract.', 0, $throwable);
+        } finally {
+            if ($startedTransaction && $this->pdo->inTransaction()) {
+                try {
+                    $this->pdo->rollBack();
+                } catch (Throwable) {
+                }
+            } elseif ($outerTransaction && $this->pdo->inTransaction()) {
+                try {
+                    $this->pdo->exec(sprintf('ROLLBACK TO SAVEPOINT %s', $savepoint));
+                } catch (Throwable) {
+                }
+                try {
+                    $this->pdo->exec(sprintf('RELEASE SAVEPOINT %s', $savepoint));
+                } catch (Throwable) {
+                }
+            }
+        }
+    }
+
+    private function savepointName(string $prefix): string
+    {
+        try {
+            return 'maa_slug_cap_' . $prefix . '_' . strtoupper(bin2hex(random_bytes(8)));
+        } catch (Throwable $throwable) {
+            throw new SlugRuntimeCompatibilityException('Unable to allocate a capability probe savepoint.', 0, $throwable);
+        }
     }
 
     private static function errorNumberIs(PDOException $exception, int $expected): bool
@@ -205,14 +316,9 @@ final readonly class PdoCapabilityGuard
         return (is_int($actual) && $actual === $expected) || (is_string($actual) && $actual === (string) $expected);
     }
 
-    private function dropProbeTables(): void
+    private static function errorMentions(PDOException $exception, string $needle): bool
     {
-        foreach (['maa_slug_capability_child', 'maa_slug_capability_parent', 'maa_slug_capability_unique'] as $table) {
-            try {
-                $this->pdo->exec(sprintf('DROP TEMPORARY TABLE IF EXISTS %s', $table));
-            } catch (Throwable) {
-            }
-        }
+        return str_contains(strtolower($exception->getMessage()), strtolower($needle));
     }
 
     private function exec(PDO $pdo, string $sql, string $message): void

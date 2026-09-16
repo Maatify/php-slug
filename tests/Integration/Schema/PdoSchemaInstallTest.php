@@ -19,4 +19,19 @@ final class PdoSchemaInstallTest extends MySqlIntegrationTestCase
         self::assertSame('utf8mb4_bin', $row['COLLATION_NAME']);
     }
 
+    public function testSchemaInstallAndCleanupAreRepeatableTwice(): void
+    {
+        for ($iteration = 1; $iteration <= 2; $iteration++) {
+            $this->reinstallPackageSchema();
+            (new PdoSchemaVerifier($this->pdo))->assertInstalled();
+
+            $this->pdo->exec('DROP TABLE maa_slug_history, maa_slug_registry, maa_slug_operation_bindings, maa_slug_operations, maa_slug_bindings, maa_slug_scopes');
+            $statement = $this->pdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'maa_slug_%'");
+            self::assertNotFalse($statement);
+            self::assertSame('0', (string) $statement->fetchColumn(), 'cleanup iteration ' . $iteration);
+        }
+
+        $this->reinstallPackageSchema();
+    }
+
 }

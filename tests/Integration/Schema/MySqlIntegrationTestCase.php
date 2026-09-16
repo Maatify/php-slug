@@ -9,9 +9,11 @@ use DateTimeZone;
 use Maatify\SharedCommon\Contracts\ClockInterface;
 use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
 use Maatify\Slug\Infrastructure\Persistence\PDO\Schema\PdoSchemaInstaller;
+use Maatify\Slug\Infrastructure\Persistence\PDO\Schema\PdoSchemaVerifier;
 use PDO;
-use PDOException;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
+use Throwable;
 
 abstract class MySqlIntegrationTestCase extends TestCase
 {
@@ -21,28 +23,19 @@ abstract class MySqlIntegrationTestCase extends TestCase
     {
         parent::setUp();
         if (! extension_loaded('pdo_mysql')) {
-            self::markTestSkipped('pdo_mysql is not loaded.');
+            self::fail('WU-03 Integration requires the pdo_mysql extension.');
         }
-        $dsn = getenv('SLUG_TEST_DSN');
-        if (! is_string($dsn) || $dsn === '') {
-            self::markTestSkipped('Set SLUG_TEST_DSN to run MySQL-compatible integration tests.');
+        $envFile = dirname(__DIR__, 3) . '/.env.test';
+        if (! is_file($envFile)) {
+            self::fail('WU-03 Integration requires the local .env.test file. Copy .env.test.example and configure a dedicated *_test database.');
         }
 
         try {
-            $this->pdo = new PDO(
-                $dsn,
-                (string) (getenv('SLUG_TEST_USER') ?: ''),
-                (string) (getenv('SLUG_TEST_PASSWORD') ?: ''),
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_EMULATE_PREPARES => false,
-                ],
-            );
+            $this->pdo = $this->newTestConnection();
             $this->pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_bin");
-            $this->dropSchema();
-            (new PdoSchemaInstaller($this->pdo, new PdoCapabilityGuard($this->pdo)))->installPackageSchema();
-        } catch (PDOException $exception) {
-            self::fail('Configured integration database is unavailable: ' . $exception->getMessage());
+            $this->reinstallPackageSchema();
+        } catch (Throwable $throwable) {
+            self::fail('Configured integration database is unavailable or invalid: ' . $throwable::class . ': ' . $throwable->getMessage());
         }
     }
 
@@ -57,6 +50,72 @@ abstract class MySqlIntegrationTestCase extends TestCase
     protected function clock(): ClockInterface
     {
         return new FrozenClock();
+    }
+
+    protected function newTestConnection(): PDO
+    {
+        $configuration = $this->testConfiguration();
+        $dsn = sprintf(
+            'mysql:host=%s;port=%d;dbname=%s;charset=utf8mb4',
+            $configuration['SLUG_TEST_DB_HOST'],
+            (int) $configuration['SLUG_TEST_DB_PORT'],
+            $configuration['SLUG_TEST_DB_NAME'],
+        );
+
+        $pdo = new PDO(
+            $dsn,
+            $configuration['SLUG_TEST_DB_USER'],
+            $configuration['SLUG_TEST_DB_PASSWORD'],
+            [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_EMULATE_PREPARES => false,
+            ],
+        );
+        $pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_bin");
+
+        return $pdo;
+    }
+
+    protected function reinstallPackageSchema(): void
+    {
+        $this->dropSchema();
+        $capabilities = new PdoCapabilityGuard($this->pdo);
+        (new PdoSchemaInstaller($this->pdo, $capabilities))->installPackageSchema();
+        (new PdoSchemaVerifier($this->pdo))->assertInstalled();
+        $capabilities->assertInstalledSchemaSupported();
+    }
+
+    /** @return array<string, string> */
+    private function testConfiguration(): array
+    {
+        $envFile = dirname(__DIR__, 3) . '/.env.test';
+        if (! is_file($envFile)) {
+            throw new RuntimeException('Required .env.test file is missing.');
+        }
+
+        $configuration = [];
+        foreach ([
+            'SLUG_TEST_DB_HOST',
+            'SLUG_TEST_DB_PORT',
+            'SLUG_TEST_DB_NAME',
+            'SLUG_TEST_DB_USER',
+            'SLUG_TEST_DB_PASSWORD',
+        ] as $variable) {
+            $value = getenv($variable);
+            if (! is_string($value) || $value === '') {
+                throw new RuntimeException(sprintf('Required .env.test variable %s is missing.', $variable));
+            }
+            $configuration[$variable] = $value;
+        }
+
+        if (! str_ends_with($configuration['SLUG_TEST_DB_NAME'], '_test')) {
+            throw new RuntimeException('SLUG_TEST_DB_NAME must end with _test; production or staging databases are forbidden.');
+        }
+        if (filter_var($configuration['SLUG_TEST_DB_PORT'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]) === false) {
+            throw new RuntimeException('SLUG_TEST_DB_PORT must be a valid TCP port.');
+        }
+
+        return $configuration;
     }
 
     private function dropSchema(): void
