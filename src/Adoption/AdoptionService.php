@@ -129,8 +129,14 @@ final readonly class AdoptionService
         return $this->transactions->run(function () use ($operation, $eventType, $role, $identity, $slug, $originalOccurredAt, $expectedRevision, $audit, $currentAdoption, $fingerprint): AdoptionResultDTO {
             $scope = $this->registry->ensureScope($identity->scopeProfile->scope, $identity->scopeProfile->expectedProfileKey);
             $scope = $this->registry->lockScope($scope->scope, $scope->profileKey);
-            $record = $this->registry->lockOrCreateBinding($scope, $identity->entity);
-            $before = $record->createdInCurrentTransaction ? null : $this->requiredBinding($identity, true);
+            $record = $this->registry->findBindingRecord($scope, $identity->entity, true);
+            if ($record === null && $currentAdoption) {
+                $record = $this->registry->lockOrCreateBindingRecord($scope, $identity->entity);
+            }
+            $before = $record === null || $record->createdInCurrentTransaction ? null : $this->requiredBinding($identity, false);
+            if ($record === null) {
+                throw new SlugNotFoundException('Historical or alias adoption requires an existing Binding.');
+            }
 
             $reservation = $this->reserve($operation, $fingerprint, $record->id, $audit);
             if ($reservation !== null && ! $reservation->created) {
@@ -143,13 +149,25 @@ final readonly class AdoptionService
             }
 
             $this->assertState($record, $before, $expectedRevision, $currentAdoption);
-            $existing = $this->registry->findClaimByScopeSlug($scope->id, $slug, true);
+            $claims = $before === null ? [] : $this->registry->findClaimsForBinding($record->id);
+            $registryKeys = array_map(
+                static fn(RegistryClaimRecord $claim): array => ['scope_id' => $claim->scopeId, 'slug' => $claim->slugValue],
+                $claims,
+            );
+            $registryKeys[] = ['scope_id' => $scope->id, 'slug' => $slug->value];
+            $lockedClaims = $this->registry->findClaimsForKeys($registryKeys, true);
+            $existing = $this->claimForSlug($lockedClaims, $slug);
             if ($existing !== null) {
                 throw new SlugAlreadyClaimedException('The adopted slug is already claimed in the requested Scope.');
             }
             if ($this->reservations->isReserved($scope->scope, $slug)) {
                 throw new SlugReservedException('The adopted slug is reserved.');
             }
+
+            $occurredAt = $this->clock->now();
+            IdentityValidator::assertDateTimeRange($occurredAt, 'occurredAt');
+            $original = $originalOccurredAt ?? $occurredAt;
+            IdentityValidator::assertDateTimeRange($original, 'originalOccurredAt');
 
             try {
                 $claim = $this->registry->insertClaim($scope->id, $record->id, $slug, $role);
@@ -160,10 +178,6 @@ final readonly class AdoptionService
                 throw new SlugAlreadyClaimedException('The adopted slug was claimed concurrently.', 0, $exception);
             }
 
-            $occurredAt = $this->clock->now();
-            IdentityValidator::assertDateTimeRange($occurredAt, 'occurredAt');
-            $original = $originalOccurredAt ?? $occurredAt;
-            IdentityValidator::assertDateTimeRange($original, 'originalOccurredAt');
             $event = $this->history->append(new HistoryEventDraft(
                 $record->id,
                 ($before?->state->historySequence ?? 0) + 1,
@@ -214,10 +228,10 @@ final readonly class AdoptionService
         });
     }
 
-    private function assertState(RegistryBindingRecord $record, ?BindingDTO $before, ?int $expectedRevision, bool $currentAdoption): void
+    private function assertState(?RegistryBindingRecord $record, ?BindingDTO $before, ?int $expectedRevision, bool $currentAdoption): void
     {
         if ($currentAdoption) {
-            if ($record->createdInCurrentTransaction) {
+            if ($record === null || $record->createdInCurrentTransaction) {
                 if ($expectedRevision !== null) {
                     throw new SlugRevisionConflictException('First current adoption requires a NULL expected revision.');
                 }
@@ -226,11 +240,11 @@ final readonly class AdoptionService
             if ($before === null) {
                 throw new SlugPersistenceInvariantException('Existing adoption Binding cannot be read.');
             }
+            if ($expectedRevision === null || $before->state->revision !== $expectedRevision) {
+                throw new SlugRevisionConflictException('Existing Binding revision does not match current adoption.');
+            }
             if ($before->state->status !== BindingStatusEnum::RELEASED) {
                 throw new SlugAssignmentNotPermittedException('Current adoption requires an absent or RELEASED Binding.');
-            }
-            if ($expectedRevision === null || $before->state->revision !== $expectedRevision) {
-                throw new SlugRevisionConflictException('Released Binding revision does not match current adoption.');
             }
             if ($before->currentClaim !== null) {
                 throw new SlugPersistenceInvariantException('Released Binding cannot retain a current claim.');
@@ -238,7 +252,7 @@ final readonly class AdoptionService
             return;
         }
 
-        if ($record->createdInCurrentTransaction || $before === null) {
+        if ($record === null || $record->createdInCurrentTransaction || $before === null) {
             throw new SlugNotFoundException('Historical or alias adoption requires an existing Binding.');
         }
         if (! in_array($before->state->status, [BindingStatusEnum::ACTIVE, BindingStatusEnum::INACTIVE], true) || $before->currentClaim === null) {
@@ -251,12 +265,24 @@ final readonly class AdoptionService
 
     private function requiredBinding(BindingIdentityDTO $identity, bool $forUpdate): BindingDTO
     {
-        $binding = $this->registry->binding($identity, $forUpdate);
+        $binding = $this->registry->binding($identity, false);
         if ($binding === null) {
             throw new SlugPersistenceInvariantException('Adoption Binding disappeared during mutation.');
         }
 
         return $binding;
+    }
+
+    /** @param list<RegistryClaimRecord> $claims */
+    private function claimForSlug(array $claims, Slug $slug): ?RegistryClaimRecord
+    {
+        foreach ($claims as $claim) {
+            if ($claim->slugValue === $slug->value) {
+                return $claim;
+            }
+        }
+
+        return null;
     }
 
     private function reserve(OperationTypeEnum $operation, string $fingerprint, int $bindingId, AuditContextDTO $audit): ?OperationReservation

@@ -84,9 +84,22 @@ final readonly class PdoRegistryRepository
 
     public function lockOrCreateBinding(ScopeDTO $scope, EntityReference $entity): RegistryBindingRecord
     {
+        $record = $this->lockOrCreateBindingRecord($scope, $entity);
+
+        return $this->validatedBindingRecord($scope, $entity, $record->createdInCurrentTransaction);
+    }
+
+    /**
+     * Lock or create a Binding row without hydrating or locking Registry claims.
+     *
+     * Transition and adoption use this primitive to finish the global Binding
+     * phase before constructing and acquiring their Registry lock plan.
+     */
+    public function lockOrCreateBindingRecord(ScopeDTO $scope, EntityReference $entity): RegistryBindingRecord
+    {
         $row = $this->findBindingRow($scope->id, $entity, true);
         if ($row !== null) {
-            return $this->validatedBindingRecord($scope, $entity, false);
+            return $this->bindingRecordFromRow($row, false);
         }
 
         $now = $this->timestamp();
@@ -122,7 +135,7 @@ final readonly class PdoRegistryRepository
             throw new SlugPersistenceInvariantException('Binding disappeared during Registry bootstrap.');
         }
 
-        return $this->validatedBindingRecord($scope, $entity, $created);
+        return $this->bindingRecordFromRow($row, $created);
     }
 
     /**
@@ -137,19 +150,7 @@ final readonly class PdoRegistryRepository
         if ($row === null) {
             return null;
         }
-        $status = BindingStatusEnum::tryFrom(PdoRowHydrator::string($row, 'status'));
-        if ($status === null) {
-            throw new SlugPersistenceInvariantException('Binding contains an unknown status.');
-        }
-
-        return new RegistryBindingRecord(
-            PdoRowHydrator::nonNegativeInt($row, 'id'),
-            $scope->id,
-            $status,
-            $this->nullableNonNegativeInt($row, 'current_registry_id'),
-            PdoRowHydrator::nonNegativeInt($row, 'revision'),
-            false,
-        );
+        return $this->bindingRecordFromRow($row, false);
     }
 
     public function findClaimByScopeSlug(int $scopeId, Slug $slug, bool $forUpdate = false): ?RegistryClaimRecord
@@ -233,6 +234,81 @@ final readonly class PdoRegistryRepository
         $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
 
         return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $rows);
+    }
+
+    /**
+     * Lock the existing Registry rows for an exact, deterministic set of
+     * (scope_id, slug) keys. Missing candidates are intentionally not gap
+     * locked; the unique Registry key remains the race authority at insert.
+     *
+     * @param list<array{scope_id: int, slug: string}> $keys
+     * @return list<RegistryClaimRecord>
+     */
+    public function findClaimsForKeys(array $keys, bool $forUpdate = false): array
+    {
+        if ($keys === []) {
+            return [];
+        }
+
+        $normalized = [];
+        foreach ($keys as $key) {
+            if ($key['scope_id'] < 0 || $key['slug'] === '') {
+                throw new SlugPersistenceInvariantException('Registry lock key is invalid.');
+            }
+            $normalized[$key['scope_id'] . "\0" . $key['slug']] = $key;
+        }
+        $normalized = array_values($normalized);
+        usort($normalized, static fn(array $left, array $right): int => $left['scope_id'] <=> $right['scope_id'] ?: strcmp($left['slug'], $right['slug']));
+
+        $predicates = [];
+        $parameters = [];
+        foreach ($normalized as $index => $key) {
+            $scopeParameter = 'lock_scope_' . $index;
+            $slugParameter = 'lock_slug_' . $index;
+            $predicates[] = '(r.scope_id = :' . $scopeParameter . ' AND r.slug = :' . $slugParameter . ')';
+            $parameters[$scopeParameter] = $key['scope_id'];
+            $parameters[$slugParameter] = $key['slug'];
+        }
+
+        $suffix = $forUpdate ? ' FOR UPDATE' : '';
+        $statement = $this->pdo->prepare(
+            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at '
+            . 'FROM maa_slug_registry r WHERE ' . implode(' OR ', $predicates)
+            . ' ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC' . $suffix,
+        );
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the exact Registry lock plan lookup.');
+        }
+        $statement->execute($parameters);
+        $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
+        if ($rows === []) {
+            return [];
+        }
+
+        $ids = array_map(static fn(array $row): int => PdoRowHydrator::nonNegativeInt($row, 'id'), $rows);
+        $placeholders = [];
+        $hydrationParameters = [];
+        foreach ($ids as $index => $id) {
+            $parameter = 'registry_id_' . $index;
+            $placeholders[] = ':' . $parameter;
+            $hydrationParameters[$parameter] = $id;
+        }
+        $hydration = $this->pdo->prepare(
+            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at, '
+            . 's.namespace, s.locale_key, s.context_key, s.profile_key, b.entity_type, b.entity_key '
+            . 'FROM maa_slug_registry r '
+            . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
+            . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id '
+            . 'WHERE r.id IN (' . implode(', ', $placeholders) . ') '
+            . 'ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC',
+        );
+        if ($hydration === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the exact Registry lock plan hydration.');
+        }
+        $hydration->execute($hydrationParameters);
+        $hydratedRows = PdoRowHydrator::many($hydration->fetchAll(PDO::FETCH_ASSOC));
+
+        return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $hydratedRows);
     }
 
     /**
@@ -526,6 +602,24 @@ final readonly class PdoRegistryRepository
             $binding->state->status,
             $binding->currentClaim?->id,
             $binding->state->revision,
+            $created,
+        );
+    }
+
+    /** @param array<string, mixed> $row */
+    private function bindingRecordFromRow(array $row, bool $created): RegistryBindingRecord
+    {
+        $status = BindingStatusEnum::tryFrom(PdoRowHydrator::string($row, 'status'));
+        if ($status === null) {
+            throw new SlugPersistenceInvariantException('Binding contains an unknown status.');
+        }
+
+        return new RegistryBindingRecord(
+            PdoRowHydrator::nonNegativeInt($row, 'id'),
+            PdoRowHydrator::nonNegativeInt($row, 'scope_id'),
+            $status,
+            $this->nullableNonNegativeInt($row, 'current_registry_id'),
+            PdoRowHydrator::nonNegativeInt($row, 'revision'),
             $created,
         );
     }

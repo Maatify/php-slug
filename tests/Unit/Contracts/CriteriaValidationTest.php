@@ -34,11 +34,17 @@ final class CriteriaValidationTest extends TestCase
         new RegistrySearchCriteria($scope, $page, "invalid\xC3\x28");
     }
 
-    public function testBindingEntityKeyPrefixRetainsOpaqueIdentityEnvelope(): void
+    public function testBindingEntityKeyPrefixAllowsSqlEscapeCharacterButRetainsSafetyEnvelope(): void
     {
         $scope = ContractFixtures::identity(1)->scopeProfile;
         $page = new PageRequest(1, 25);
-        $invalid = ['', " leading", "trailing ", "path/part", "path\\part", "bad\0value", "bad\u{200D}value"];
+        $accepted = ['path\\part'];
+        foreach ($accepted as $value) {
+            $criteria = new BindingSearchCriteria($scope, $page, 'product', $value);
+            self::assertSame($value, $criteria->entityKeyPrefix);
+        }
+
+        $invalid = ['', " leading", "trailing ", "path/part", "bad\0value", "bad\u{200D}value"];
 
         foreach ($invalid as $value) {
             try {

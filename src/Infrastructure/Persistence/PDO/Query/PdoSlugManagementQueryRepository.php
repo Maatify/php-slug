@@ -111,8 +111,8 @@ final readonly class PdoSlugManagementQueryRepository
             $params['entity_type'] = $criteria->entityType;
         }
         if ($criteria->entityKeyPrefix !== null) {
-            $predicate .= ' AND b.entity_key LIKE :entity_key_prefix';
-            $params['entity_key_prefix'] = $criteria->entityKeyPrefix . '%';
+            $predicate .= " AND b.entity_key LIKE :entity_key_prefix ESCAPE '\\\\'";
+            $params['entity_key_prefix'] = $this->likePrefix($criteria->entityKeyPrefix);
         }
         if ($criteria->status !== null) {
             $predicate .= ' AND b.status = :binding_status';
@@ -136,8 +136,8 @@ final readonly class PdoSlugManagementQueryRepository
         $predicate = 'r.scope_id = :scope_id';
         $params = ['scope_id' => $scopeId];
         if ($criteria->slugPrefix !== null) {
-            $predicate .= ' AND r.slug LIKE :slug_prefix';
-            $params['slug_prefix'] = $criteria->slugPrefix . '%';
+            $predicate .= " AND r.slug LIKE :slug_prefix ESCAPE '\\\\'";
+            $params['slug_prefix'] = $this->likePrefix($criteria->slugPrefix);
         }
         if ($criteria->role !== null) {
             $predicate .= ' AND r.claim_role = :claim_role';
@@ -360,6 +360,11 @@ final readonly class PdoSlugManagementQueryRepository
     {
         $value = PdoRowHydrator::string($row, $field);
         return $value === '' ? null : $value;
+    }
+
+    private function likePrefix(string $prefix): string
+    {
+        return strtr($prefix, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
     }
 
     /** @param array<string, mixed> $row */

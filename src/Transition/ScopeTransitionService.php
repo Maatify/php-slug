@@ -87,16 +87,14 @@ final readonly class ScopeTransitionService
             if ($sourceScope === null) {
                 throw new SlugNotFoundException('The transition source Scope was not found.');
             }
-            $targetScope = $this->registry->ensureScope(
-                $command->targetScope->scope,
-                $command->targetScope->expectedProfileKey,
-            );
-
             $scopeRequests = [$command->source->scopeProfile, $command->targetScope];
             usort($scopeRequests, fn(ScopeProfileRequestDTO $left, ScopeProfileRequestDTO $right): int => strcmp($this->scopeKey($left), $this->scopeKey($right)));
             $lockedScopes = [];
             foreach ($scopeRequests as $scopeRequest) {
                 $key = $this->scopeKey($scopeRequest);
+                if ($key === $this->scopeKey($command->targetScope)) {
+                    $this->registry->ensureScope($scopeRequest->scope, $scopeRequest->expectedProfileKey);
+                }
                 $lockedScopes[$key] = $this->registry->lockScope($scopeRequest->scope, $scopeRequest->expectedProfileKey);
             }
             $sourceScope = $lockedScopes[$this->scopeKey($command->source->scopeProfile)];
@@ -106,15 +104,15 @@ final readonly class ScopeTransitionService
             if ($sourceRecord === null) {
                 throw new SlugNotFoundException('The transition source Binding was not found.');
             }
-            $sourceBefore = $this->requiredBinding($command->source, true);
             $targetRecord = $this->registry->findBindingRecord($targetScope, $command->source->entity, true);
             $targetWasPresent = $targetRecord !== null;
             $targetCreated = false;
             if ($targetRecord === null) {
-                $targetRecord = $this->registry->lockOrCreateBinding($targetScope, $command->source->entity);
+                $targetRecord = $this->registry->lockOrCreateBindingRecord($targetScope, $command->source->entity);
                 $targetCreated = $targetRecord->createdInCurrentTransaction;
             }
             $targetIdentity = new BindingIdentityDTO($command->targetScope, $command->source->entity);
+            $sourceBefore = $this->requiredBinding($command->source, false);
 
             $existing = $this->existingOperation([$sourceRecord->id, $targetRecord->id], $command->audit);
             if ($targetWasPresent && $existing === null) {
@@ -146,19 +144,19 @@ final readonly class ScopeTransitionService
                 throw new SlugRevisionConflictException('The transition target Binding must be absent at first execution.');
             }
 
-            $sourceClaims = $this->registry->findClaimsForBinding($sourceRecord->id, true);
-            $candidateValues = array_map(static fn(Slug $slug): string => $slug->value, $targetCandidates);
-            $minimum = $candidateValues[0];
-            $maximum = $candidateValues[0];
-            foreach ($candidateValues as $candidateValue) {
-                if (strcmp($candidateValue, $minimum) < 0) {
-                    $minimum = $candidateValue;
-                }
-                if (strcmp($candidateValue, $maximum) > 0) {
-                    $maximum = $candidateValue;
-                }
+            $sourceClaims = $this->registry->findClaimsForBinding($sourceRecord->id);
+            $registryKeys = array_map(
+                static fn(RegistryClaimRecord $claim): array => ['scope_id' => $claim->scopeId, 'slug' => $claim->slugValue],
+                $sourceClaims,
+            );
+            foreach ($targetCandidates as $candidate) {
+                $registryKeys[] = ['scope_id' => $targetScope->id, 'slug' => $candidate->value];
             }
-            $targetClaims = $this->registry->findClaimsInScopeSlugRange($targetScope->id, $minimum, $maximum, true);
+            $lockedClaims = $this->registry->findClaimsForKeys($registryKeys, true);
+            $targetClaims = array_values(array_filter(
+                $lockedClaims,
+                static fn(RegistryClaimRecord $claim): bool => $claim->scopeId === $targetScope->id,
+            ));
             $targetClaim = $this->selectTargetClaim($targetScope->id, $targetRecord, $targetClaims, $targetCandidates, $command);
 
             $sourceEvents = [];
@@ -199,8 +197,8 @@ final readonly class ScopeTransitionService
                 );
             }
 
-            $sourceAfter = $this->requiredBinding($command->source, true);
-            $targetAfter = $this->requiredBinding($targetIdentity, true);
+            $sourceAfter = $this->requiredBinding($command->source, false);
+            $targetAfter = $this->requiredBinding($targetIdentity, false);
             $sourceParticipant = new BindingStateResultDTO(
                 $sourceBefore,
                 $sourceAfter,

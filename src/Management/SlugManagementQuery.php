@@ -20,6 +20,8 @@ use Maatify\Slug\DTO\CurrentSlugDTO;
 use Maatify\Slug\DTO\HistoryEventDTO;
 use Maatify\Slug\DTO\RegistryClaimDTO;
 use Maatify\Slug\DTO\ScopeDTO;
+use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Exception\SlugScopeProfileMismatchException;
 use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
 use Maatify\Slug\Infrastructure\Persistence\PDO\Query\PdoSlugManagementQueryRepository;
 use Maatify\Slug\Infrastructure\Persistence\PDO\Registry\PdoRegistryRepository;
@@ -72,6 +74,9 @@ final readonly class SlugManagementQuery implements SlugManagementQueryInterface
         $this->capabilities->assertInstalledSchemaSupported();
         $scope = $this->registry->findScope($criteria->scopeProfile->scope, $criteria->scopeProfile->expectedProfileKey);
         $binding = $criteria->binding === null ? null : $this->registry->binding($criteria->binding);
+        if ($binding !== null && ! $this->sameScopeProfile($criteria->scopeProfile, $binding->identity->scopeProfile)) {
+            throw new SlugScopeProfileMismatchException('Registry criteria Binding does not belong to the requested Scope.');
+        }
         return $this->queries->inspectRegistry($scope === null ? -1 : $scope->id, $binding === null ? null : $binding->id, $criteria->role, $criteria->pageRequest);
     }
 
@@ -95,5 +100,13 @@ final readonly class SlugManagementQuery implements SlugManagementQueryInterface
         $this->capabilities->assertInstalledSchemaSupported();
         $scope = $this->registry->findScope($criteria->scopeProfile->scope, $criteria->scopeProfile->expectedProfileKey);
         return $this->queries->searchRegistry($scope === null ? -1 : $scope->id, $criteria);
+    }
+
+    private function sameScopeProfile(ScopeProfileRequestDTO $left, ScopeProfileRequestDTO $right): bool
+    {
+        return $left->expectedProfileKey->value === $right->expectedProfileKey->value
+            && $left->scope->namespace === $right->scope->namespace
+            && $left->scope->localeKey === $right->scope->localeKey
+            && $left->scope->contextKey === $right->scope->contextKey;
     }
 }
