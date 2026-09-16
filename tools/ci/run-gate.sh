@@ -39,6 +39,7 @@ lowest_dependencies() {
     composer update --prefer-lowest --prefer-stable --no-interaction --prefer-dist --no-progress
     composer dump-autoload --optimize --strict-psr
     composer check-platform-reqs
+    composer audit --no-interaction --abandoned=fail
 }
 
 syntax() {
@@ -194,7 +195,6 @@ consumer() {
     require_command php
     require_command composer
     require_database_environment
-    schema_contract
     php tests/Consumer/run.php
 }
 

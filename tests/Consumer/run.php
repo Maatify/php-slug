@@ -7,11 +7,6 @@ if ($packageRoot === false) {
     throw new RuntimeException('Unable to resolve the package root.');
 }
 
-$schemaFile = $packageRoot . '/schema/mysql/001_slug_rc1.sql';
-if (! is_file($schemaFile)) {
-    throw new RuntimeException('The package-owned MySQL schema is missing.');
-}
-
 $configuration = databaseConfiguration();
 assertRequiredExtensions();
 
@@ -32,7 +27,6 @@ for ($run = 1; $run <= 2; $run++) {
         $environment = childEnvironment([
             'COMPOSER_HOME' => $composerHome,
             'COMPOSER_CACHE_DIR' => $composerCache,
-            'SLUG_HARNESS_SCHEMA_FILE' => $schemaFile,
             'SLUG_HARNESS_RUN' => (string) $run,
         ]);
         mkdirOrFail($composerHome);
@@ -177,18 +171,22 @@ use Maatify\SharedCommon\Contracts\ClockInterface;
 use Maatify\Slug\Command\AssignExactCommand;
 use Maatify\Slug\Command\ChangeExactCommand;
 use Maatify\Slug\Contract\ReservedSlugPolicyInterface;
+use Maatify\Slug\Criteria\CurrentSlugCriteria;
 use Maatify\Slug\DTO\AuditContextDTO;
 use Maatify\Slug\DTO\BindingIdentityDTO;
 use Maatify\Slug\DTO\CanonicalSlugDTO;
+use Maatify\Slug\DTO\CurrentSlugDTO;
 use Maatify\Slug\DTO\GeneratedSlugDTO;
 use Maatify\Slug\DTO\LookupCanonicalizationDTO;
 use Maatify\Slug\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\DTO\SlugMutationResultDTO;
 use Maatify\Slug\DTO\SlugResolutionDTO;
+use Maatify\Slug\Engine\SlugEngine;
 use Maatify\Slug\Engine\SlugEngineFactory;
 use Maatify\Slug\Enum\ChangeTypeEnum;
 use Maatify\Slug\Enum\InputFormCanonicalityEnum;
 use Maatify\Slug\Enum\MatchKindEnum;
+use Maatify\Slug\Exception\SlugAlreadyClaimedException;
 use Maatify\Slug\Factory\SlugProfileRegistryFactory;
 use Maatify\Slug\Factory\SlugTextServiceFactory;
 use Maatify\Slug\Identity\EntityReference;
@@ -219,12 +217,18 @@ final class FrozenClock implements ClockInterface
     }
 }
 
+if (($argv[1] ?? '') === '--consumer-race-worker') {
+    runRaceWorker($argv[2] ?? '', $argv[3] ?? '');
+    exit(0);
+}
+
 $configuration = databaseConfiguration();
 $run = getenv('SLUG_HARNESS_RUN');
-$schemaFile = getenv('SLUG_HARNESS_SCHEMA_FILE');
-if (! is_string($run) || $run === '' || ! is_string($schemaFile) || ! is_file($schemaFile)) {
+$schemaFile = installedPackageSchema();
+if (! is_string($run) || $run === '') {
     throw new RuntimeException('Consumer Harness runtime configuration is incomplete.');
 }
+echo sprintf("CONSUMER_SCHEMA_PATH=%s PASS\n", $schemaFile);
 
 $pdo = null;
 try {
@@ -286,6 +290,8 @@ try {
     $current = $engine->getCurrent(new \Maatify\Slug\Criteria\CurrentSlugCriteria($identity));
     expect($current?->binding->state->currentSlug?->value === 'updated-page', 'Public current lookup did not observe persisted state.');
     expect($current?->revision === 2, 'Public current lookup returned an unexpected revision.');
+
+    runConcurrencyProof($pdo, $engine, $profileKey, $run, $configuration);
 } finally {
     if ($pdo instanceof PDO) {
         dropPackageSchema($pdo);
@@ -306,6 +312,22 @@ function databaseConfiguration(): array
         $configuration[$variable] = $value;
     }
     return $configuration;
+}
+
+function installedPackageSchema(): string
+{
+    if (! class_exists(\Composer\InstalledVersions::class)) {
+        throw new RuntimeException('Composer runtime metadata is unavailable in the consumer.');
+    }
+    $packagePath = \Composer\InstalledVersions::getInstallPath('maatify/php-slug');
+    if (! is_string($packagePath) || $packagePath === '') {
+        throw new RuntimeException('Composer did not report the maatify/php-slug installation path.');
+    }
+    $schemaFile = $packagePath . '/schema/mysql/001_slug_rc1.sql';
+    if (! is_file($schemaFile)) {
+        throw new RuntimeException('The installed maatify/php-slug dependency does not contain its MySQL schema.');
+    }
+    return $schemaFile;
 }
 
 function connectToDatabase(array $configuration): PDO
@@ -340,6 +362,283 @@ function installPackageSchema(PDO $pdo, string $schemaFile): void
         $executed++;
     }
     expect($executed === 6, 'The package schema did not execute its six expected statements.');
+}
+
+/** @param array{SLUG_TEST_DB_HOST: string, SLUG_TEST_DB_PORT: string, SLUG_TEST_DB_NAME: string, SLUG_TEST_DB_USER: string, SLUG_TEST_DB_PASSWORD: string} $configuration */
+function runConcurrencyProof(PDO $pdo, SlugEngine $engine, SlugProfileKey $profileKey, string $run, array $configuration): void
+{
+    if (! function_exists('proc_open')) {
+        throw new RuntimeException('Consumer concurrency proof requires proc_open.');
+    }
+
+    $namespace = 'consumer-race-' . $run;
+    $barrier = __DIR__ . '/consumer-race-barrier-' . $run . '-' . bin2hex(random_bytes(8));
+    if (! mkdir($barrier, 0700)) {
+        throw new RuntimeException('Unable to create the external consumer race barrier.');
+    }
+
+    $workers = ['first', 'second'];
+    $raceScopeProfile = new ScopeProfileRequestDTO(new SlugScope($namespace, null, null), $profileKey);
+    foreach ($workers as $worker) {
+        $seedIdentity = new BindingIdentityDTO(
+            $raceScopeProfile,
+            new EntityReference('product', 'consumer-race-' . $run . '-' . $worker),
+        );
+        $seeded = $engine->assignExact(new AssignExactCommand(
+            $seedIdentity,
+            'race-old-' . $worker,
+            null,
+            new AuditContextDTO(actorKey: 'consumer-race', reason: 'consumer concurrency setup', idempotencyKey: 'consumer-race-seed-' . $run . '-' . $worker),
+        ));
+        expect($seeded instanceof SlugMutationResultDTO, 'Consumer race setup did not return the public mutation result.');
+        expect($seeded->after->state->revision === 1, 'Consumer race setup did not create revision 1.');
+    }
+    $processes = [];
+    $pipes = [];
+    $closed = [];
+    try {
+        foreach ($workers as $worker) {
+            $descriptors = [
+                0 => ['file', '/dev/null', 'r'],
+                1 => ['pipe', 'w'],
+                2 => ['pipe', 'w'],
+            ];
+            $process = proc_open(
+                [PHP_BINARY, __FILE__, '--consumer-race-worker', $run, $worker],
+                $descriptors,
+                $workerPipes,
+                __DIR__,
+                raceWorkerEnvironment($configuration, $barrier, $namespace),
+                ['bypass_shell' => true],
+            );
+            if (! is_resource($process)) {
+                throw new RuntimeException(sprintf('Unable to start consumer race worker %s.', $worker));
+            }
+            $processes[$worker] = $process;
+            $pipes[$worker] = $workerPipes;
+            $closed[$worker] = false;
+        }
+
+        waitForRaceWorkers($barrier, $workers, $processes);
+        if (file_put_contents($barrier . '/GO', "GO\n", LOCK_EX) === false) {
+            throw new RuntimeException('Unable to release the external consumer race barrier.');
+        }
+
+        $results = [];
+        foreach ($workers as $worker) {
+            $stdout = stream_get_contents($pipes[$worker][1]);
+            $stderr = stream_get_contents($pipes[$worker][2]);
+            fclose($pipes[$worker][1]);
+            fclose($pipes[$worker][2]);
+            $exitCode = proc_close($processes[$worker]);
+            $closed[$worker] = true;
+            if ($exitCode !== 0) {
+                throw new RuntimeException(sprintf('Consumer race worker %s failed with exit code %d: %s', $worker, $exitCode, trim((string) $stderr)));
+            }
+            try {
+                $result = json_decode(trim((string) $stdout), true, 512, JSON_THROW_ON_ERROR);
+            } catch (Throwable $throwable) {
+                throw new RuntimeException(sprintf('Consumer race worker %s returned invalid evidence: %s', $worker, $throwable->getMessage()), 0, $throwable);
+            }
+            if (! is_array($result)) {
+                throw new RuntimeException(sprintf('Consumer race worker %s returned non-array evidence.', $worker));
+            }
+            $results[] = $result;
+        }
+
+        $winners = array_values(array_filter($results, static fn(array $result): bool => ($result['status'] ?? null) === 'WINNER'));
+        $losers = array_values(array_filter($results, static fn(array $result): bool => ($result['status'] ?? null) === 'LOSER'));
+        expect(count($winners) === 1, 'Consumer concurrency proof did not produce exactly one winner.');
+        expect(count($losers) === 1, 'Consumer concurrency proof did not produce exactly one loser.');
+        expect(($winners[0]['class'] ?? null) === SlugMutationResultDTO::class, 'Consumer race winner did not return the public SlugMutationResultDTO.');
+        expect(($winners[0]['slug'] ?? null) === 'race-slug', 'Consumer race winner returned an unexpected slug.');
+        expect(($winners[0]['revision'] ?? null) === 2, 'Consumer race winner returned an unexpected revision.');
+        expect(($winners[0]['changeType'] ?? null) === ChangeTypeEnum::CHANGED->value, 'Consumer race winner returned an unexpected change type.');
+        expect(($losers[0]['exception'] ?? null) === SlugAlreadyClaimedException::class, 'Consumer race loser did not return SlugAlreadyClaimedException.');
+
+        $scopeId = scalarInt($pdo, 'SELECT id FROM maa_slug_scopes WHERE namespace = :namespace', ['namespace' => $namespace]);
+        expect($scopeId > 0, 'Consumer race scope was not persisted.');
+        expect(scalarInt($pdo, 'SELECT COUNT(*) FROM maa_slug_registry WHERE scope_id = :scope_id AND slug = :slug', ['scope_id' => $scopeId, 'slug' => 'race-slug']) === 1, 'Consumer race did not persist exactly one claim.');
+        expect(scalarInt($pdo, 'SELECT COUNT(*) FROM maa_slug_registry WHERE scope_id = :scope_id', ['scope_id' => $scopeId]) === 3, 'Consumer race left an unexpected claim count.');
+        expect(scalarInt($pdo, 'SELECT COUNT(*) FROM maa_slug_bindings WHERE scope_id = :scope_id', ['scope_id' => $scopeId]) === 2, 'Consumer race left partial or duplicate Binding state.');
+        expect(scalarInt($pdo, "SELECT COUNT(*) FROM maa_slug_bindings WHERE scope_id = :scope_id AND status = 'ACTIVE' AND current_registry_id IS NOT NULL", ['scope_id' => $scopeId]) === 2, 'Consumer race did not preserve both active Binding states.');
+        expect(scalarInt($pdo, 'SELECT COUNT(*) FROM maa_slug_history WHERE binding_id IN (SELECT id FROM maa_slug_bindings WHERE scope_id = :scope_id)', ['scope_id' => $scopeId]) === 3, 'Consumer race left partial history state.');
+        expect(scalarInt($pdo, 'SELECT COUNT(*) FROM maa_slug_operation_bindings AS participants INNER JOIN maa_slug_bindings AS bindings ON bindings.id = participants.binding_id INNER JOIN maa_slug_operations AS operations ON operations.id = participants.operation_id WHERE bindings.scope_id = :scope_id', ['scope_id' => $scopeId]) === 3, 'Consumer race left partial operation state.');
+
+        $winnerIdentity = new BindingIdentityDTO(
+            $raceScopeProfile,
+            new EntityReference('product', (string) ($winners[0]['entity'] ?? '')),
+        );
+        $current = $engine->getCurrent(new CurrentSlugCriteria($winnerIdentity));
+        expect($current instanceof CurrentSlugDTO, 'Consumer race winner was not readable through the public current-query API.');
+        expect($current->binding->state->currentSlug?->value === 'race-slug', 'Public current-query API returned unexpected consumer race state.');
+        $loserWorker = (string) ($losers[0]['worker'] ?? '');
+        expect(in_array($loserWorker, $workers, true), 'Consumer race loser did not identify its worker.');
+        $loserIdentity = new BindingIdentityDTO(
+            $raceScopeProfile,
+            new EntityReference('product', 'consumer-race-' . $run . '-' . $loserWorker),
+        );
+        $loserCurrent = $engine->getCurrent(new CurrentSlugCriteria($loserIdentity));
+        expect($loserCurrent instanceof CurrentSlugDTO, 'Consumer race loser state was not readable through the public current-query API.');
+        expect($loserCurrent->binding->state->currentSlug?->value === 'race-old-' . $loserWorker, 'Consumer race loser did not retain its original current slug.');
+        expect($loserCurrent->revision === 1, 'Consumer race loser state was partially mutated.');
+        $resolved = $engine->resolve(new \Maatify\Slug\Criteria\ResolutionCriteria($raceScopeProfile, 'RACE-SLUG'));
+        expect($resolved instanceof SlugResolutionDTO, 'Consumer race resolution did not return the public SlugResolutionDTO.');
+        expect($resolved->entity?->entityKey === (string) ($winners[0]['entity'] ?? ''), 'Public resolution API returned the wrong consumer race winner.');
+        expect($resolved->matchedSlug?->value === 'race-slug', 'Public resolution API returned an unexpected consumer race slug.');
+        echo "CONSUMER_CONCURRENCY PASS (winner=1 loser=SlugAlreadyClaimedException claims=1 clean=1)\n";
+    } finally {
+        foreach ($workers as $worker) {
+            if (($closed[$worker] ?? true) || ! is_resource($processes[$worker] ?? null)) {
+                continue;
+            }
+            $state = proc_get_status($processes[$worker]);
+            if (($state['running'] ?? false) === true) {
+                proc_terminate($processes[$worker]);
+            }
+            foreach ([1, 2] as $pipeIndex) {
+                if (isset($pipes[$worker][$pipeIndex]) && is_resource($pipes[$worker][$pipeIndex])) {
+                    fclose($pipes[$worker][$pipeIndex]);
+                }
+            }
+            proc_close($processes[$worker]);
+        }
+        removeRaceBarrier($barrier, $workers);
+    }
+}
+
+/** @param list<string> $workers
+ *  @param array<string, resource> $processes
+ */
+function waitForRaceWorkers(string $barrier, array $workers, array $processes): void
+{
+    $deadline = microtime(true) + 20.0;
+    while (true) {
+        $ready = true;
+        foreach ($workers as $worker) {
+            $readyFile = $barrier . '/READY-' . $worker;
+            if (! is_file($readyFile)) {
+                $ready = false;
+                $state = proc_get_status($processes[$worker]);
+                if (($state['running'] ?? false) === false) {
+                    throw new RuntimeException(sprintf('Consumer race worker %s exited before reaching the external barrier.', $worker));
+                }
+            }
+        }
+        if ($ready) {
+            return;
+        }
+        if (microtime(true) >= $deadline) {
+            throw new RuntimeException('Consumer race workers did not reach the external barrier within 20 seconds.');
+        }
+        usleep(10000);
+    }
+}
+
+/** @param array{SLUG_TEST_DB_HOST: string, SLUG_TEST_DB_PORT: string, SLUG_TEST_DB_NAME: string, SLUG_TEST_DB_USER: string, SLUG_TEST_DB_PASSWORD: string} $configuration
+ *  @return array<string, string>
+ */
+function raceWorkerEnvironment(array $configuration, string $barrier, string $namespace): array
+{
+    return [
+        'SLUG_TEST_DB_HOST' => $configuration['SLUG_TEST_DB_HOST'],
+        'SLUG_TEST_DB_PORT' => $configuration['SLUG_TEST_DB_PORT'],
+        'SLUG_TEST_DB_NAME' => $configuration['SLUG_TEST_DB_NAME'],
+        'SLUG_TEST_DB_USER' => $configuration['SLUG_TEST_DB_USER'],
+        'SLUG_TEST_DB_PASSWORD' => $configuration['SLUG_TEST_DB_PASSWORD'],
+        'SLUG_RACE_BARRIER_DIR' => $barrier,
+        'SLUG_RACE_NAMESPACE' => $namespace,
+    ];
+}
+
+function runRaceWorker(string $run, string $worker): void
+{
+    if ($run === '' || ! in_array($worker, ['first', 'second'], true)) {
+        throw new RuntimeException('Consumer race worker arguments are invalid.');
+    }
+    $barrier = getenv('SLUG_RACE_BARRIER_DIR');
+    $namespace = getenv('SLUG_RACE_NAMESPACE');
+    if (! is_string($barrier) || $barrier === '' || ! is_string($namespace) || $namespace === '') {
+        throw new RuntimeException('Consumer race barrier configuration is incomplete.');
+    }
+
+    $configuration = databaseConfiguration();
+    $pdo = connectToDatabase($configuration);
+    $profiles = SlugProfileRegistryFactory::createBuiltIn();
+    $profileKey = new SlugProfileKey('ascii-v1');
+    $engine = SlugEngineFactory::create($pdo, $profiles, new AcceptAllReservedSlugPolicy(), new FrozenClock());
+    $entityKey = 'consumer-race-' . $run . '-' . $worker;
+    $identity = new BindingIdentityDTO(
+        new ScopeProfileRequestDTO(new SlugScope($namespace, null, null), $profileKey),
+        new EntityReference('product', $entityKey),
+    );
+    if (file_put_contents($barrier . '/READY-' . $worker, "READY\n", LOCK_EX) === false) {
+        throw new RuntimeException('Consumer race worker could not publish its external barrier readiness.');
+    }
+
+    $deadline = microtime(true) + 20.0;
+    while (! is_file($barrier . '/GO')) {
+        if (microtime(true) >= $deadline) {
+            throw new RuntimeException('Consumer race worker did not receive the external barrier release.');
+        }
+        usleep(10000);
+    }
+
+    try {
+        $changed = $engine->changeExact(new ChangeExactCommand(
+            $identity,
+            'Race-Slug',
+            1,
+            new AuditContextDTO(actorKey: 'consumer-race', reason: 'consumer concurrency verification', idempotencyKey: 'consumer-race-change-' . $run . '-' . $worker),
+        ));
+        expect($changed instanceof SlugMutationResultDTO, 'Consumer race winner did not return the public mutation result.');
+        echo json_encode([
+            'worker' => $worker,
+            'entity' => $entityKey,
+            'status' => 'WINNER',
+            'class' => $changed::class,
+            'slug' => $changed->after->state->currentSlug?->value,
+            'revision' => $changed->after->state->revision,
+            'changeType' => $changed->changeType->value,
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    } catch (SlugAlreadyClaimedException) {
+        echo json_encode([
+            'worker' => $worker,
+            'status' => 'LOSER',
+            'exception' => SlugAlreadyClaimedException::class,
+        ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+    } finally {
+        $pdo = null;
+    }
+}
+
+/** @param array<string, int|string> $parameters */
+function scalarInt(PDO $pdo, string $sql, array $parameters = []): int
+{
+    $statement = $pdo->prepare($sql);
+    if ($statement === false) {
+        throw new RuntimeException('Consumer race state query could not be prepared.');
+    }
+    $statement->execute($parameters);
+    return (int) $statement->fetchColumn();
+}
+
+/** @param list<string> $workers */
+function removeRaceBarrier(string $barrier, array $workers): void
+{
+    foreach ($workers as $worker) {
+        $readyFile = $barrier . '/READY-' . $worker;
+        if (is_file($readyFile)) {
+            unlink($readyFile);
+        }
+    }
+    $goFile = $barrier . '/GO';
+    if (is_file($goFile)) {
+        unlink($goFile);
+    }
+    if (is_dir($barrier)) {
+        rmdir($barrier);
+    }
 }
 
 function dropPackageSchema(PDO $pdo): void
