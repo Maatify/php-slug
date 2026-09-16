@@ -14,9 +14,9 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 
 ## Types of Contributions
 
-1. **Bug Fixes:** Please open an issue with a reproducible test case.
-2. **Feature Changes:** Require prior discussion via issues. Do not send large PRs without an accepted proposal or design blueprint.
-3. **Documentation:** Minor typo fixes are welcome. Conceptual changes require an issue.
+1. **Bug Fixes:** Please provide a reproducible test case.
+2. **Feature Changes:** Architectural changes and large additions should be discussed before implementation to ensure alignment with the package's design blueprint.
+3. **Documentation:** Typo fixes and conceptual clarifications are welcome.
 4. **Security Vulnerabilities:** Do not use GitHub Issues or PRs. Refer to [SECURITY.md](SECURITY.md) to report security flaws privately via `support@maatify.com`.
 
 ## PR and Architecture Expectations
@@ -29,9 +29,16 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 
 - **PHP:** `^8.4`
 - **Extensions:** `intl`, `mbstring`, `pdo`, `pdo_mysql`
-- **Database:** A MySQL database (compatible with `8.0.36`) to run the integration test suite.
+- **Database:** A MySQL database. The CI verification target is `8.0.36`, but the package uses standard MySQL-compatible semantics.
 
-For tests, a `.env.test` file is required. This file is local-only and should not be committed to the repository (an example `.env.test.example` is provided). It must define the required testing variables as evaluated by the testing harness.
+For integration DB gates, the following environment variables are strictly required:
+- `SLUG_TEST_DB_HOST`
+- `SLUG_TEST_DB_PORT`
+- `SLUG_TEST_DB_NAME`
+- `SLUG_TEST_DB_USER`
+- `SLUG_TEST_DB_PASSWORD`
+
+These should be defined in a `.env.test` file. This file is local-only and must not be committed to the repository. The composite test gates and `integration-env` setups will generate or evaluate this ignored `.env.test`.
 
 ## Running Tests and Quality Gates
 

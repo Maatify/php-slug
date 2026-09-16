@@ -54,9 +54,9 @@ RC1 هو **Authoritative Slug Lifecycle Engine** مستقل، وليس helper ل
 
 ## 3. الحالة المدعومة والتثبيت
 
-لا توجد في الحالة الحالية نسخة منشورة أو `composer.json` أو Runtime يمكن تثبيته. الوصول المدعوم الآن هو قراءة هذا المرجع والـBlueprint والـPlan؛ لا تُستخدم `composer require maatify/php-slug` على أساس هذا الفرع.
+الحزمة متوفرة ككود مصدري (Runtime كامل، و`composer.json` موجود)، ولكنها **غير منشورة بعد**. الوصول المدعوم الآن هو استنساخ المستودع وقراءة هذا المرجع؛ لا تُستخدم `composer require maatify/php-slug` من مصادر عامة حتى النشر الرسمي.
 
-مسار الإنشاء العام المفصول عن Persistence في عقد RC1 هو:
+الـ Runtime يوفر أمثلة فعلية منفذة. مسار الإنشاء العام المفصول عن Persistence المنفذ حاليًا هو:
 
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -86,8 +86,8 @@ $engine = SlugEngineFactory::create(
 | PHP | `^8.4`؛ المصفوفة الحالية المقصودة PHP 8.4 و8.5 دون PHP ceiling |
 | Extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
 | ICU | major `74` وUnicode data `15.1` للـbuilt-in Profiles |
-| Database adapter | PDO MySQL فقط |
-| MySQL | Server `8.0.36` فقط |
+| Database adapter | PDO MySQL (يدعم MySQL-compatible semantics) |
+| MySQL | Server `8.0.36` كـ CI reproducibility target |
 | Runtime packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
 | Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` في `require-dev` لاحقًا |
 
@@ -438,15 +438,15 @@ SlugUnsupportedDriverException, SlugPersistenceInvariantException
 
 ## 12. Evidence وRelease state
 
-هذه الوثيقة لا تدعي أي gate ناجحًا. يحدد الـPlan evidence المطلوب، بما فيه:
+يحدد الـPlan evidence الذي تم تحقيقه بنجاح عبر CI، بما فيه:
 
 - Composer validation وplatform checks وproduction autoload.
 - PHPStan `level: max` وPHPUnit والـstyle/whitespace gates.
-- Unit وIntegration وSystem/Concurrency/Transaction evidence مع MySQL `8.0.36` الحقيقي.
+- Unit وIntegration وSystem/Concurrency/Transaction evidence مع بيئة MySQL الحقيقية.
 - Consumer Verification Harness من Composer root مستقل مرتين من clean states.
 - مراجعة accumulated diff وFull Applicable Integration Gate وفق المعايير.
 
-تم تشغيل Consumer Verification Harness بنجاح وكذلك الـ CI Gates. نجاح هذه الأدلة يثبت الـ implementation completion ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
+نجاح هذه الأدلة يثبت الـ implementation completion فقط ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
 
 ## 13. Supporting documents
 

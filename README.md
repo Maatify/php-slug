@@ -47,11 +47,33 @@ Composer package: `maatify/php-slug`
 
 للوصول إلى الكود المصدري والحزمة الحالية، يمكنك استنساخ المستودع. اقرأ [Package Reference](SLUG_PACKAGE_REFERENCE.md) للتعرف على واجهات برمجة التطبيقات والمفاهيم.
 
-## Public API
+## Public API والاستخدام (أمثلة)
 
-العقود العامة المقفلة تشمل `SlugTextServiceInterface` و`SlugProfileInterface` و`SlugProfileRegistryInterface` و`ReservedSlugPolicyInterface` و`SlugScopeRegistryInterface` و`SlugLifecycleServiceInterface` و`SlugQueryServiceInterface` و`SlugManagementQueryInterface`، مع `SlugProfileRegistryFactory` و`SlugTextServiceFactory` و`SlugEngineFactory` لمساري الإنشاء stateless وpersisted.
+العقود العامة تشمل `SlugTextServiceInterface` و`SlugProfileInterface` و`SlugProfileRegistryInterface` و`ReservedSlugPolicyInterface` و`SlugScopeRegistryInterface` و`SlugLifecycleServiceInterface` و`SlugQueryServiceInterface` و`SlugManagementQueryInterface`. لا تكشف الحزمة repositories أو SQL أو lock coordinators كـpublic API، ولا تنشئ pagination types محلية بدل `maatify/persistence`. مسار Schema موجود في `schema/`.
 
-كل lifecycle method يستقبل Command محددًا، وكل query filter يستقبل Criteria. لا تكشف الحزمة repositories أو SQL أو lock coordinators كـpublic API، ولا تنشئ pagination types محلية بدل `maatify/persistence`.
+**مثال على إنشاء واستخدام Stateless Factory:**
+```php
+$profiles = SlugProfileRegistryFactory::createBuiltIn();
+$textService = SlugTextServiceFactory::createDefault($profiles);
+$slug = $textService->generateSlug($profiles->get('standard'), 'My New Article!');
+```
+
+**مثال على إنشاء Persisted Engine عبر `SlugEngineFactory`:**
+```php
+$engine = SlugEngineFactory::create(
+    $pdo,                  // Host PDO instance
+    $profiles,             // SlugProfileRegistryInterface
+    $reservedPolicy,       // ReservedSlugPolicyInterface
+    $clock                 // ClockInterface (UTC)
+);
+$lifecycle = $engine->getLifecycle();
+$query = $engine->getQuery();
+```
+
+## المعاملات والتزامن (Transactions & Concurrency)
+
+- **Transactions:** إذا لم يوفر الـ Host معاملة (outer transaction)، تقوم الحزمة بإدارة المعاملة لضمان الـ atomic persistence الخاص بها. تستخدم الحزمة `savepoint` لعمليات الـ nested participation. في حال الفشل، تعيد الحزمة الـ Throwable الأصلي بعد الـ rollback دون ابتلاعه.
+- **Concurrency & Idempotency:** يوفر الـ Engine ضمانات Concurrency باستخدام MySQL constraints كـ claim authority النهائية، بالإضافة إلى Compare-and-Swap (CAS) لحماية الـ lifecycle state. العمليات توفر Idempotency عن طريق تسجيل Result Snapshots آمنة يمكن إعادة تشغيلها بأمان تام. لمزيد من التفاصيل، انظر [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
 
 ## حدود الأمان والثقة
 
@@ -69,8 +91,8 @@ Host يملك الاتصال وتهيئة PDO ووجود الكيان وrouting 
 
 ## Quality Status
 
-يتضمن المستودع CI Quality Gates تقوم بفحص الـRuntime، Tests (Unit & Integration)، Strict types، وPHPStan Max level. كما تم تنفيذ Consumer Verification Harness للتأكد من سلامة دمج الحزمة للمستهلكين الخارجيين.
-(ملاحظة: نجاح الـ CI gates يضمن استقرار الكود لكنه لا يعتبر وعدًا بالدعم العام قبل النشر).
+نجحت الحزمة في تجاوز بوابات التحقق (Quality/Compatibility Gates) المحددة في CI، والتي تشمل الـRuntime، Tests (Unit & Integration)، Strict types، وPHPStan Max level، إلى جانب Consumer Verification Harness.
+(ملاحظة: اجتياز الـ CI gates هو إثبات للتحقق الفني، لكنه لا يعتبر وعدًا بالدعم العام قبل النشر الرسمي).
 
 ## التطوير والاختبار
 
