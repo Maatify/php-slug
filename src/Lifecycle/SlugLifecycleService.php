@@ -51,6 +51,7 @@ use Maatify\Slug\Exception\SlugPersistenceInvariantException;
 use Maatify\Slug\Exception\SlugPurgeNotPermittedException;
 use Maatify\Slug\Exception\SlugReservedException;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
+use Maatify\Slug\Exception\SlugScopeProfileMismatchException;
 use Maatify\Slug\Exception\SlugTransferReplacementConflictException;
 use Maatify\Slug\History\HistoryEventDraft;
 use Maatify\Slug\Identity\Slug;
@@ -631,6 +632,9 @@ final class SlugLifecycleService
     {
         $sourceProfile = $this->profiles->get($command->source->scopeProfile->expectedProfileKey);
         $this->profiles->get($command->target->scopeProfile->expectedProfileKey);
+        if ($command->source->scopeProfile->expectedProfileKey->value !== $command->target->scopeProfile->expectedProfileKey->value) {
+            throw new SlugScopeProfileMismatchException('Atomic transfer source and target must use the same Scope profile.');
+        }
         $transferredSlug = $sourceProfile->canonicalizeClaim($command->slugCandidate)->slug;
         $replacementPayload = $command->sourceReplacementIntent === null ? null : [
             'mode' => $command->sourceReplacementIntent->mode->value,
@@ -648,18 +652,10 @@ final class SlugLifecycleService
             $command->targetExpectedRevision,
             $command->target,
         );
+        $this->capabilities->assertInstalledSchemaSupported();
 
         return $this->transactions->run(function () use ($command, $transferredSlug, $fingerprint): AtomicTransferResultDTO {
-            if ($this->bindingLockKey($command->source) <= $this->bindingLockKey($command->target)) {
-                [$source, $sourceClaims] = $this->lockExistingBinding($command->source);
-                [$target] = $this->lockExistingBinding($command->target);
-            } else {
-                [$target] = $this->lockExistingBinding($command->target);
-                [$source, $sourceClaims] = $this->lockExistingBinding($command->source);
-            }
-            if ($source->id === $target->id) {
-                throw new SlugInvalidArgumentException('Atomic transfer source and target must differ.');
-            }
+            [$source, $sourceClaims, $target, $targetClaims] = $this->lockTransferParticipants($command->source, $command->target);
             $reservation = $this->reserve(
                 OperationTypeEnum::ATOMIC_TRANSFER,
                 'transfer',
@@ -699,6 +695,9 @@ final class SlugLifecycleService
                 if (! in_array($target->state->status, [BindingStatusEnum::ACTIVE, BindingStatusEnum::INACTIVE], true)) {
                     throw new SlugAssignmentNotPermittedException('Non-current transfer requires an ACTIVE or INACTIVE target Binding.');
                 }
+            }
+            if ($this->reservations->isReserved($command->target->scopeProfile->scope, $transferredSlug)) {
+                throw new SlugReservedException('The transferred slug is reserved for the target Scope.');
             }
 
             $replacement = null;
@@ -792,6 +791,73 @@ final class SlugLifecycleService
         return [$binding, $claims];
     }
 
+    /**
+     * @return array{0: BindingDTO, 1: list<RegistryClaimRecord>, 2: BindingDTO, 3: list<RegistryClaimRecord>}
+     */
+    private function lockTransferParticipants(BindingIdentityDTO $sourceIdentity, BindingIdentityDTO $targetIdentity): array
+    {
+        $scopeIdentities = [$sourceIdentity, $targetIdentity];
+        usort($scopeIdentities, fn(BindingIdentityDTO $left, BindingIdentityDTO $right): int => strcmp($this->scopeLockKey($left), $this->scopeLockKey($right)));
+        $lockedScopes = [];
+        foreach ($scopeIdentities as $identity) {
+            $scopeKey = $this->scopeLockKey($identity);
+            if (isset($lockedScopes[$scopeKey])) {
+                continue;
+            }
+            $lockedScopes[$scopeKey] = $this->registry->lockScope($identity->scopeProfile->scope, $identity->scopeProfile->expectedProfileKey);
+        }
+
+        $bindingRequests = [
+            [$lockedScopes[$this->scopeLockKey($sourceIdentity)], $sourceIdentity],
+            [$lockedScopes[$this->scopeLockKey($targetIdentity)], $targetIdentity],
+        ];
+        usort($bindingRequests, static function (array $left, array $right): int {
+            $scopeOrder = $left[0]->id <=> $right[0]->id;
+            if ($scopeOrder !== 0) {
+                return $scopeOrder;
+            }
+            $entityTypeOrder = strcmp($left[1]->entity->entityType, $right[1]->entity->entityType);
+            if ($entityTypeOrder !== 0) {
+                return $entityTypeOrder;
+            }
+
+            return strcmp($left[1]->entity->entityKey, $right[1]->entity->entityKey);
+        });
+
+        $lockedBindings = [];
+        foreach ($bindingRequests as [$scope, $identity]) {
+            $record = $this->registry->findBindingRecord($scope, $identity->entity, true);
+            if ($record === null) {
+                throw new SlugNotFoundException('The requested transfer Binding was not found.');
+            }
+            $lockedBindings[$this->bindingLockKey($identity)] = $record;
+        }
+        $sourceRecord = $lockedBindings[$this->bindingLockKey($sourceIdentity)];
+        $targetRecord = $lockedBindings[$this->bindingLockKey($targetIdentity)];
+        if ($sourceRecord->id === $targetRecord->id) {
+            throw new SlugInvalidArgumentException('Atomic transfer source and target must differ.');
+        }
+
+        $claims = $this->registry->findClaimsForBindings([$sourceRecord->id, $targetRecord->id], true);
+        $source = $this->requiredBinding($sourceIdentity, true);
+        $target = $this->requiredBinding($targetIdentity, true);
+
+        return [
+            $source,
+            $this->claimsForBinding($claims, $sourceRecord->id),
+            $target,
+            $this->claimsForBinding($claims, $targetRecord->id),
+        ];
+    }
+
+    /** @param list<RegistryClaimRecord> $claims
+     *  @return list<RegistryClaimRecord>
+     */
+    private function claimsForBinding(array $claims, int $bindingId): array
+    {
+        return array_values(array_filter($claims, static fn(RegistryClaimRecord $claim): bool => $claim->bindingId === $bindingId));
+    }
+
     private function binding(BindingIdentityDTO $identity, bool $forUpdate): ?BindingDTO
     {
         return $this->registry->binding($identity, $forUpdate);
@@ -799,11 +865,16 @@ final class SlugLifecycleService
 
     private function bindingLockKey(BindingIdentityDTO $identity): string
     {
-        return $identity->scopeProfile->scope->namespace . "\0"
-            . ($identity->scopeProfile->scope->localeKey ?? '') . "\0"
-            . ($identity->scopeProfile->scope->contextKey ?? '') . "\0"
+        return $this->scopeLockKey($identity) . "\0"
             . $identity->entity->entityType . "\0"
             . $identity->entity->entityKey;
+    }
+
+    private function scopeLockKey(BindingIdentityDTO $identity): string
+    {
+        return $identity->scopeProfile->scope->namespace . "\0"
+            . ($identity->scopeProfile->scope->localeKey ?? '') . "\0"
+            . ($identity->scopeProfile->scope->contextKey ?? '');
     }
 
     private function requiredBinding(BindingIdentityDTO $identity, bool $forUpdate): BindingDTO

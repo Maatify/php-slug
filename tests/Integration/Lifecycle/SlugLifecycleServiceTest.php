@@ -25,8 +25,12 @@ use Maatify\Slug\DTO\TransferReplacementIntentDTO;
 use Maatify\Slug\Enum\ClaimIntentModeEnum;
 use Maatify\Slug\Exception\SlugCurrentClaimReleaseException;
 use Maatify\Slug\Exception\SlugIdempotencyConflictException;
+use Maatify\Slug\Exception\SlugAliasOperationNotPermittedException;
+use Maatify\Slug\Exception\SlugAssignmentNotPermittedException;
 use Maatify\Slug\Exception\SlugPurgeNotPermittedException;
 use Maatify\Slug\Exception\SlugReservedException;
+use Maatify\Slug\Exception\SlugNotFoundException;
+use Maatify\Slug\Exception\SlugRevisionConflictException;
 use Maatify\Slug\Identity\EntityReference;
 use Maatify\Slug\Identity\SlugProfileKey;
 use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
@@ -105,6 +109,77 @@ final class SlugLifecycleServiceTest extends MySqlIntegrationTestCase
         self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
     }
 
+    public function testAssignmentStateMatrixAndNaturalNoOpKeepRevisionAndHistoryStable(): void
+    {
+        $service = $this->service();
+        $identity = $this->identity('assignment-state');
+        $assigned = $service->assignExact(new AssignExactCommand($identity, 'assignment-first', null, new AuditContextDTO()));
+        self::assertSame(1, $assigned->revision);
+        $historyAfterAssign = $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history');
+
+        try {
+            $service->assignExact(new AssignExactCommand($identity, 'assignment-second', 1, new AuditContextDTO()));
+            self::fail('Assignment on ACTIVE Binding did not fail.');
+        } catch (SlugAssignmentNotPermittedException) {
+            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'assignment-state']));
+        }
+        $released = $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($identity, 1, new AuditContextDTO()));
+        $reopened = $service->assignExact(new AssignExactCommand($identity, 'assignment-second', $released->after->state->revision, new AuditContextDTO()));
+        self::assertSame(3, $reopened->revision);
+        try {
+            $service->assignExact(new AssignExactCommand($identity, 'assignment-third', null, new AuditContextDTO()));
+            self::fail('Assignment on RELEASED Binding with NULL revision did not fail.');
+        } catch (SlugRevisionConflictException) {
+            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'assignment-state']));
+        }
+
+        $inactive = $service->deactivate(new DeactivateBindingCommand($identity, 3, new AuditContextDTO()));
+        self::assertSame(4, $inactive->revision);
+        try {
+            $service->assignExact(new AssignExactCommand($identity, 'assignment-third', 4, new AuditContextDTO()));
+            self::fail('Assignment on INACTIVE Binding did not fail.');
+        } catch (SlugAssignmentNotPermittedException) {
+            self::assertSame(4, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'assignment-state']));
+        }
+
+        $noop = $service->changeExact(new ChangeExactCommand($identity, 'assignment-second', 4, new AuditContextDTO()));
+        self::assertSame(4, $noop->revision);
+        self::assertSame([], $noop->historyEvents);
+        self::assertSame($historyAfterAssign + 4, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations'));
+    }
+
+    public function testAliasMatrixCoversNoOpAndRepeatedOrRetiredRejections(): void
+    {
+        $service = $this->service();
+        $identity = $this->identity('alias-matrix');
+        $service->assignExact(new AssignExactCommand($identity, 'alias-main', null, new AuditContextDTO()));
+        $added = $service->addAlias(new AddAliasCommand($identity, 'alias-value', 1, new AuditContextDTO()));
+        self::assertSame(2, $added->revision);
+        $noop = $service->addAlias(new AddAliasCommand($identity, 'alias-value', 2, new AuditContextDTO()));
+        self::assertSame(2, $noop->revision);
+        self::assertSame([], $noop->historyEvents);
+        $retired = $service->retireAlias(new RetireAliasCommand($identity, 'alias-value', 2, new AuditContextDTO()));
+        self::assertSame(3, $retired->revision);
+        try {
+            $service->retireAlias(new RetireAliasCommand($identity, 'alias-value', 3, new AuditContextDTO()));
+            self::fail('Repeated alias retirement did not fail.');
+        } catch (SlugAliasOperationNotPermittedException) {
+            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'alias-matrix']));
+        }
+        try {
+            $service->promoteAliasToCurrent(new PromoteAliasToCurrentCommand($identity, 'alias-value', 3, new AuditContextDTO()));
+            self::fail('Retired alias promotion did not fail.');
+        } catch (SlugAliasOperationNotPermittedException) {
+            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'alias-matrix']));
+        }
+        $reactivated = $service->reactivateAlias(new ReactivateAliasCommand($identity, 'alias-value', 3, new AuditContextDTO()));
+        self::assertSame(4, $reactivated->revision);
+        $promoted = $service->promoteAliasToCurrent(new PromoteAliasToCurrentCommand($identity, 'alias-value', 4, new AuditContextDTO()));
+        self::assertSame(5, $promoted->revision);
+        self::assertSame('alias-value', $promoted->currentSlug?->value);
+    }
+
     public function testGeneratedAllocationSkipsReservedAndOtherOwnershipAndChangeRestoresHistorical(): void
     {
         $service = $this->service(['product', 'product-2']);
@@ -151,6 +226,112 @@ final class SlugLifecycleServiceTest extends MySqlIntegrationTestCase
             self::fail('Purge of live Binding did not fail.');
         } catch (SlugPurgeNotPermittedException) {
             self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_bindings'));
+        }
+    }
+
+    public function testPurgeRemovesLastParticipantAndRetainsSharedTransferOperationUntilLastParticipant(): void
+    {
+        $service = $this->service();
+        $single = $this->identity('purge-single');
+        $singleAudit = new AuditContextDTO(idempotencyKey: 'purge-single-operation');
+        $service->assignExact(new AssignExactCommand($single, 'purge-single-slug', null, $singleAudit));
+        $singleReleased = $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($single, 1, new AuditContextDTO()));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations'));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operation_bindings'));
+
+        $service->purgeBinding(new PurgeBindingCommand($single, $singleReleased->after->state->revision));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'purge-single']));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history WHERE entity_key_snapshot = :entity_key', ['entity_key' => 'purge-single']));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operation_bindings'));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations'));
+
+        $source = $this->identity('purge-shared-source');
+        $target = $this->identity('purge-shared-target');
+        $service->assignExact(new AssignExactCommand($source, 'purge-shared-source-slug', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($target, 'purge-shared-target-slug', null, new AuditContextDTO()));
+        $targetReleased = $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($target, 1, new AuditContextDTO()));
+        $transfer = $service->atomicTransfer(new AtomicTransferCommand(
+            $source,
+            $target,
+            'purge-shared-source-slug',
+            new TransferReplacementIntentDTO(ClaimIntentModeEnum::EXACT, 'purge-shared-replacement'),
+            1,
+            $targetReleased->after->state->revision,
+            new AuditContextDTO(idempotencyKey: 'purge-shared-transfer'),
+        ));
+        $operationKey = $transfer->operationKey;
+        self::assertNotNull($operationKey);
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations WHERE operation_key = :operation_key', ['operation_key' => $operationKey]));
+        self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operation_bindings WHERE operation_id = (SELECT id FROM maa_slug_operations WHERE operation_key = :operation_key)', ['operation_key' => $operationKey]));
+
+        $sourceReleased = $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($source, $transfer->sourceRevision, new AuditContextDTO()));
+        $service->purgeBinding(new PurgeBindingCommand($source, $sourceReleased->after->state->revision));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operation_bindings WHERE binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['entity_key' => 'purge-shared-source']));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operation_bindings WHERE operation_id = (SELECT id FROM maa_slug_operations WHERE operation_key = :operation_key)', ['operation_key' => $operationKey]));
+        self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations WHERE operation_key = :operation_key AND result_snapshot IS NOT NULL', ['operation_key' => $operationKey]));
+
+        $targetReleasedAgain = $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($target, $transfer->targetRevision, new AuditContextDTO()));
+        $service->purgeBinding(new PurgeBindingCommand($target, $targetReleasedAgain->after->state->revision));
+        self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations WHERE operation_key = :operation_key', ['operation_key' => $operationKey]));
+    }
+
+    public function testTransferRejectsAbsentAndStaleParticipantsWithoutMutation(): void
+    {
+        $service = $this->service();
+        $source = $this->identity('precondition-source');
+        $absentTarget = $this->identity('precondition-absent-target');
+        $service->assignExact(new AssignExactCommand($source, 'precondition-source-slug', null, new AuditContextDTO()));
+
+        try {
+            $service->atomicTransfer(new AtomicTransferCommand(
+                $source,
+                $absentTarget,
+                'precondition-source-slug',
+                new TransferReplacementIntentDTO(ClaimIntentModeEnum::EXACT, 'precondition-replacement'),
+                1,
+                1,
+                new AuditContextDTO(),
+            ));
+            self::fail('Transfer to an absent target Binding did not fail.');
+        } catch (SlugNotFoundException) {
+            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'precondition-source']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'precondition-source-slug']));
+            self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'precondition-absent-target']));
+        }
+
+        $target = $this->identity('precondition-target');
+        $service->assignExact(new AssignExactCommand($target, 'precondition-target-slug', null, new AuditContextDTO()));
+        $released = $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($target, 1, new AuditContextDTO()));
+        try {
+            $service->atomicTransfer(new AtomicTransferCommand(
+                $source,
+                $target,
+                'precondition-source-slug',
+                new TransferReplacementIntentDTO(ClaimIntentModeEnum::EXACT, 'precondition-replacement'),
+                0,
+                $released->after->state->revision,
+                new AuditContextDTO(),
+            ));
+            self::fail('Transfer with a stale source revision did not fail.');
+        } catch (SlugRevisionConflictException) {
+            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'precondition-source']));
+            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'precondition-target']));
+        }
+        try {
+            $service->atomicTransfer(new AtomicTransferCommand(
+                $source,
+                $target,
+                'precondition-source-slug',
+                new TransferReplacementIntentDTO(ClaimIntentModeEnum::EXACT, 'precondition-replacement'),
+                1,
+                1,
+                new AuditContextDTO(),
+            ));
+            self::fail('Transfer with a stale target revision did not fail.');
+        } catch (SlugRevisionConflictException) {
+            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'precondition-source']));
+            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'precondition-target']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'precondition-source-slug']));
         }
     }
 
@@ -228,6 +409,109 @@ final class SlugLifecycleServiceTest extends MySqlIntegrationTestCase
         self::assertSame('generated-move-2', $transfer->sourceResult->after->state->currentSlug?->value);
         self::assertSame('generated-move', $transfer->transferredClaim->slug->value);
         self::assertSame('CHANGED', $transfer->sourceReplacementResult?->changeType->value);
+    }
+
+    public function testCurrentTransferRejectsActiveAndRetiredAliasReplacements(): void
+    {
+        $service = $this->service();
+        $activeSource = $this->identity('active-alias-replacement-source');
+        $activeTarget = $this->identity('active-alias-replacement-target');
+        $service->assignExact(new AssignExactCommand($activeSource, 'active-replacement-source', null, new AuditContextDTO()));
+        $service->addAlias(new AddAliasCommand($activeSource, 'active-replacement-alias', 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($activeTarget, 'active-replacement-target', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($activeTarget, 1, new AuditContextDTO()));
+        try {
+            $service->atomicTransfer(new AtomicTransferCommand(
+                $activeSource,
+                $activeTarget,
+                'active-replacement-source',
+                new TransferReplacementIntentDTO(ClaimIntentModeEnum::EXACT, 'active-replacement-alias'),
+                2,
+                2,
+                new AuditContextDTO(),
+            ));
+            self::fail('An ACTIVE_ALIAS replacement did not fail.');
+        } catch (SlugAliasOperationNotPermittedException) {
+            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'active-alias-replacement-source']));
+        }
+
+        $retiredSource = $this->identity('retired-alias-replacement-source');
+        $retiredTarget = $this->identity('retired-alias-replacement-target');
+        $service->assignExact(new AssignExactCommand($retiredSource, 'retired-replacement-source', null, new AuditContextDTO()));
+        $service->addAlias(new AddAliasCommand($retiredSource, 'retired-replacement-alias', 1, new AuditContextDTO()));
+        $service->retireAlias(new RetireAliasCommand($retiredSource, 'retired-replacement-alias', 2, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($retiredTarget, 'retired-replacement-target', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($retiredTarget, 1, new AuditContextDTO()));
+        try {
+            $service->atomicTransfer(new AtomicTransferCommand(
+                $retiredSource,
+                $retiredTarget,
+                'retired-replacement-source',
+                new TransferReplacementIntentDTO(ClaimIntentModeEnum::EXACT, 'retired-replacement-alias'),
+                3,
+                2,
+                new AuditContextDTO(),
+            ));
+            self::fail('A RETIRED_ALIAS replacement did not fail.');
+        } catch (SlugAliasOperationNotPermittedException) {
+            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'retired-alias-replacement-source']));
+        }
+    }
+
+    public function testTargetReservationRejectsCurrentAndNonCurrentTransfersBeforeMutation(): void
+    {
+        $service = $this->service();
+        $reservedCurrentSource = $this->identity('reserved-current-source');
+        $reservedCurrentTarget = $this->identity('reserved-current-target');
+        $service->assignExact(new AssignExactCommand($reservedCurrentSource, 'reserved-current-slug', null, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($reservedCurrentTarget, 'reserved-current-target', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($reservedCurrentTarget, 1, new AuditContextDTO()));
+        $historyBeforeCurrent = $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history');
+
+        try {
+            $this->service(['reserved-current-slug'])->atomicTransfer(new AtomicTransferCommand(
+                $reservedCurrentSource,
+                $reservedCurrentTarget,
+                'reserved-current-slug',
+                new TransferReplacementIntentDTO(ClaimIntentModeEnum::EXACT, 'reserved-current-replacement'),
+                1,
+                2,
+                new AuditContextDTO(),
+            ));
+            self::fail('Target reservation did not reject a current transfer.');
+        } catch (SlugReservedException) {
+            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'reserved-current-source']));
+            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'reserved-current-target']));
+            self::assertSame($historyBeforeCurrent, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'reserved-current-slug']));
+            self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations'));
+        }
+
+        $reservedAliasSource = $this->identity('reserved-alias-source');
+        $reservedAliasTarget = $this->identity('reserved-alias-target');
+        $service->assignExact(new AssignExactCommand($reservedAliasSource, 'reserved-alias-current', null, new AuditContextDTO()));
+        $service->addAlias(new AddAliasCommand($reservedAliasSource, 'reserved-alias-slug', 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($reservedAliasTarget, 'reserved-alias-target', null, new AuditContextDTO()));
+        $historyBeforeAlias = $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history');
+
+        try {
+            $this->service(['reserved-alias-slug'])->atomicTransfer(new AtomicTransferCommand(
+                $reservedAliasSource,
+                $reservedAliasTarget,
+                'reserved-alias-slug',
+                null,
+                2,
+                1,
+                new AuditContextDTO(),
+            ));
+            self::fail('Target reservation did not reject a non-current transfer.');
+        } catch (SlugReservedException) {
+            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'reserved-alias-source']));
+            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'reserved-alias-target']));
+            self::assertSame($historyBeforeAlias, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'reserved-alias-slug']));
+            self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_operations'));
+        }
     }
 
     public function testCurrentAndNonCurrentTransfersPreserveRolesAndHistory(): void

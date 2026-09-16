@@ -1,0 +1,199 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maatify\Slug\Tests\System\Transfer;
+
+use Maatify\Slug\Command\AddAliasCommand;
+use Maatify\Slug\Command\AssignExactCommand;
+use Maatify\Slug\DTO\AuditContextDTO;
+use Maatify\Slug\DTO\BindingIdentityDTO;
+use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Exception\SlugAlreadyClaimedException;
+use Maatify\Slug\Exception\SlugRevisionConflictException;
+use Maatify\Slug\Identity\EntityReference;
+use Maatify\Slug\Identity\SlugProfileKey;
+use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Lifecycle\SlugLifecycleService;
+use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
+use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
+use Maatify\Slug\Tests\Unit\Allocation\TestReservedSlugPolicy;
+use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;
+
+final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
+{
+    public function testReverseTransfersUseOneGlobalBindingOrder(): void
+    {
+        $this->assertWorkersAvailable();
+        $service = $this->service();
+        $sourceA = $this->identity('reverse-a');
+        $sourceB = $this->identity('reverse-b');
+        $service->assignExact(new AssignExactCommand($sourceA, 'reverse-main-a', null, new AuditContextDTO()));
+        $service->addAlias(new AddAliasCommand($sourceA, 'reverse-alias-a', 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($sourceB, 'reverse-main-b', null, new AuditContextDTO()));
+        $service->addAlias(new AddAliasCommand($sourceB, 'reverse-alias-b', 1, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['transfer', 'reverse-a', 'reverse-b', 'reverse-alias-a', '2', '2'],
+            ['transfer', 'reverse-b', 'reverse-a', 'reverse-alias-b', '2', '2'],
+        ]);
+        $successes = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'OK'));
+        $failures = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'ERR'));
+
+        self::assertCount(1, $successes);
+        self::assertCount(1, $failures);
+        self::assertSame(SlugRevisionConflictException::class, $failures[0]['class']);
+        self::assertSame(4, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'reverse-a']));
+        self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'reverse-b']));
+        self::assertSame(6, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_history'));
+    }
+
+    public function testTransferAndBindingMutationHaveNoLockCycle(): void
+    {
+        $this->assertWorkersAvailable();
+        $service = $this->service();
+        $source = $this->identity('mutation-source');
+        $target = $this->identity('mutation-target');
+        $service->assignExact(new AssignExactCommand($source, 'mutation-main', null, new AuditContextDTO()));
+        $service->addAlias(new AddAliasCommand($source, 'mutation-moved', 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($target, 'mutation-target', null, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['transfer', 'mutation-source', 'mutation-target', 'mutation-moved', '2', '1'],
+            ['alias', 'mutation-target', '', 'mutation-competing-alias', '1', '0'],
+        ]);
+        $successes = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'OK'));
+        $failures = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'ERR'));
+
+        self::assertCount(1, $successes);
+        self::assertCount(1, $failures);
+        self::assertSame(SlugRevisionConflictException::class, $failures[0]['class']);
+        $winner = $successes[0]['operation'];
+        if ($winner === 'TRANSFER') {
+            self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key) AND slug = :slug', ['entity_key' => 'mutation-source', 'slug' => 'mutation-moved']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key) AND slug = :slug', ['entity_key' => 'mutation-target', 'slug' => 'mutation-moved']));
+            self::assertSame(3, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        } else {
+            self::assertSame('ALIAS', $winner);
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key) AND slug = :slug', ['entity_key' => 'mutation-source', 'slug' => 'mutation-moved']));
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key) AND slug = :slug', ['entity_key' => 'mutation-target', 'slug' => 'mutation-competing-alias']));
+            self::assertSame(4, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        }
+    }
+
+    public function testTransferAndCompetingClaimUseUniqueSlugAuthority(): void
+    {
+        $this->assertWorkersAvailable();
+        $service = $this->service();
+        $source = $this->identity('claim-source');
+        $target = $this->identity('claim-target');
+        $service->assignExact(new AssignExactCommand($source, 'claim-main', null, new AuditContextDTO()));
+        $service->addAlias(new AddAliasCommand($source, 'claim-moved', 1, new AuditContextDTO()));
+        $service->assignExact(new AssignExactCommand($target, 'claim-target', null, new AuditContextDTO()));
+        $competitor = $this->identity('claim-competitor');
+        $service->assignExact(new AssignExactCommand($competitor, 'claim-competitor-main', null, new AuditContextDTO()));
+        $service->releaseAllOwnership(new \Maatify\Slug\Command\ReleaseAllOwnershipCommand($competitor, 1, new AuditContextDTO()));
+
+        $results = $this->runWorkers([
+            ['transfer', 'claim-source', 'claim-target', 'claim-moved', '2', '1'],
+            ['claim', 'claim-competitor', '', 'claim-moved', '2', '0'],
+        ]);
+        $successes = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'OK'));
+        $failures = array_values(array_filter($results, static fn(array $result): bool => $result['status'] === 'ERR'));
+
+        self::assertCount(1, $successes);
+        self::assertCount(1, $failures);
+        $winner = $successes[0]['operation'];
+        if ($winner === 'TRANSFER') {
+            self::assertSame(SlugAlreadyClaimedException::class, $failures[0]['class']);
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'claim-moved', 'entity_key' => 'claim-target']));
+            self::assertSame(3, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        } else {
+            self::assertSame('CLAIM', $winner);
+            self::assertSame(SlugAlreadyClaimedException::class, $failures[0]['class']);
+            self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'claim-moved', 'entity_key' => 'claim-competitor']));
+            self::assertSame(4, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
+        }
+    }
+
+    private function assertWorkersAvailable(): void
+    {
+        if (! function_exists('proc_open')) {
+            self::fail('WU-05 real transfer concurrency evidence requires proc_open.');
+        }
+    }
+
+    /** @param list<list<string>> $arguments
+     *  @return list<array{status: string, operation: string, class: string}>
+     */
+    private function runWorkers(array $arguments): array
+    {
+        $workers = [];
+        foreach ($arguments as $workerArguments) {
+            $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+            $process = proc_open(
+                [PHP_BINARY, __DIR__ . '/AtomicTransferConcurrencyWorker.php', ...$workerArguments],
+                $descriptors,
+                $pipes,
+                dirname(__DIR__, 3),
+            );
+            if (! is_resource($process)) {
+                self::fail('Unable to start transfer concurrency worker.');
+            }
+            $workers[] = [$process, $pipes];
+        }
+
+        foreach ($workers as [$process, $pipes]) {
+            self::assertSame("READY\n", fgets($pipes[1]));
+        }
+        foreach ($workers as [$process, $pipes]) {
+            fwrite($pipes[0], "GO\n");
+            fclose($pipes[0]);
+        }
+
+        $results = [];
+        foreach ($workers as [$process, $pipes]) {
+            $line = fgets($pipes[1]);
+            self::assertIsString($line);
+            $parts = explode("\t", trim($line));
+            $results[] = [
+                'status' => $parts[0],
+                'operation' => $parts[1] ?? '',
+                'class' => $parts[1] ?? '',
+            ];
+            stream_set_blocking($pipes[2], false);
+            $diagnostic = stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            self::assertSame(0, proc_close($process), trim((string) $diagnostic));
+        }
+
+        return $results;
+    }
+
+    private function service(): SlugLifecycleService
+    {
+        $profiles = new SlugProfileRegistry();
+        $profiles->register(new TestSlugProfile());
+        return new SlugLifecycleService($this->pdo, $profiles, new TestReservedSlugPolicy(), $this->clock(), new PdoCapabilityGuard($this->pdo));
+    }
+
+    private function identity(string $entityKey): BindingIdentityDTO
+    {
+        return new BindingIdentityDTO(
+            new ScopeProfileRequestDTO(new SlugScope('transfer-concurrency', null, null), new SlugProfileKey('ascii-v1')),
+            new EntityReference('product', $entityKey),
+        );
+    }
+
+    /** @param array<string, int|string> $parameters */
+    private function scalarInt(string $sql, array $parameters = []): int
+    {
+        $statement = $this->pdo->prepare($sql);
+        self::assertNotFalse($statement);
+        $statement->execute($parameters);
+        return (int) $statement->fetchColumn();
+    }
+}

@@ -11,8 +11,10 @@ use Maatify\Slug\Exception\SlugUnsupportedDriverException;
 use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoRowHydrator;
 use Throwable;
 
-final readonly class PdoCapabilityGuard
+final class PdoCapabilityGuard
 {
+    private bool $installedSchemaVerified = false;
+
     public function __construct(private PDO $pdo) {}
 
     /**
@@ -37,9 +39,14 @@ final readonly class PdoCapabilityGuard
      */
     public function assertInstalledSchemaSupported(): void
     {
+        if ($this->installedSchemaVerified) {
+            return;
+        }
+
         $this->assertSupported();
         $this->assertPackageTables();
         $this->probeInstalledSchemaCapabilities();
+        $this->installedSchemaVerified = true;
     }
 
     public function driverName(): ?string

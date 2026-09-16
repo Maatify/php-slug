@@ -125,6 +125,33 @@ final readonly class PdoRegistryRepository
         return $this->validatedBindingRecord($scope, $entity, $created);
     }
 
+    /**
+     * Read and lock an existing Binding row without hydrating Registry claims.
+     *
+     * Lifecycle transfer uses this primitive to complete every Binding lock
+     * before it starts the separate Registry claim-lock phase.
+     */
+    public function findBindingRecord(ScopeDTO $scope, EntityReference $entity, bool $forUpdate = false): ?RegistryBindingRecord
+    {
+        $row = $this->findBindingRow($scope->id, $entity, $forUpdate);
+        if ($row === null) {
+            return null;
+        }
+        $status = BindingStatusEnum::tryFrom(PdoRowHydrator::string($row, 'status'));
+        if ($status === null) {
+            throw new SlugPersistenceInvariantException('Binding contains an unknown status.');
+        }
+
+        return new RegistryBindingRecord(
+            PdoRowHydrator::nonNegativeInt($row, 'id'),
+            $scope->id,
+            $status,
+            $this->nullableNonNegativeInt($row, 'current_registry_id'),
+            PdoRowHydrator::nonNegativeInt($row, 'revision'),
+            false,
+        );
+    }
+
     public function findClaimByScopeSlug(int $scopeId, Slug $slug, bool $forUpdate = false): ?RegistryClaimRecord
     {
         return $this->findClaim('r.scope_id = :scope_id AND r.slug = :slug', [
@@ -160,6 +187,49 @@ final readonly class PdoRegistryRepository
             throw new SlugPersistenceInvariantException('Unable to prepare the Registry claim list lookup.');
         }
         $statement->execute(['binding_id' => $bindingId]);
+        $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
+
+        return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $rows);
+    }
+
+    /**
+     * @param list<int> $bindingIds
+     * @return list<RegistryClaimRecord>
+     */
+    public function findClaimsForBindings(array $bindingIds, bool $forUpdate = false): array
+    {
+        if ($bindingIds === []) {
+            return [];
+        }
+        $placeholders = [];
+        $parameters = [];
+        foreach ($bindingIds as $index => $bindingId) {
+            if ($bindingId < 0) {
+                throw new SlugPersistenceInvariantException('Binding id cannot be negative.');
+            }
+            $parameter = 'binding_id_' . $index;
+            $placeholder = ':' . $parameter;
+            $placeholders[] = $placeholder;
+            $parameters[$parameter] = $bindingId;
+        }
+        if (count(array_unique($bindingIds)) !== count($bindingIds)) {
+            throw new SlugPersistenceInvariantException('Binding ids must be distinct for a multi-binding claim lock.');
+        }
+
+        $suffix = $forUpdate ? ' FOR UPDATE' : '';
+        $statement = $this->pdo->prepare(
+            'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at, '
+            . 's.namespace, s.locale_key, s.context_key, s.profile_key, b.entity_type, b.entity_key '
+            . 'FROM maa_slug_registry r '
+            . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
+            . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id '
+            . 'WHERE r.binding_id IN (' . implode(', ', $placeholders) . ') '
+            . 'ORDER BY r.scope_id ASC, r.slug ASC, r.id ASC' . $suffix,
+        );
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the multi-binding Registry claim list lookup.');
+        }
+        $statement->execute($parameters);
         $rows = PdoRowHydrator::many($statement->fetchAll(PDO::FETCH_ASSOC));
 
         return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $rows);
@@ -384,6 +454,16 @@ final readonly class PdoRegistryRepository
             $binding->state->revision,
             $created,
         );
+    }
+
+    /** @param array<string, mixed> $row */
+    private function nullableNonNegativeInt(array $row, string $key): ?int
+    {
+        if (! array_key_exists($key, $row) || $row[$key] === null) {
+            return null;
+        }
+
+        return PdoRowHydrator::nonNegativeInt($row, $key);
     }
 
     /** @param array<string, mixed> $row */
