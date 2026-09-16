@@ -57,17 +57,61 @@ final class PublicTransactionBoundarySystemTest extends MySqlIntegrationTestCase
     public function testHostCatchAfterPublicPackageFailureCanContinueOuterTransactionWithoutPartialRows(): void
     {
         $engine = $this->engine(new TestReservedSlugPolicy(['reserved-public-failure']));
-        $failed = $this->identity('caller-catch', 'failed');
-        $successful = $this->identity('caller-catch', 'successful');
+        $failedNamespace = 'caller-catch-failed';
+        $successfulNamespace = 'caller-catch-successful';
+        $failedEntityKey = 'failed';
+        $successfulEntityKey = 'successful';
+        $failedOperationKey = 'caller-catch-failed-operation';
+        $failed = $this->identity($failedNamespace, $failedEntityKey);
+        $successful = $this->identity($successfulNamespace, $successfulEntityKey);
         $observer = $this->newTestConnection();
 
         self::assertTrue($this->pdo->beginTransaction());
         try {
             try {
-                $engine->assignExact(new AssignExactCommand($failed, 'reserved-public-failure', null, new AuditContextDTO()));
+                $engine->assignExact(new AssignExactCommand(
+                    $failed,
+                    'reserved-public-failure',
+                    null,
+                    new AuditContextDTO(idempotencyKey: $failedOperationKey),
+                ));
                 self::fail('The reserved public mutation unexpectedly succeeded.');
             } catch (SlugReservedException) {
                 self::assertTrue($this->pdo->inTransaction());
+
+                self::assertSame(0, $this->scalarInt(
+                    'SELECT COUNT(*) FROM maa_slug_scopes WHERE namespace = :namespace',
+                    ['namespace' => $failedNamespace],
+                ));
+                self::assertSame(0, $this->scalarInt(
+                    'SELECT COUNT(*) FROM maa_slug_bindings b '
+                    . 'INNER JOIN maa_slug_scopes s ON s.id = b.scope_id '
+                    . 'WHERE s.namespace = :namespace AND b.entity_type = :entity_type AND b.entity_key = :entity_key',
+                    ['namespace' => $failedNamespace, 'entity_type' => 'product', 'entity_key' => $failedEntityKey],
+                ));
+                self::assertSame(0, $this->scalarInt(
+                    'SELECT COUNT(*) FROM maa_slug_registry r '
+                    . 'INNER JOIN maa_slug_scopes s ON s.id = r.scope_id '
+                    . 'WHERE s.namespace = :namespace AND r.slug = :slug',
+                    ['namespace' => $failedNamespace, 'slug' => 'reserved-public-failure'],
+                ));
+                self::assertSame(0, $this->scalarInt(
+                    'SELECT COUNT(*) FROM maa_slug_history h '
+                    . 'INNER JOIN maa_slug_bindings b ON b.id = h.binding_id '
+                    . 'INNER JOIN maa_slug_scopes s ON s.id = b.scope_id '
+                    . 'WHERE s.namespace = :namespace AND b.entity_type = :entity_type AND b.entity_key = :entity_key',
+                    ['namespace' => $failedNamespace, 'entity_type' => 'product', 'entity_key' => $failedEntityKey],
+                ));
+                self::assertSame(0, $this->scalarInt(
+                    'SELECT COUNT(*) FROM maa_slug_operation_bindings WHERE idempotency_key = :idempotency_key',
+                    ['idempotency_key' => $failedOperationKey],
+                ));
+                self::assertSame(0, $this->scalarInt(
+                    'SELECT COUNT(*) FROM maa_slug_operations o '
+                    . 'INNER JOIN maa_slug_operation_bindings p ON p.operation_id = o.id '
+                    . 'WHERE p.idempotency_key = :idempotency_key',
+                    ['idempotency_key' => $failedOperationKey],
+                ));
             }
 
             $engine->assignExact(new AssignExactCommand($successful, 'successful', null, new AuditContextDTO()));
@@ -80,12 +124,14 @@ final class PublicTransactionBoundarySystemTest extends MySqlIntegrationTestCase
             throw $throwable;
         }
 
-        self::assertSame(1, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_scopes WHERE namespace = :namespace', ['namespace' => 'caller-catch']));
-        self::assertSame(0, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'failed']));
-        self::assertSame(1, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'successful']));
+        self::assertSame(0, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_scopes WHERE namespace = :namespace', ['namespace' => $failedNamespace]));
+        self::assertSame(1, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_scopes WHERE namespace = :namespace', ['namespace' => $successfulNamespace]));
+        self::assertSame(0, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => $failedEntityKey]));
+        self::assertSame(1, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => $successfulEntityKey]));
         self::assertSame(1, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'successful']));
         self::assertSame(1, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_history'));
         self::assertSame(0, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_operations'));
+        self::assertSame(0, $this->scalarIntOn($observer, 'SELECT COUNT(*) FROM maa_slug_operation_bindings WHERE idempotency_key = :idempotency_key', ['idempotency_key' => $failedOperationKey]));
     }
 
     public function testHostOuterRollbackRemovesSuccessfulPublicMutation(): void
