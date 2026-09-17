@@ -24,7 +24,7 @@
 
 ## 3. المصدر المعياري وحدود الملكية
 
-تطبق على التنفيذ Snapshot المعايير المسجل في `docs/php-engineering-standards/STANDARDS_MANIFEST.md` عند adoption commit `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`:
+هذه القائمة تمثل **historical authoring / execution-start Standards snapshot** المسجل في `docs/php-engineering-standards/STANDARDS_MANIFEST.md` عند adoption commit `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28` القديم:
 
 - `std-package-building` `1.3.0`؛
 - `std-composer-package` `1.2.0`؛
@@ -33,6 +33,8 @@
 - `std-testing` `1.1.0`؛
 - `std-ai-collaboration-workflow` `6.0.0`؛
 - `std-github-phase-stack-workflow` `2.2.0`.
+
+الملف `STANDARDS_MANIFEST.md` يظل هو authoritative final compliance baseline. بناءً على قرار صريح من Owner، تم تحديث Standards Adoption إلى `44c8827095ab4007c355aa21c56b853f3b49d795` قبل final integration، وهذا لا يناقض الـStandards Freeze rule لأنه Owner-approved.
 
 تملك الحزمة Slug domain وPersistence الخاصة بها. يملك Host الاتصال والإعداد والـbootstrap ووجود كيان Host وأي سياسة HTTP أو SEO. لا توجد Host FKs أو Host JOINs، ولا تعتمد الحزمة على Framework أو ORM أو `maatify/php-seo`.
 
@@ -1754,7 +1756,7 @@ main
 | 29 | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1`، وأدوات evidence `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94`، مع PHP/extensions §34 | §34، Plan §2، Plan §3.3 |
 | 30 | schema/index/operations evidence plan §12–§13، real MySQL/concurrency matrix Plan §9–§10 | §12–§13، Plan §8–§10 |
 | 31 | Clock-derived UTC `DATETIME(6)` لكل package timestamp؛ imported DateTimeImmutable بأي timezone يتحول إلى UTC مع microseconds ومدى MySQL المحدد | §33، §31، §35.2 |
-| 32 | adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28` وManifest المحلي الحالي؛ Standards Freeze أثناء train | §3، §47، Plan §11 |
+| 32 | historical authoring adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`، وتم تحديثه لـ`44c8827095ab4007c355aa21c56b853f3b49d795` كـfinal compliance baseline عبر `STANDARDS_MANIFEST.md` | §3، §47، Plan §11 |
 | 33 | first-use يثبت Scope profile تحت unique lock؛ same profile يتشارك، mismatch يفشل قبل mutation، public `SlugScopeRegistryInterface` وinternal bootstrap path | §14، §5، Gate R1/R4 |
 | 34 | Preparation تغلق بترتيب إلزامي: قبول Blueprint/Plan، إنشاء/تحديث root `SLUG_PACKAGE_REFERENCE.md` كـcanonical Package Reference، إكمال release-facing README/CHANGELOG/SECURITY عند لزومها، نقل القرارات إلى مصادرها، حذف Discussion Draft، ثم دمج PR #2 إلى `phase-draft/rc-1`. بعد HEAD المحدث فقط يبدأ Execution Batch/Work Branch، وImplementation PR إلى Phase Draft لا Preparation، مع Phase Integration Gate وHarness وreal DB/concurrency evidence وفق Plan | §40، §46–§47، Plan §1–§15 و§16–§17 |
 

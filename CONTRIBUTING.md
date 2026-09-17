@@ -51,6 +51,8 @@ bash tools/ci/run-gate.sh latest-quality
 ```
 This runs PHPStan and PHP-CS-Fixer.
 
+Note: In CI, this quality gate is exercised on both PHP 8.4 and PHP 8.5 to ensure compatibility.
+
 ### 2. Run Test Suites
 
 Run the tests against the latest dependencies:

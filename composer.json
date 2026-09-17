@@ -2,11 +2,12 @@
   "name": "maatify/php-slug",
   "description": "Scoped slug lifecycle and canonicalization for PHP applications.",
   "keywords": [
-    "slug",
     "canonicalization",
     "lifecycle",
+    "maatify",
     "php",
-    "maatify"
+    "slug",
+    "slug-lifecycle"
   ],
   "homepage": "https://github.com/Maatify/php-slug",
   "type": "library",
@@ -14,7 +15,7 @@
   "authors": [
     {
       "name": "Maatify",
-      "email": "support@maatify.com",
+      "email": "support@maatify.dev",
       "homepage": "https://maatify.dev"
     }
   ],

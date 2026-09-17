@@ -36,12 +36,12 @@ Package Foundation (Composer/autoload/PHPStan/PHPUnit)
 
 ### 2.2 Standards snapshot
 
-يستخدم RC1 snapshot adoption المحلي عند `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28` كما هو مسجل في `STANDARDS_MANIFEST.md`. المعايير السبعة المنطبقة هي:
+يستخدم RC1 historical authoring snapshot adoption المحلي عند `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`. بناءً على explicit Owner decision قبل الـfinal integration، تم تحديث Standards Adoption إلى `44c8827095ab4007c355aa21c56b853f3b49d795`، ويظل `STANDARDS_MANIFEST.md` هو authoritative baseline. المعايير السبعة المنطبقة (بالإصدارات الحالية) هي:
 
 | Standard | Version | موضع التطبيق في الخطة |
 |---|---:|---|
-| `std-package-building` | 1.3.0 | architecture، PDO، exceptions، PHPStan، persistence |
-| `std-composer-package` | 1.2.0 | dependency/autoload/scripts/validation |
+| `std-package-building` | 1.4.0 | architecture، PDO، exceptions، PHPStan، persistence |
+| `std-composer-package` | 2.0.0 | dependency/autoload/scripts/validation |
 | `std-ci-workflow` | 1.1.0 | required gates، real DB، fail-closed CI |
 | `std-library-presentation` | 1.0.1 | release state؛ لا يتغير في هذه المهمة |
 | `std-testing` | 1.1.0 | unit/integration/system/Harness evidence |
