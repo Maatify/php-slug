@@ -4,13 +4,15 @@
 
 ![Maatify.dev](https://www.maatify.dev/assets/img/img/maatify_logo_white.svg)
 
-[![RC1 Preparation](https://img.shields.io/badge/Status-RC1%20Preparation-orange.svg)](#حالة-الحزمة)
+[![PHP](https://img.shields.io/badge/PHP-^8.4-777bb4.svg?logo=php&logoColor=white)](#المتطلبات)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![PHPStan](https://img.shields.io/badge/PHPStan-Max-brightgreen.svg)](#quality-status)
 [![Maatify Ecosystem](https://img.shields.io/badge/Maatify-Ecosystem-blueviolet)](https://github.com/Maatify)
 [![Package Reference](https://img.shields.io/badge/Reference-Read-blue.svg)](SLUG_PACKAGE_REFERENCE.md)
 [![Changelog](https://img.shields.io/badge/Changelog-View-blue.svg)](CHANGELOG.md)
 [![Security Policy](https://img.shields.io/badge/Security-Policy-blue.svg)](SECURITY.md)
 
-توثيق عقد RC1 لمحرك دورة حياة Slug مستقل لحزم PHP، مع فصل واضح بين Slug domain وHost وURL وHTTP وSEO.
+محرك دورة حياة Slug مستقل لحزم PHP، مع فصل واضح بين Slug domain وHost وURL وHTTP وSEO.
 
 Composer package: `maatify/php-slug`
 
@@ -18,44 +20,63 @@ Composer package: `maatify/php-slug`
 
 ---
 
-## حالة الحزمة
+## حالة الحزمة والنشر
 
-المستودع في **RC1 Preparation Closure**. لا توجد حاليًا `composer.json` أو `src/` أو `tests/` أو `schema/` أو CI، ولا توجد نسخة منشورة قابلة للتثبيت. لذلك لا يمثل هذا الفرع أو Draft PR Release Candidate منشورًا أو Stable release، ولا يوجد أمر تثبيت عامل في الحالة الحالية.
+الحزمة **غير منشورة حاليًا** ولا يتوفر لها إصدار Stable أو Release Candidate منشور عبر Packagist. هذا المستودع يحتوي على التنفيذ الفعلي للحزمة، ولكن لا يمكن استخدام `composer require maatify/php-slug` من مصادر التوزيع العامة بعد.
 
 المرجع الكامل للحالة والعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
 
-## ماذا تسجل RC1
+## الميزات الأساسية
 
-- Slug generation وcanonicalization وlookup عبر Profiles versioned.
-- scoped ownership وexact claiming وgenerated allocation بحدود معلنة.
-- current وhistorical canonical وactive/retired aliases وimmutable History.
-- lifecycle وrelease وpurge وscope transition وatomic transfer وlegacy adoption.
-- resolution وavailability وmanagement queries مع pagination مشتركة.
-- PDO MySQL persistence وtransactions وCAS وconcurrency وidempotent result snapshots.
+- **Slug Generation & Canonicalization:** توليد متوافق ومتسق يعتمد على Profiles مدمجة وإصدارات محددة (ICU/Unicode).
+- **Ownership & Lifecycle:** إدارة دورة حياة كاملة (exact claiming, generated allocation, release, purge, scope transition, atomic transfer, legacy adoption).
+- **Aliases & History:** سجل دائم وimmutable للتغيرات، وإدارة للروابط البديلة (active/retired aliases).
+- **Persistence & Concurrency:** دعم PDO MySQL، ضمانات المعاملات (transactions)، CAS، ومعالجة التزامن.
+- **Resolution & Management:** استعلامات الإدارة والبحث مع دعم التصفية المتقدمة وتقسيم الصفحات المشترك (pagination).
 
-هذه نقاط العقد المقبول للتنفيذ اللاحق وليست ادعاءً بأن Runtime موجود أو أن gates نجحت.
-
-## المتطلبات المسجلة للعقد
+## المتطلبات
 
 | المتطلب | القيمة |
 |---|---|
 | PHP | `^8.4` |
-| Profiles | ICU major `74` وUnicode data `15.1` |
-| Database | PDO MySQL وMySQL `8.0.36` فقط |
+| Database | PDO MySQL (توافق MySQL-compatible semantics؛ `mysql:8.0.36` هو CI reproducibility target) |
 | Extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
 | Direct packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
 
-راجع [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md) للتفاصيل والحدود؛ لا تعني هذه القائمة توفر المتطلبات في الفرع الحالي.
+## الوصول
 
-## التثبيت والوصول
+للوصول إلى الكود المصدري والحزمة الحالية، يمكنك استنساخ المستودع. اقرأ [Package Reference](SLUG_PACKAGE_REFERENCE.md) للتعرف على واجهات برمجة التطبيقات والمفاهيم.
 
-لا توجد نسخة منشورة أو `composer.json` في الحالة الحالية، ولذلك لا يُقدَّم أمر `composer require` ولا مثال تثبيت يوحي بوجود artifact قابل للتنزيل. للوصول إلى العقد الحالي، ابدأ من [Package Reference](SLUG_PACKAGE_REFERENCE.md)، ثم راجع [Blueprint](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md) و[Implementation Plan](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md).
+## Public API والاستخدام (أمثلة)
 
-## Public API
+العقود العامة تشمل `SlugTextServiceInterface` و`SlugProfileInterface` و`SlugProfileRegistryInterface` و`ReservedSlugPolicyInterface` و`SlugScopeRegistryInterface` و`SlugLifecycleServiceInterface` و`SlugQueryServiceInterface` و`SlugManagementQueryInterface`. لا تكشف الحزمة repositories أو SQL أو lock coordinators كـpublic API، ولا تنشئ pagination types محلية بدل `maatify/persistence`. مسار Schema موجود في `schema/`.
 
-العقود العامة المقفلة تشمل `SlugTextServiceInterface` و`SlugProfileInterface` و`SlugProfileRegistryInterface` و`ReservedSlugPolicyInterface` و`SlugScopeRegistryInterface` و`SlugLifecycleServiceInterface` و`SlugQueryServiceInterface` و`SlugManagementQueryInterface`، مع `SlugProfileRegistryFactory` و`SlugTextServiceFactory` و`SlugEngineFactory` لمساري الإنشاء stateless وpersisted.
+**مثال على إنشاء واستخدام Stateless Factory:**
+```php
+$profiles = SlugProfileRegistryFactory::createBuiltIn();
+$textService = SlugTextServiceFactory::create($profiles);
 
-كل lifecycle method يستقبل Command محددًا، وكل query filter يستقبل Criteria. لا تكشف الحزمة repositories أو SQL أو lock coordinators كـpublic API، ولا تنشئ pagination types محلية بدل `maatify/persistence`.
+$generated = $textService->generateFromSource(new SlugProfileKey('ascii-v1'), 'My New Article!');
+```
+
+**مثال على إنشاء Persisted Engine عبر `SlugEngineFactory`:**
+```php
+$engine = SlugEngineFactory::create(
+    $pdo,                  // Host PDO instance
+    $profiles,             // SlugProfileRegistryInterface
+    $reservedPolicy,       // ReservedSlugPolicyInterface
+    $clock                 // ClockInterface (UTC)
+);
+
+// يمكن استخدام $engine كـ facade للعمليات، مثلاً:
+$resolution = $engine->resolve($criteria);
+```
+
+## المعاملات والتزامن (Transactions & Concurrency)
+
+- **Transactions:** إذا لم يوفر الـ Host معاملة (outer transaction)، تقوم الحزمة بإدارة المعاملة لضمان الـ atomic persistence الخاص بها. تستخدم الحزمة `savepoint` لعمليات الـ nested participation. في حال الفشل، تعيد الحزمة الـ Throwable الأصلي بعد الـ rollback دون ابتلاعه.
+- **Concurrency & Idempotency:** يوفر الـ Engine ضمانات Concurrency باستخدام MySQL constraints كـ claim authority النهائية، بالإضافة إلى Compare-and-Swap (CAS) لحماية الـ lifecycle state. يطبق الـ replay/idempotency بشكل آمن عبر Result Snapshots **فقط عند توفير idempotency key** وفقًا لعقد الـ mutation.
+- **Schema:** مسار مخطط قاعدة البيانات متوفر في `schema/mysql/001_slug_rc1.sql`. لمزيد من التفاصيل، انظر [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
 
 ## حدود الأمان والثقة
 
@@ -73,15 +94,17 @@ Host يملك الاتصال وتهيئة PDO ووجود الكيان وrouting 
 
 ## Quality Status
 
-لم تُنشأ بعد Runtime أو Schema أو Tests أو CI أو Composer metadata في الحالة الحالية. لذلك لا توجد نتيجة اختبارات أو PHPStan أو Consumer Verification Harness أو security audit يمكن نسبها إلى هذا الفرع.
+نجحت الحزمة في تجاوز بوابات التحقق (Quality/Compatibility Gates) المحددة في CI، والتي تشمل الـRuntime، Tests (Unit & Integration)، Strict types، وPHPStan Max level، إلى جانب Consumer Verification Harness.
+(ملاحظة: اجتياز الـ CI gates هو إثبات للتحقق الفني، لكنه لا يعتبر وعدًا بالدعم العام قبل النشر الرسمي).
 
 ## التطوير والاختبار
 
-تفاصيل Work Units وFull Applicable Verification Set موجودة في [Implementation Plan](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md). هذه المهمة لا تنشئ implementation ولا تشغّل Runtime test suite؛ أي gate غير مشغلة لا تُعرض كأنها ناجحة.
+للعمل على المستودع أو تشغيل الاختبارات، راجع [`CONTRIBUTING.md`](CONTRIBUTING.md).
+الاختبارات تتطلب بيئة قاعدة بيانات MySQL للتحقق من Integration.
 
 ## License
 
-لا يوجد ملف `LICENSE` مسجل في الحالة الحالية، لذلك لا تنسب هذه الوثائق ترخيصًا غير مثبت.
+مرخص بموجب ترخيص [MIT](LICENSE).
 
 ## 👤 Author
 

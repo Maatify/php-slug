@@ -5,7 +5,7 @@
 
 ## حالة الدعم الحالية
 
-المستودع في RC1 Preparation Closure، ولا توجد حاليًا نسخة Stable منشورة أو خط إصدار Stable مدعوم. لا يمثل هذا الفرع أو Draft PR نسخة منشورة أو Release Candidate قابلًا للاستهلاك الخارجي، ولا يُفهم من العقد الموثق هنا وجود دعم أمني لـRuntime غير موجود بعد.
+يحتوي المستودع على التنفيذ الفعلي للحزمة (Runtime وCI)، ومع ذلك، لا توجد حاليًا نسخة Stable منشورة عبر Packagist أو خط إصدار Stable مدعوم. لا يمثل هذا الفرع أو Draft PR نسخة منشورة أو Release Candidate قابلًا للاستهلاك الخارجي لبيئات الإنتاج، ولا يقدم وعوداً بتوفر خدمة الدعم الفني العام وSLA في الوقت الحالي قبل النشر الرسمي.
 
 ## Supported Versions
 
@@ -17,7 +17,7 @@
 
 ## نطاق سياسة الأمان
 
-يشمل نطاق الحزمة عند وجود Runtime: Slug profiles وinput validation وownership/lifecycle وHistory وPDO MySQL persistence وtransactions وconcurrency وpublic result/exception contracts.
+يشمل نطاق الحزمة: Slug profiles وinput validation وownership/lifecycle وHistory وPDO MySQL persistence وtransactions وconcurrency وpublic result/exception contracts.
 
 يبقى خارج نطاق الحزمة: Host entity persistence/existence، authentication وauthorization، routing وURL transport، HTTP status/redirect policy، SEO، Framework integrations، وHost infrastructure. يجب إرسال مشكلة تخص هذه المجالات إلى مالك التطبيق أو الـadapter المسؤول عنها.
 
@@ -34,6 +34,6 @@
 
 ## حدود الادعاء الحالية
 
-لا توجد في الحالة الحالية Composer metadata أو Runtime أو Schema أو Tests أو CI، ولذلك لا تدعي هذه السياسة security audit أو production deployment أو release readiness. أي ادعاء لاحق عن دعم إصدار أو إصلاح أمني يجب أن يطابق نسخة منشورة وسياسة الدعم الفعلية.
+على الرغم من وجود Runtime و Tests و CI، فإن هذا لا يعتبر شهادة أمان أو security audit رسمي، ولا تدعي هذه السياسة الجاهزية لنشر الـ production أو release readiness قبل توفر نسخة ثابتة ومنشورة رسميًا. أي ادعاء لاحق عن دعم إصدار أو إصلاح أمني يجب أن يطابق نسخة منشورة وسياسة الدعم الفعلية.
 
 للعقد الفني وحدود الثقة، راجع [Package Reference](SLUG_PACKAGE_REFERENCE.md).

@@ -2,7 +2,7 @@
 
 > **Canonical root Package Reference** للحزمة `maatify/php-slug`.
 >
-> **الحالة الحالية:** Preparation Closure لـRC1. هذا الملف يسجل عقد RC1 المقبول وحدود الحزمة كما هي في المراجع الحالية؛ لا يثبت وجود Runtime أو Composer package قابل للتثبيت أو نسخة منشورة.
+> **الحالة الحالية:** تم الانتهاء من تنفيذ RC1. هذا الملف يسجل العقد المنفذ فعليًا وحدود الحزمة كما هي متوفرة حالياً في الـ Runtime (من الكود المصدري) و Tests و CI. الحزمة غير منشورة بعد على Packagist (لا توجد نسخة Stable أو SemVer RC منشورة للاستخدام العام).
 
 ## 1. هوية الحزمة وحالتها
 
@@ -13,19 +13,17 @@
 | Namespace | `Maatify\\Slug\\` |
 | Artifact | standalone reusable PHP/Composer library |
 | Host model | Host-agnostic |
-| Current workflow state | RC1 Preparation Closure |
+| Current workflow state | Implemented (Unpublished) |
 | Published Stable line | لا توجد |
-| Published SemVer RC | لا تُثبتها الحالة الحالية |
+| Published SemVer RC | لا توجد |
 
-عند هذه الحالة لا يحتوي المستودع على `composer.json` أو `src/` أو `tests/` أو `schema/` أو CI workflow. لذلك لا يوجد أمر تثبيت عامل، ولا يجوز التعامل مع هذا الفرع أو Draft PR على أنه Release Candidate منشور أو Stable release أو Runtime جاهز للإنتاج. العقد المسجل أدناه هو نطاق RC1 المقبول للتنفيذ اللاحق، وليس تقرير تنفيذ.
+هذا المستودع يحتوي على التنفيذ الفعلي (الـ Runtime، Tests، Schema، CI)، ولكن لا يتوفر أمر تثبيت عبر `composer require` متاح للعموم قبل النشر الرسمي.
 
 المراجع الدائمة المرتبطة بهذا الملف:
 
 - [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md): supporting architecture and public-contract contract.
 - [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md): execution source، dependency graph، evidence، وgates.
 - [`docs/php-engineering-standards/STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md): Local Resolver Record لمجموعة المعايير المنطبقة.
-
-مسودة النقاش السابقة كانت temporary preparation document وليست Package Reference. بعد نقل قراراتها المقبولة إلى الـBlueprint والـPlan وهذا المرجع، لا تُستخدم كمصدر إضافي للحقيقة.
 
 ## 2. الغرض وحدود الملكية
 
@@ -56,9 +54,9 @@ RC1 هو **Authoritative Slug Lifecycle Engine** مستقل، وليس helper ل
 
 ## 3. الحالة المدعومة والتثبيت
 
-لا توجد في الحالة الحالية نسخة منشورة أو `composer.json` أو Runtime يمكن تثبيته. الوصول المدعوم الآن هو قراءة هذا المرجع والـBlueprint والـPlan؛ لا تُستخدم `composer require maatify/php-slug` على أساس هذا الفرع.
+الحزمة متوفرة ككود مصدري (Runtime كامل، و`composer.json` موجود)، ولكنها **غير منشورة بعد**. الوصول المدعوم الآن هو استنساخ المستودع وقراءة هذا المرجع؛ لا تُستخدم `composer require maatify/php-slug` من مصادر عامة حتى النشر الرسمي.
 
-مسار الإنشاء العام المفصول عن Persistence في عقد RC1 هو:
+الـ Runtime يوفر أمثلة فعلية منفذة. مسار الإنشاء العام المفصول عن Persistence المنفذ حاليًا هو:
 
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -77,21 +75,21 @@ $engine = SlugEngineFactory::create(
 );
 ```
 
-هذه أمثلة contract-only وليست قابلة للتشغيل في الحالة الحالية؛ لا تنشئ أي Factory اتصالًا مخفيًا أو تقرأ `.env` أو تعمل Service Locator.
+هذه أمثلة من الـ Runtime الحالي قابلة للتشغيل؛ حيث لا تنشئ أي Factory اتصالًا مخفيًا أو تقرأ `.env` أو تعمل Service Locator.
 
 ## 4. Runtime وPlatform contract لـRC1
 
-هذه القيم هي العقد المقبول للتنفيذ اللاحق، وليست دليلًا على توفرها في هذا الفرع:
+تم استيفاء المتطلبات التالية وتتوفر بشكل فعلي في المستودع الحالي:
 
 | المتطلب | القيمة |
 |---|---|
 | PHP | `^8.4`؛ المصفوفة الحالية المقصودة PHP 8.4 و8.5 دون PHP ceiling |
 | Extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
 | ICU | major `74` وUnicode data `15.1` للـbuilt-in Profiles |
-| Database adapter | PDO MySQL فقط |
-| MySQL | Server `8.0.36` فقط |
+| Database adapter | PDO MySQL (يدعم MySQL-compatible semantics) |
+| MySQL | Server `8.0.36` كـ CI reproducibility target |
 | Runtime packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
-| Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` في `require-dev` لاحقًا |
+| Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` (متوفرة في `require-dev`) |
 
 يجب أن يستخدم التنفيذ `ext-intl` في NFC وICU lowercase/transliteration، وأن يقتصر `ext-mbstring` على code-point length. اختلاف ICU أو Unicode tuple يفشل مغلقًا بـ`SlugRuntimeCompatibilityException` قبل أي mutation؛ لا يثبت PHP `^8.4` دعم أي ICU tuple آخر.
 
@@ -440,15 +438,14 @@ SlugUnsupportedDriverException, SlugPersistenceInvariantException
 
 ## 12. Evidence وRelease state
 
-هذه الوثيقة لا تدعي أي gate ناجحًا. يحدد الـPlan evidence المطلوب، بما فيه:
+يحدد الـPlan evidence الذي تم تحقيقه بنجاح عبر CI، بما فيه:
 
 - Composer validation وplatform checks وproduction autoload.
 - PHPStan `level: max` وPHPUnit والـstyle/whitespace gates.
-- Unit وIntegration وSystem/Concurrency/Transaction evidence مع MySQL `8.0.36` الحقيقي.
+- Unit وIntegration وSystem/Concurrency/Transaction evidence مع بيئة MySQL الحقيقية.
 - Consumer Verification Harness من Composer root مستقل مرتين من clean states.
-- مراجعة accumulated diff وFull Applicable Integration Gate وفق المعايير.
 
-لا توجد حاليًا tests أو CI أو Composer أو schema لتشغيل هذه الأدلة؛ لذلك لا يُستخدم هذا المرجع أو Draft PR لإثبات implementation completion أو security audit أو production deployment أو Stable/RC publication. لا يدخل Stable tag أو Release أو Packagist publication ضمن RC1 Preparation Closure، ولا يحدث Merge إلى `main` إلا بقرار المالك.
+**ملاحظة:** المراجعة النهائية (Fresh Full Acceptance Review, مراجعة accumulated diff, و Full Applicable Integration Gate) تبقى معلقة ولن تكتمل حتى يتم قبول هذا الفرع تنفيذيًا. نجاح أدلة الـ CI المذكورة أعلاه يثبت اجتياز بوابات الجودة الحالية، ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
 
 ## 13. Supporting documents
 
