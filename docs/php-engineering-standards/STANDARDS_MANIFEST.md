@@ -3,8 +3,8 @@
 ## بيانات الاعتماد
 
 - **Upstream Repository:** `Maatify/php-engineering-standards`
-- **Adoption Commit:** `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`
-- **Adoption Date:** `2026-09-15`
+- **Adoption Commit:** `44c8827095ab4007c355aa21c56b853f3b49d795`
+- **Adoption Date:** `2026-09-17`
 - **Overall Resolution Status:** `VALID`
 - **Resolution Status Priority:** `INVALID > OWNER DECISION REQUIRED > VALID`
 - **Exception State:** `NONE`
@@ -12,25 +12,24 @@
 - **Composer Package:** `maatify/php-slug`
 - **Namespace:** `Maatify\\Slug\\`
 
-هذا السجل هو Local Resolver Record لنتيجة Selective Pinned Adoption كما أُنشئ في تاريخ الـAdoption. لا يضيف قواعد هندسية، ولا يغيّر نتيجة الاعتماد، ولا يصف وحده الحالة الحالية لكل Artifacts المستودع.
+هذا السجل هو Local Resolver Record لنتيجة Selective Pinned Adoption المكتملة من exact upstream commit المسجل أعلاه. لا يضيف قواعد هندسية، ولا يغيّر نتيجة الاعتماد، ولا يثبت وحده نجاح الاختبارات أو النشر.
 
 ## حقائق الـArtifact ونطاق الحل
 
-تمت مطابقة الحقائق الآتية عند إنشاء سجل الـAdoption مع حالة المستودع ومسودة النقاش المقبولة `docs/SLUG_LIBRARY_RC_CONCEPT_DISCUSSION.md` كما كانت موجودة حينها. لاحقًا نُقلت القرارات الدائمة إلى الـBlueprint والـImplementation Plan و`SLUG_PACKAGE_REFERENCE.md`، ثم حُذفت مسودة النقاش ضمن Preparation Closure.
+تمت إعادة تقييم الحقائق من حالة `php-slug` الحالية بعد اكتمال Runtime artifacts، لا من حالة Preparation السابقة:
 
 | الحقيقة | النتيجة |
 |---|---|
-| نوع الـArtifact | مكتبة PHP/Composer مستقلة جديدة قابلة لإعادة الاستخدام والتوزيع |
+| نوع الـArtifact | مكتبة PHP/Composer مستقلة قابلة لإعادة الاستخدام والتوزيع؛ `composer.json` يعلن `type: library` وPSR-4 production autoload |
 | هوية الحزمة | `maatify/php-slug` |
 | Namespace | `Maatify\\Slug\\` |
-| حد PHP المقصود | PHP `8.4` |
-| حدود الاستضافة | Host-agnostic |
-| ملكية المجال | الحزمة تملك Slug domain |
-| Persistence | الحزمة تتضمن قدرات lifecycle وpersistence مملوكة لها |
-| نوع المستودع | ليس Host-specific module ولا Slim module ولا application repository |
-| قابلية التثبيت | الحزمة مصممة لتكون مستقلة وقابلة للتثبيت عبر Composer |
-| نطاق الحوكمة | قواعد الحوكمة تنطبق على جذر المستودع `/` |
-| حالة التحضير | عند SHA الأساس لا تزال الحزمة في RC1 Preparation؛ عدم وجود `composer.json` أو source implementation في هذه المرحلة مقصود، ولا يغيّر نوع الـArtifact المستهدف |
+| حد PHP المقصود | PHP `^8.4` |
+| Extensions التشغيلية | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
+| حالة Runtime | توجد ملفات `composer.json` و`src/` و`tests/` و`schema/mysql/` و`.github/workflows/ci.yml` في الـcheckout الحالي |
+| Persistence | الحزمة تملك SQL persistence مملوكة لها، مع طبقة PDO تحت `src/Infrastructure/Persistence/PDO/` ومخطط package-owned تحت `schema/mysql/` |
+| قاعدة البيانات | مسار MySQL-compatible عبر `pdo_mysql`؛ الجداول والعلاقات package-local ولا توجد Host FKs أو Host table joins |
+| حدود الاستضافة | Host-agnostic؛ Host يهيئ اتصال PDO ويحقنه، والحزمة لا تنشئ اتصالًا مخفيًا |
+| نطاق الحوكمة | قواعد الحوكمة مفعلة على جذر المستودع `/` |
 
 ## Profile Activations
 
@@ -39,7 +38,7 @@
 | `composer-package` | `1.0.0` | `/` | `None` | `VALID` |
 | `repository-governance` | `1.0.0` | `/` | `None` | `VALID` |
 
-تُسجل `Resolution Status` لكل Profile Activation/Scope بصورة مستقلة. وتكون `Overall Resolution Status` هنا `VALID` بعد ثبوت عدم وجود أي Activation/Scope بحالة `INVALID` أو `OWNER DECISION REQUIRED`، وعدم وجود قرار Adoption غير محسوم؛ وتُطبق أولوية التجميع: `INVALID > OWNER DECISION REQUIRED > VALID`.
+سُجلت نتيجة كل Profile Activation/Scope بصورة مستقلة. وتكون `Overall Resolution Status` هنا `VALID` بعد ثبوت سلامة الحل البنيوي، وانطباق كل Candidate Standard، وعدم وجود قرار Adoption معلق أو Exception مطلوبة.
 
 ### Profiles الموروثة
 
@@ -47,12 +46,12 @@
 
 ## Structural / Transitive Resolution
 
-اكتمل الحل البنيوي لكل Activation/Scope:
+اكتمل الحل البنيوي لكل Activation/Scope قبل تقييم canonical applicability:
 
 - تم التحقق من وجود كل Profile مفعّل.
 - لا توجد inheritance cycles.
 - لا توجد Profiles موروثة مطلوبة.
-- تم الاحتفاظ بكل مراجع `Required Standards` السبعة كمرشحين قبل تقييم الانطباق.
+- تم جمع مراجع `Required Standards` السبعة كمرشحين قبل أي تصفية.
 - لا توجد `Explicit Additional Standards`.
 
 ### Candidate Standard References
@@ -69,29 +68,29 @@
 
 ## Pinned Adoption Control Set
 
-جميع الملفات الآتية نسخ مثبتة من Adoption Commit نفسه، مع الحفاظ على البنية النسبية:
+جميع الملفات الآتية نسخ مثبتة من Adoption Commit `44c8827095ab4007c355aa21c56b853f3b49d795` نفسه، مع الحفاظ على البنية النسبية:
 
-- `docs/php-engineering-standards/standards/STANDARDS_ADOPTION_STANDARD_AR.md`
-- `docs/php-engineering-standards/standards/profiles/COMPOSER_PACKAGE_PROFILE.md`
-- `docs/php-engineering-standards/standards/profiles/REPOSITORY_GOVERNANCE_PROFILE.md`
+- `docs/php-engineering-standards/standards/STANDARDS_ADOPTION_STANDARD_AR.md` — Standard Version `2.0.0`
+- `docs/php-engineering-standards/standards/profiles/COMPOSER_PACKAGE_PROFILE.md` — Profile Version `1.0.0`
+- `docs/php-engineering-standards/standards/profiles/REPOSITORY_GOVERNANCE_PROFILE.md` — Profile Version `1.0.0`
 
 لا توجد ملفات Profile غير مفعّلة أو غير موروثة ضمن Control Set.
 
 ## Final Resolved Applicable Standards Set
 
-بعد تطبيق canonical Applicability الخاصة بكل Standard على Scope `/` وحقائق الـArtifact، تكون المجموعة النهائية كما يلي:
+بعد تطبيق canonical Applicability الخاصة بكل Standard على Scope `/` وحقائق الـArtifact الحالية، تكون المجموعة النهائية كما يلي:
 
 | Standard ID | Standard Version | المسار المحلي | Canonical Applicability |
 |---|---:|---|---|
-| `std-package-building` | `1.3.0` | `docs/php-engineering-standards/standards/packages/PACKAGE_BUILDING_STANDARD.md` | منطبق على مكتبة PHP/Composer مستقلة؛ Persistence rules مشروطة ومفعّلة لأن الحزمة تملك Persistence |
-| `std-composer-package` | `1.2.0` | `docs/php-engineering-standards/standards/packages/COMPOSER_PACKAGE_STANDARD.md` | منطبق على مكتبة PHP/Composer مستقلة قابلة لإعادة الاستخدام |
-| `std-ci-workflow` | `1.1.0` | `docs/php-engineering-standards/standards/packages/CI_WORKFLOW_STANDARD.md` | منطبق على بنية CI الخاصة بحزمة Composer مستقلة |
-| `std-library-presentation` | `1.0.1` | `docs/php-engineering-standards/standards/packages/LIBRARY_PRESENTATION_STANDARD.md` | منطبق على مكتبة PHP/Composer مستقلة |
-| `std-testing` | `1.1.0` | `docs/php-engineering-standards/standards/testing/TESTING_STANDARD.md` | منطبق كمعيار الاختبار للمستودع والحزمة |
+| `std-package-building` | `1.4.0` | `docs/php-engineering-standards/standards/packages/PACKAGE_BUILDING_STANDARD.md` | منطبق على مكتبة PHP/Composer مستقلة؛ وقواعد SQL persistence المشروطة منطبقة لأن الحزمة تملك SQL persistence فعلية مع direct PDO وschema package-owned |
+| `std-composer-package` | `2.0.0` | `docs/php-engineering-standards/standards/packages/COMPOSER_PACKAGE_STANDARD.md` | منطبق على `composer.json` الخاص بمكتبة PHP/Composer مستقلة قابلة لإعادة الاستخدام |
+| `std-ci-workflow` | `1.1.0` | `docs/php-engineering-standards/standards/packages/CI_WORKFLOW_STANDARD.md` | منطبق على بنية التحقق وCI الخاصة بحزمة Composer مستقلة |
+| `std-library-presentation` | `1.0.1` | `docs/php-engineering-standards/standards/packages/LIBRARY_PRESENTATION_STANDARD.md` | منطبق على مستودع مكتبة PHP/Composer المستقلة وعرضها release-facing |
+| `std-testing` | `1.1.0` | `docs/php-engineering-standards/standards/testing/TESTING_STANDARD.md` | منطبق على الاختبارات وحماية السلوك للمستودع والحزمة ذات Runtime وPersistence |
 | `std-ai-collaboration-workflow` | `6.0.0` | `docs/php-engineering-standards/standards/ai/AI_COLLABORATION_WORKFLOW_AR.md` | منطبق على Scope الحوكمة المفعّل في `/` |
-| `std-github-phase-stack-workflow` | `2.2.0` | `docs/php-engineering-standards/standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | منطبق على دورة RC1 الحالية التي تتبع Phase Stack |
+| `std-github-phase-stack-workflow` | `2.2.0` | `docs/php-engineering-standards/standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | منطبق على دورة التنفيذ الحالية للمستودع التي تتبع Phase Stack |
 
-لم يُستبعد أي Candidate Standard؛ لذلك لا توجد Standard مفقودة من المجموعة النهائية ولا Standard غير منطبقة مسجلة على أنها Applicable.
+لم يُستبعد أي Candidate Standard؛ لذلك لا توجد Standard غير منطبقة مسجلة ضمن Applicable Set، ولا توجد فجوة applicability غير محسومة.
 
 ## Explicit Additional Standards
 
@@ -101,17 +100,21 @@
 
 `None`.
 
-الملفان `standards/governance/STANDARD_VERSIONING_POLICY_AR.md` و`standards/modules/MODULE_BUILDING_STANDARD.md` ليسا جزءًا من Control Set أو Applicable Set؛ ينص Adoption Standard على عدم نسخ الملفات المرجعية أو المعايير غير المنطبقة لمجرد أن ملفًا مثبتًا يشير إليها. هذا استبعاد تعاقدي وليس Exception أو Override. جميع الروابط النسبية بين الملفات المثبتة والمنطبقة محفوظة وصالحة، أما هذان المرجعان فخارج نطاق هذه الحزمة.
+الملفات `standards/governance/STANDARD_VERSIONING_POLICY_AR.md` ومعايير `standards/modules/` ليست جزءًا من Control Set أو Applicable Set؛ عدم نسخها التزام بحدود Selective Adoption وليس Exception أو Override. كما لم تُنسخ `docs/audits/` أو `docs/decisions/` أو شجرة `standards/` كاملة.
 
 ## سلامة الروابط
 
 - حُفظت البنية النسبية المحلية تحت `docs/php-engineering-standards/standards/`.
-- الروابط بين Adoption Standard وProfiles والمعايير المنطبقة تحافظ على المسارات النسبية المطلوبة.
-- لم تُنسخ `docs/audits/` أو `docs/decisions/` أو شجرة `standards/` كاملة.
+- الروابط النسبية داخل Adoption Standard وProfiles والمعايير المنطبقة تشير إلى المسارات الصحيحة في النسخة المحلية.
+- كل ملف منسوخ من upstream في Control Set أو Applicable Set يطابق محتوى exact Adoption Commit المسجل أعلاه.
+- لا توجد ملفات زائدة ضمن شجرة Adoption المحلية خارج Manifest والـPinned Adoption Files المسجلة.
+
+## Resolution Status
+
+الحل البنيوي والـCanonical Applicability مكتملان لكل Activation/Scope، وجميع النتائج `VALID`. لا توجد `INVALID` أو `OWNER DECISION REQUIRED`، و`Exception State = NONE`.
 
 ## حدود هذا الاعتماد
 
-- هذا السجل يثبت نتيجة حل المعايير فقط.
-- كانت حدود عدم وجود Blueprint أو schema أو API أو roadmap أو Work Unit implementation plan تصف حالة Standards Adoption وقت إنشائها، ولا تصف الحالة الحالية للمستودع.
-- لم تُضف PHP أو SQL أو migrations أو tests أو CI أو runtime configuration ضمن نطاق الـAdoption وقت إنشائها.
-- كانت مسودة النقاش موجودة عند إنشاء الـAdoption، ثم نُقلت قراراتها الدائمة إلى الوثائق المرجعية اللاحقة وحُذفت ضمن Preparation Closure.
+- هذا السجل يثبت نتيجة حل المعايير ومجموعة الملفات المثبتة فقط.
+- وجود Runtime artifacts في الـcheckout الحالي لا يحول هذا السجل إلى تقرير نجاح لاختبارات PHP أو PHPStan أو CI أو MySQL؛ تلك النتائج تحتاج أدلة تشغيل مستقلة.
+- لا يضيف هذا الاعتماد Runtime أو Tests أو CI أو Blueprint أو Implementation Plan أو package documentation إلى نطاق التغيير.

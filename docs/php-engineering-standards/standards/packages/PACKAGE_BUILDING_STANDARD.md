@@ -5,7 +5,7 @@
 ## Standard Metadata
 
 - **Standard ID:** `std-package-building`
-- **Standard Version:** `1.3.0`
+- **Standard Version:** `1.4.0`
 - **Standard Version Format:** `MAJOR.MINOR.PATCH`
 
 This document is the law for building any new standalone Composer package in the Maatify ecosystem.
@@ -30,9 +30,19 @@ PHP 8.4 is the minimum baseline for newly created Maatify PHP libraries, reusabl
 
 ### Persistence Conditional Applicability
 
-All rules in this Standard concerning PDO, SQL, `schema/`, migrations, transaction handling, Ordering/Pagination, PDO hydration, database integration, and database-focused testing apply only when the package owns persistence or database behavior.
+All rules in this Standard concerning PDO, SQL, `schema/`, migrations, transaction handling, Ordering/Pagination, PDO hydration, database integration, and database-focused testing apply only when the package owns SQL persistence or SQL database behavior.
 
-A package without persistence or database behavior is not required to use PDO, provide `schema/`, define migrations, or implement database-specific architecture or tests. When a package does own persistence or database behavior, all applicable persistence requirements in this Standard remain mandatory, including direct PDO usage, no ORM, and no external query builder. Small internal SQL fragment builders are allowed only for repeated package-local query logic.
+A package without persistence or database behavior is not required to use PDO, provide `schema/`, define migrations, or implement database-specific architecture or tests. When a package does own persistence or database behavior, all applicable persistence requirements in this Standard remain mandatory. For SQL persistence, these requirements include direct PDO usage, no ORM, and no external query builder. Small internal SQL fragment builders are allowed only for repeated package-local query logic.
+
+### Default SQL Persistence Profile
+
+The default SQL persistence profile is MySQL/MariaDB-compatible and uses direct PDO.
+
+A package MAY define a different or additional persistence backend, including non-SQL storage, as part of its documented persistence contract. A claimed backend MUST be explicitly documented, actually implemented, and protected by real persistence verification/tests applicable to that backend.
+
+Additional backends are package-specific and MUST NOT be required of any package.
+
+PDO driver availability alone does not establish database support.
 
 ### Scope and Ownership
 
@@ -92,7 +102,7 @@ Every package must contain these files at its package root (the repository root 
 ├── phpstan.neon                       ← governed by Section 21
 ├── src/                               ← all PHP source code
 ├── tests/                             ← if applicable
-├── schema/                            ← if applicable (only when the package has persistence or database behavior)
+├── schema/                            ← if applicable (only when the package has SQL persistence or SQL database behavior)
 └── docs/                              ← detailed architecture, integration, roadmap, and audit documents
 ```
 
@@ -176,7 +186,7 @@ Packages MUST NOT impose `Admin/Customer` directories where those are not real d
 
 ## 6. Schema Rules
 
-These rules, including `schema/`, database structure, database tests, and migrations, are conditionally applicable **only** when the package has persistence or database behavior.
+These rules, including `schema/`, database structure, database tests, and migrations, are conditionally applicable **only** when the package has SQL persistence or SQL database behavior.
 
 - Table prefix: `maa_{package_short_name}_` (e.g. `maa_library_example_`)
 - Every table needs: `PRIMARY KEY (id)`, proper indexes, meaningful COMMENTs on columns.
@@ -926,7 +936,7 @@ Compliance requires the repository's CI to pass the current Compliance Checklist
 - [ ] Domain-specific failure semantics are documented
 - [ ] Transaction catch blocks rethrow the original `\Throwable` after rollback — never swallow
 - [ ] Business orchestration lives in Services, validation in Commands/filters, SQL in Repositories
-- [ ] Schema docs align with MySQL/domain-owned tables, no generic `logs` or `event_logs` tables
+- [ ] Schema/persistence documentation aligns with the package's declared persistence backend and domain-owned storage structures, with no generic `logs` or `event_logs` storage
 - [ ] Framework-agnostic boundaries preserved: no host app namespaces, no framework bindings required
 - [ ] No generic logger, recorder, or repository
 - [ ] Docs reflect current exception rules, package-defined exceptions use `maatify/exceptions`, and any clock/date-time contract uses `maatify/shared-common` instead of a local duplicate
