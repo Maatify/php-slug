@@ -5,6 +5,7 @@
     "slug",
     "canonicalization",
     "lifecycle",
+    "slug-lifecycle",
     "php",
     "maatify"
   ],
@@ -14,7 +15,7 @@
   "authors": [
     {
       "name": "Maatify",
-      "email": "support@maatify.com",
+      "email": "support@maatify.dev",
       "homepage": "https://maatify.dev"
     }
   ],

@@ -37,6 +37,25 @@ jobs:
       - name: Run latest quality gate
         run: bash tools/ci/run-gate.sh latest-quality
 
+  latest-quality-8-4:
+    name: Latest quality on PHP 8.4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, pdo, pdo_mysql
+          coverage: none
+      - name: Run latest quality gate
+        run: bash tools/ci/run-gate.sh latest-quality
+
   full-tests:
     name: Full PHPUnit on PHP ${{ matrix.php }}
     runs-on: ubuntu-24.04
@@ -202,6 +221,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - latest-quality
+      - latest-quality-8-4
       - full-tests
       - lowest-tests
       - consumer-harness
@@ -213,6 +233,7 @@ jobs:
       - name: Fail closed on every required upstream result
         env:
           LATEST_QUALITY: ${{ needs.latest-quality.result }}
+          LATEST_QUALITY_8_4: ${{ needs.latest-quality-8-4.result }}
           FULL_TESTS: ${{ needs.full-tests.result }}
           LOWEST_TESTS: ${{ needs.lowest-tests.result }}
           CONSUMER_HARNESS: ${{ needs.consumer-harness.result }}
@@ -222,6 +243,7 @@ jobs:
           set -euo pipefail
           for result in \
             "latest-quality:$LATEST_QUALITY" \
+            "latest-quality-8-4:$LATEST_QUALITY_8_4" \
             "full-tests:$FULL_TESTS" \
             "lowest-tests:$LOWEST_TESTS" \
             "consumer-harness:$CONSUMER_HARNESS" \
