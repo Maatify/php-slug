@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Contracts;
 
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\Enum\HistoryEventTypeEnum;
-use Maatify\Slug\Enum\RegistryRoleEnum;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
+use Maatify\Slug\Registry\Enum\RegistryRoleEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -25,7 +25,7 @@ final class AuditValidationTest extends TestCase
             ContractFixtures::slug('hello'),
             RegistryRoleEnum::CURRENT_CANONICAL,
         );
-        $event = new \Maatify\Slug\DTO\HistoryEventDTO(
+        $event = new \Maatify\Slug\Lifecycle\History\HistoryEventDTO(
             $event->id,
             $event->bindingId,
             $event->sequenceNo,

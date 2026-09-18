@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Allocation;
 
-use Maatify\Slug\Enum\OperationTypeEnum;
-use Maatify\Slug\Enum\RegistryRoleEnum;
-use Maatify\Slug\Ownership\SameBindingDecisionEnum;
-use Maatify\Slug\Ownership\SameBindingOwnershipClassifier;
+use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
+use Maatify\Slug\Registry\Enum\RegistryRoleEnum;
+use Maatify\Slug\Lifecycle\Ownership\SameBindingDecisionEnum;
+use Maatify\Slug\Lifecycle\Ownership\SameBindingOwnershipClassifier;
 use PHPUnit\Framework\TestCase;
 
 final class SameBindingOwnershipClassifierTest extends TestCase

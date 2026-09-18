@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\ResultSnapshot;
 
-use Maatify\Slug\Contract\ResultSnapshot\ResultSnapshotEncoder;
-use Maatify\Slug\DTO\HistoryEventDTO;
-use Maatify\Slug\DTO\SlugMutationResultDTO;
+use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotEncoder;
+use Maatify\Slug\Lifecycle\History\HistoryEventDTO;
+use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
 use Maatify\Slug\Exception\SlugPersistenceInvariantException;
-use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotMetadata;
-use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotStorage;
+use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotMetadata;
+use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotStorage;
 use Maatify\Slug\Tests\Unit\Contracts\ContractFixtures;
 use PHPUnit\Framework\TestCase;
 

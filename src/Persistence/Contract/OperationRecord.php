@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maatify\Slug\Persistence\Contract;
 
 use DateTimeImmutable;
-use Maatify\Slug\Enum\OperationTypeEnum;
+use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
 use Maatify\Slug\Exception\SlugPersistenceInvariantException;
 
 final readonly class OperationRecord

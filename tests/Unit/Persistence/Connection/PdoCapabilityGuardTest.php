@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Persistence\Connection;
 
 use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;

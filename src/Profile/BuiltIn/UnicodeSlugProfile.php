@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Profile\BuiltIn;
 
-use Maatify\Slug\Canonicalization\CanonicalSlugRules;
-use Maatify\Slug\DTO\CanonicalSlugDTO;
-use Maatify\Slug\DTO\GeneratedSlugDTO;
-use Maatify\Slug\DTO\LookupCanonicalizationDTO;
-use Maatify\Slug\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Text\Canonicalization\CanonicalSlugRules;
+use Maatify\Slug\Text\DTO\CanonicalSlugDTO;
+use Maatify\Slug\Text\DTO\GeneratedSlugDTO;
+use Maatify\Slug\Text\DTO\LookupCanonicalizationDTO;
+use Maatify\Slug\Query\Enum\InputFormCanonicalityEnum;
 use Maatify\Slug\Exception\SlugCannotBeGeneratedException;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Identity\Slug;
-use Maatify\Slug\Identity\SlugProfileKey;
+use Maatify\Slug\Text\Value\Slug;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
 
 final class UnicodeSlugProfile extends AbstractBuiltinSlugProfile
 {

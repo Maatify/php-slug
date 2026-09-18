@@ -4,22 +4,22 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\System\Resolution;
 
-use Maatify\Slug\Command\AddAliasCommand;
-use Maatify\Slug\Command\AssignExactCommand;
-use Maatify\Slug\Command\ChangeExactCommand;
-use Maatify\Slug\Command\DeactivateBindingCommand;
-use Maatify\Slug\Command\ReleaseAllOwnershipCommand;
-use Maatify\Slug\Criteria\ResolutionCriteria;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\Command\AddAliasCommand;
+use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
+use Maatify\Slug\Lifecycle\Command\ChangeExactCommand;
+use Maatify\Slug\Lifecycle\Command\DeactivateBindingCommand;
+use Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand;
+use Maatify\Slug\Query\Criteria\ResolutionCriteria;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Engine\SlugEngine;
 use Maatify\Slug\Engine\SlugEngineFactory;
-use Maatify\Slug\Enum\InputFormCanonicalityEnum;
-use Maatify\Slug\Enum\MatchKindEnum;
+use Maatify\Slug\Query\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Query\Enum\MatchKindEnum;
 use Maatify\Slug\Exception\SlugScopeProfileMismatchException;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
@@ -38,7 +38,7 @@ final class SlugResolutionSystemTest extends MySqlIntegrationTestCase
         $activeAlias = $engine->resolve(new ResolutionCriteria($identity->scopeProfile, 'active-alias'));
         self::assertSame(MatchKindEnum::ALIAS, $activeAlias->matchKind);
         self::assertSame(InputFormCanonicalityEnum::CANONICAL, $activeAlias->inputCanonicality);
-        $engine->retireAlias(new \Maatify\Slug\Command\RetireAliasCommand($identity, 'active-alias', 3, new AuditContextDTO()));
+        $engine->retireAlias(new \Maatify\Slug\Lifecycle\Command\RetireAliasCommand($identity, 'active-alias', 3, new AuditContextDTO()));
 
         $current = $engine->resolve(new ResolutionCriteria($identity->scopeProfile, 'new-current'));
         self::assertSame(MatchKindEnum::CURRENT, $current->matchKind);

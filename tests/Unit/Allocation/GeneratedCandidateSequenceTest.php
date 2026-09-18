@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Allocation;
 
-use Maatify\Slug\Allocation\GeneratedCandidateSequence;
-use Maatify\Slug\Identity\SlugProfileKey;
+use Maatify\Slug\Lifecycle\Allocation\GeneratedCandidateSequence;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
 use PHPUnit\Framework\TestCase;
 
 final class GeneratedCandidateSequenceTest extends TestCase

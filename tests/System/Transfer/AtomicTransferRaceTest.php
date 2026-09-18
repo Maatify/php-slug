@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\System\Transfer;
 
-use Maatify\Slug\Command\AssignExactCommand;
-use Maatify\Slug\Command\AtomicTransferCommand;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
+use Maatify\Slug\Lifecycle\Command\AtomicTransferCommand;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
 use Maatify\Slug\Lifecycle\SlugLifecycleService;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;
@@ -35,7 +35,7 @@ final class AtomicTransferRaceTest extends MySqlIntegrationTestCase
         $service->assignExact(new AssignExactCommand($sourceA, 'transfer-a', null, new AuditContextDTO()));
         $service->assignExact(new AssignExactCommand($sourceB, 'transfer-b', null, new AuditContextDTO()));
         $service->assignExact(new AssignExactCommand($target, 'target-current', null, new AuditContextDTO()));
-        $service->releaseAllOwnership(new \Maatify\Slug\Command\ReleaseAllOwnershipCommand($target, 1, new AuditContextDTO()));
+        $service->releaseAllOwnership(new \Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand($target, 1, new AuditContextDTO()));
 
         $workers = [];
         foreach ([['transfer-source-a', 'transfer-a', 'replacement-a'], ['transfer-source-b', 'transfer-b', 'replacement-b']] as $arguments) {

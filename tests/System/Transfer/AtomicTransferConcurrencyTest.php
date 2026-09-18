@@ -4,19 +4,19 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\System\Transfer;
 
-use Maatify\Slug\Command\AddAliasCommand;
-use Maatify\Slug\Command\AssignExactCommand;
-use Maatify\Slug\Command\ReleaseAllOwnershipCommand;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\DTO\TransferReplacementIntentDTO;
-use Maatify\Slug\Enum\ClaimIntentModeEnum;
+use Maatify\Slug\Lifecycle\Command\AddAliasCommand;
+use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
+use Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\TransferReplacementIntentDTO;
+use Maatify\Slug\Lifecycle\Enum\ClaimIntentModeEnum;
 use Maatify\Slug\Exception\SlugAlreadyClaimedException;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
 use Maatify\Slug\Lifecycle\SlugLifecycleService;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;
@@ -97,7 +97,7 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
         $service->assignExact(new AssignExactCommand($target, 'claim-target', null, new AuditContextDTO()));
         $competitor = $this->identity('claim-competitor');
         $service->assignExact(new AssignExactCommand($competitor, 'claim-competitor-main', null, new AuditContextDTO()));
-        $service->releaseAllOwnership(new \Maatify\Slug\Command\ReleaseAllOwnershipCommand($competitor, 1, new AuditContextDTO()));
+        $service->releaseAllOwnership(new \Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand($competitor, 1, new AuditContextDTO()));
 
         $results = $this->runWorkers([
             ['transfer', 'claim-source', 'claim-target', 'claim-moved', '2', '1'],
@@ -174,11 +174,11 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
         $sourceB = $this->identity('cross-source-b');
         $targetB = $this->identity('cross-target-b');
         $service->assignExact(new AssignExactCommand($sourceA, 'cross-replacement-a', null, new AuditContextDTO()));
-        $service->changeExact(new \Maatify\Slug\Command\ChangeExactCommand($sourceA, 'cross-moved-a', 1, new AuditContextDTO()));
+        $service->changeExact(new \Maatify\Slug\Lifecycle\Command\ChangeExactCommand($sourceA, 'cross-moved-a', 1, new AuditContextDTO()));
         $service->assignExact(new AssignExactCommand($targetA, 'cross-target-a', null, new AuditContextDTO()));
         $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($targetA, 1, new AuditContextDTO()));
         $service->assignExact(new AssignExactCommand($sourceB, 'cross-replacement-b', null, new AuditContextDTO()));
-        $service->changeExact(new \Maatify\Slug\Command\ChangeExactCommand($sourceB, 'cross-moved-b', 1, new AuditContextDTO()));
+        $service->changeExact(new \Maatify\Slug\Lifecycle\Command\ChangeExactCommand($sourceB, 'cross-moved-b', 1, new AuditContextDTO()));
         $service->assignExact(new AssignExactCommand($targetB, 'cross-target-b', null, new AuditContextDTO()));
         $service->releaseAllOwnership(new ReleaseAllOwnershipCommand($targetB, 1, new AuditContextDTO()));
 

@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\System\Claim;
 
-use Maatify\Slug\Contract\ReservedSlugPolicyInterface;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\Slug;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Registry\PdoRegistryRepository;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Scope\PdoScopeRepository;
-use Maatify\Slug\Internal\Claim\RegistryClaimCoordinator;
-use Maatify\Slug\Internal\Transaction\PdoTransactionCoordinator;
+use Maatify\Slug\Lifecycle\Contract\ReservedSlugPolicyInterface;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Text\Value\Slug;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Persistence\PDO\Registry\PdoRegistryRepository;
+use Maatify\Slug\Persistence\PDO\Scope\PdoScopeRepository;
+use Maatify\Slug\Registry\Internal\Claim\RegistryClaimCoordinator;
+use Maatify\Slug\Persistence\Transaction\PdoTransactionCoordinator;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;

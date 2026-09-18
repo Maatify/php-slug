@@ -6,7 +6,7 @@ namespace Maatify\Slug\Tests\Unit\Validation;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Generation\SuffixCandidateGenerator;
+use Maatify\Slug\Lifecycle\Allocation\SuffixCandidateGenerator;
 use Maatify\Slug\Profile\BuiltIn\AsciiSlugProfile;
 use Maatify\Slug\Profile\BuiltIn\UnicodeSlugProfile;
 use PHPUnit\Framework\TestCase;

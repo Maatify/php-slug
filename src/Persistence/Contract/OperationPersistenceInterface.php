@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Persistence\Contract;
 
-use Maatify\Slug\Enum\OperationTypeEnum;
-use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotMetadata;
-use Maatify\Slug\DTO\AdoptionResultDTO;
-use Maatify\Slug\DTO\AtomicTransferResultDTO;
-use Maatify\Slug\DTO\ScopeTransitionResultDTO;
-use Maatify\Slug\DTO\SlugMutationResultDTO;
-use Maatify\Slug\Profile\Contracts\SlugProfileRegistryInterface;
+use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
+use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotMetadata;
+use Maatify\Slug\Lifecycle\DTO\AdoptionResultDTO;
+use Maatify\Slug\Lifecycle\DTO\AtomicTransferResultDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeTransitionResultDTO;
+use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
+use Maatify\Slug\Profile\Contract\SlugProfileRegistryInterface;
 
 interface OperationPersistenceInterface
 {

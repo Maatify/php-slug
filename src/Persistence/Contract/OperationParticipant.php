@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maatify\Slug\Persistence\Contract;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Identity\IdentityValidator;
+use Maatify\Slug\Shared\Validation\IdentityValidator;
 
 final readonly class OperationParticipant
 {

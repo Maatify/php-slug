@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Persistence\Contract;
 
-use Maatify\Slug\DTO\BindingDTO;
-use Maatify\Slug\DTO\ScopeDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Identity\EntityReference;
+use Maatify\Slug\Registry\DTO\BindingDTO;
+use Maatify\Slug\Scope\DTO\ScopeDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Registry\Value\EntityReference;
 
 interface ScopePersistenceInterface
 {

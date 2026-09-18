@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Integration\Lifecycle;
 
-use Maatify\Slug\Command\AddAliasCommand;
-use Maatify\Slug\Command\AssignExactCommand;
-use Maatify\Slug\Command\AtomicTransferCommand;
-use Maatify\Slug\Command\ChangeExactCommand;
-use Maatify\Slug\Command\ChangeGeneratedCommand;
-use Maatify\Slug\Command\DeactivateBindingCommand;
-use Maatify\Slug\Command\PromoteAliasToCurrentCommand;
-use Maatify\Slug\Command\PurgeBindingCommand;
-use Maatify\Slug\Command\ReactivateAliasCommand;
-use Maatify\Slug\Command\ReactivateBindingCommand;
-use Maatify\Slug\Command\ReleaseAllOwnershipCommand;
-use Maatify\Slug\Command\ReleaseClaimCommand;
-use Maatify\Slug\Command\RetireAliasCommand;
-use Maatify\Slug\Command\RestoreHistoricalCommand;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\DTO\TransferReplacementIntentDTO;
-use Maatify\Slug\Enum\ClaimIntentModeEnum;
+use Maatify\Slug\Lifecycle\Command\AddAliasCommand;
+use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
+use Maatify\Slug\Lifecycle\Command\AtomicTransferCommand;
+use Maatify\Slug\Lifecycle\Command\ChangeExactCommand;
+use Maatify\Slug\Lifecycle\Command\ChangeGeneratedCommand;
+use Maatify\Slug\Lifecycle\Command\DeactivateBindingCommand;
+use Maatify\Slug\Lifecycle\Command\PromoteAliasToCurrentCommand;
+use Maatify\Slug\Lifecycle\Command\PurgeBindingCommand;
+use Maatify\Slug\Lifecycle\Command\ReactivateAliasCommand;
+use Maatify\Slug\Lifecycle\Command\ReactivateBindingCommand;
+use Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand;
+use Maatify\Slug\Lifecycle\Command\ReleaseClaimCommand;
+use Maatify\Slug\Lifecycle\Command\RetireAliasCommand;
+use Maatify\Slug\Lifecycle\Command\RestoreHistoricalCommand;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\TransferReplacementIntentDTO;
+use Maatify\Slug\Lifecycle\Enum\ClaimIntentModeEnum;
 use Maatify\Slug\Exception\SlugCurrentClaimReleaseException;
 use Maatify\Slug\Exception\SlugIdempotencyConflictException;
 use Maatify\Slug\Exception\SlugAliasOperationNotPermittedException;
@@ -31,9 +31,9 @@ use Maatify\Slug\Exception\SlugPurgeNotPermittedException;
 use Maatify\Slug\Exception\SlugReservedException;
 use Maatify\Slug\Exception\SlugNotFoundException;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
 use Maatify\Slug\Lifecycle\SlugLifecycleService;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;
@@ -183,11 +183,11 @@ final class SlugLifecycleServiceTest extends MySqlIntegrationTestCase
     public function testGeneratedAllocationSkipsReservedAndOtherOwnershipAndChangeRestoresHistorical(): void
     {
         $service = $this->service(['product', 'product-2']);
-        $generated = $service->assignGenerated(new \Maatify\Slug\Command\AssignGeneratedCommand($this->identity('generated'), 'Product', null, new AuditContextDTO()));
+        $generated = $service->assignGenerated(new \Maatify\Slug\Lifecycle\Command\AssignGeneratedCommand($this->identity('generated'), 'Product', null, new AuditContextDTO()));
         self::assertSame('product-3', $generated->currentSlug?->value);
 
         $service->assignExact(new AssignExactCommand($this->identity('owner'), 'taken', null, new AuditContextDTO()));
-        $generatedCollision = $service->assignGenerated(new \Maatify\Slug\Command\AssignGeneratedCommand($this->identity('generated-2'), 'Taken', null, new AuditContextDTO()));
+        $generatedCollision = $service->assignGenerated(new \Maatify\Slug\Lifecycle\Command\AssignGeneratedCommand($this->identity('generated-2'), 'Taken', null, new AuditContextDTO()));
         self::assertSame('taken-2', $generatedCollision->currentSlug?->value);
 
         $identity = $this->identity('restore');

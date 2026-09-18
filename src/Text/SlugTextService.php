@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Text;
 
-use Maatify\Slug\Contract\SlugTextServiceInterface;
-use Maatify\Slug\DTO\CanonicalSlugDTO;
-use Maatify\Slug\DTO\GeneratedSlugDTO;
-use Maatify\Slug\DTO\LookupCanonicalizationDTO;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Profile\Contracts\SlugProfileRegistryInterface;
+use Maatify\Slug\Text\Contract\SlugTextServiceInterface;
+use Maatify\Slug\Text\DTO\CanonicalSlugDTO;
+use Maatify\Slug\Text\DTO\GeneratedSlugDTO;
+use Maatify\Slug\Text\DTO\LookupCanonicalizationDTO;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Profile\Contract\SlugProfileRegistryInterface;
 
 final class SlugTextService implements SlugTextServiceInterface
 {

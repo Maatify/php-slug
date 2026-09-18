@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Integration\Persistence\Scope;
 
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Internal\Transaction\PdoTransactionCoordinator;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Scope\PdoScopeRepository;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Persistence\Transaction\PdoTransactionCoordinator;
+use Maatify\Slug\Persistence\PDO\Scope\PdoScopeRepository;
 use Maatify\Slug\Exception\SlugPersistenceInvariantException;
 use Maatify\Slug\Exception\SlugScopeProfileMismatchException;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;

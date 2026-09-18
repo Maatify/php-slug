@@ -6,9 +6,9 @@ namespace Maatify\Slug\Profile\Registry;
 
 use Maatify\Slug\Exception\SlugProfileAlreadyRegisteredException;
 use Maatify\Slug\Exception\SlugProfileNotFoundException;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Profile\Contracts\SlugProfileInterface;
-use Maatify\Slug\Profile\Contracts\SlugProfileRegistryInterface;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Profile\Contract\SlugProfileInterface;
+use Maatify\Slug\Profile\Contract\SlugProfileRegistryInterface;
 
 final class SlugProfileRegistry implements SlugProfileRegistryInterface
 {

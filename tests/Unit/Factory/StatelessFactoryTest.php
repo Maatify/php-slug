@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Factory;
 
-use Maatify\Slug\Contract\SlugTextServiceInterface;
-use Maatify\Slug\Factory\SlugProfileRegistryFactory;
-use Maatify\Slug\Factory\SlugTextServiceFactory;
-use Maatify\Slug\Profile\Contracts\SlugProfileRegistryInterface;
+use Maatify\Slug\Text\Contract\SlugTextServiceInterface;
+use Maatify\Slug\Profile\Factory\SlugProfileRegistryFactory;
+use Maatify\Slug\Text\Factory\SlugTextServiceFactory;
+use Maatify\Slug\Profile\Contract\SlugProfileRegistryInterface;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionNamedType;

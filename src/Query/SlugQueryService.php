@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Query;
 
-use Maatify\Slug\Contract\SlugQueryServiceInterface;
-use Maatify\Slug\Criteria\AvailabilityCriteria;
-use Maatify\Slug\Criteria\CurrentSlugCriteria;
-use Maatify\Slug\Criteria\ResolutionCriteria;
-use Maatify\Slug\DTO\CurrentSlugDTO;
-use Maatify\Slug\DTO\SlugAvailabilityDTO;
-use Maatify\Slug\DTO\SlugResolutionDTO;
-use Maatify\Slug\Resolution\SlugQueryService as ResolutionService;
+use Maatify\Slug\Query\Contract\SlugQueryServiceInterface;
+use Maatify\Slug\Query\Criteria\AvailabilityCriteria;
+use Maatify\Slug\Query\Criteria\CurrentSlugCriteria;
+use Maatify\Slug\Query\Criteria\ResolutionCriteria;
+use Maatify\Slug\Query\DTO\CurrentSlugDTO;
+use Maatify\Slug\Query\DTO\SlugAvailabilityDTO;
+use Maatify\Slug\Query\DTO\SlugResolutionDTO;
+use Maatify\Slug\Query\Resolution\SlugQueryService as ResolutionService;
 
 /** Public query adapter; resolution rules remain isolated in the Resolution layer. */
 final readonly class SlugQueryService implements SlugQueryServiceInterface

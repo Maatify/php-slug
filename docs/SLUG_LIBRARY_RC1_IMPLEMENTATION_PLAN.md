@@ -133,14 +133,30 @@ tests/bootstrap.php
 ### 4.1 Owned paths
 
 ```text
-src/Identity/
+src/Text/Value/
+src/Profile/Value/
+src/Registry/Value/
+src/Shared/Validation/
 src/Scope/Value/
-src/Profile/Contracts/
-src/Contract/
-src/Command/
-src/Criteria/
-src/DTO/
-src/Enum/
+src/Profile/Contract/
+src/Lifecycle/Contract/
+src/Management/Contract/
+src/Query/Contract/
+src/Scope/Contract/
+src/Text/Contract/
+src/Lifecycle/Command/
+src/Management/Criteria/
+src/Query/Criteria/
+src/Registry/DTO/
+src/Query/DTO/
+src/Scope/DTO/
+src/Text/DTO/
+src/Lifecycle/DTO/
+src/Lifecycle/History/
+src/Lifecycle/ResultSnapshot/
+src/Registry/Enum/
+src/Query/Enum/
+src/Lifecycle/Enum/
 src/Exception/
 tests/Unit/Identity/
 tests/Unit/Contracts/
@@ -181,10 +197,11 @@ Unit tests لكل validation boundary، JSON snapshots لكل DTO، وResult Sna
 src/Profile/BuiltIn/
 src/Profile/Registry/
 src/Profile/Runtime/
-src/Factory/
-src/Generation/
-src/Canonicalization/
-src/Validation/
+src/Profile/Factory/
+src/Text/Factory/
+src/Lifecycle/Allocation/
+src/Text/Canonicalization/
+src/Text/Validation/
 src/Text/
 tests/Unit/Profile/
 tests/Unit/Generation/
@@ -221,14 +238,13 @@ Property tests لـidempotence، data-driven vectors لكل Profile، runtime ex
 ```text
 schema/mysql/README.md
 schema/mysql/001_slug_rc1.sql
-src/Infrastructure/Persistence/PDO/Connection/
-src/Infrastructure/Persistence/PDO/Scope/
-src/Infrastructure/Persistence/PDO/Schema/
-src/Internal/Transaction/
-src/Internal/ResultSnapshot/
+src/Persistence/PDO/Connection/
+src/Persistence/PDO/Scope/
+src/Persistence/PDO/Schema/
+src/Persistence/Transaction/
+src/Lifecycle/ResultSnapshot/
 src/Persistence/Contract/
-src/Infrastructure/Persistence/PDO/Operations/
-src/Scope/Persistence/
+src/Persistence/PDO/Operations/
 tests/Integration/Schema/
 tests/Integration/Persistence/Operations/
 tests/Integration/Persistence/Scope/
@@ -268,12 +284,12 @@ Real MySQL-compatible schema install، capability/constraint violation tests، p
 ### 7.1 Owned paths
 
 ```text
-src/Allocation/
-src/Ownership/
-src/Availability/
-src/Reserved/
-src/Internal/Claim/
-src/Infrastructure/Persistence/PDO/Registry/
+src/Lifecycle/Allocation/
+src/Lifecycle/Ownership/
+src/Query/Availability/
+src/Lifecycle/Reserved/
+src/Registry/Internal/Claim/
+src/Persistence/PDO/Registry/
 tests/Unit/Allocation/
 tests/Integration/Registry/
 tests/System/Claim/
@@ -304,12 +320,10 @@ System workflows من public API لـassign exact/generated، real MySQL-compati
 
 ```text
 src/Lifecycle/
-src/Alias/
-src/History/
-src/Transfer/
-src/Maintenance/
-src/Infrastructure/Persistence/PDO/Binding/
-src/Infrastructure/Persistence/PDO/History/
+src/Lifecycle/Ownership/
+src/Lifecycle/History/
+src/Persistence/PDO/Binding/
+src/Persistence/PDO/History/
 tests/Unit/Lifecycle/
 tests/Integration/Lifecycle/
 tests/System/Lifecycle/
@@ -345,13 +359,13 @@ System tests لكل lifecycle path، history snapshot assertions بعد release/
 ### 9.1 Owned paths
 
 ```text
-src/Transition/
-src/Adoption/
-src/Resolution/
+src/Lifecycle/Transition/
+src/Lifecycle/Adoption/
+src/Query/Resolution/
 src/Query/
 src/Management/
 src/Engine/
-src/Infrastructure/Persistence/PDO/Query/
+src/Persistence/PDO/Query/
 tests/Unit/Resolution/
 tests/Unit/Engine/
 tests/Integration/Adoption/

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\System\Lifecycle;
 
-use Maatify\Slug\Command\AddAliasCommand;
-use Maatify\Slug\Command\AssignExactCommand;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\Command\AddAliasCommand;
+use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Exception\SlugAlreadyClaimedException;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
 use Maatify\Slug\Lifecycle\SlugLifecycleService;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;

@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Identity;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\Slug;
-use Maatify\Slug\Identity\SlugProfileKey;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Text\Value\Slug;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Tests\Unit\Contracts\ContractFixtures;
 use PHPUnit\Framework\TestCase;

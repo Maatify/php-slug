@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Contracts;
 
 use Maatify\Persistence\Pdo\Pagination\PageRequest;
-use Maatify\Slug\Criteria\BindingSearchCriteria;
-use Maatify\Slug\Criteria\RegistrySearchCriteria;
+use Maatify\Slug\Management\Criteria\BindingSearchCriteria;
+use Maatify\Slug\Management\Criteria\RegistrySearchCriteria;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 

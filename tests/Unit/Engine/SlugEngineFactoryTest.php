@@ -7,9 +7,9 @@ namespace Maatify\Slug\Tests\Unit\Engine;
 use DateTimeImmutable;
 use DateTimeZone;
 use Maatify\SharedCommon\Contracts\ClockInterface;
-use Maatify\Slug\Contract\ReservedSlugPolicyInterface;
+use Maatify\Slug\Lifecycle\Contract\ReservedSlugPolicyInterface;
 use Maatify\Slug\Engine\SlugEngineFactory;
-use Maatify\Slug\Identity\Slug;
+use Maatify\Slug\Text\Value\Slug;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Engine\SlugEngine;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
@@ -28,7 +28,7 @@ final class SlugEngineFactoryTest extends TestCase
         $engine = SlugEngineFactory::create($pdo, $profiles, new TestReservedSlugPolicy(), new TestClock());
 
         self::assertInstanceOf(SlugEngine::class, $engine);
-        self::assertTrue($engine->has(new \Maatify\Slug\Identity\SlugProfileKey('ascii-v1')));
+        self::assertTrue($engine->has(new \Maatify\Slug\Profile\Value\SlugProfileKey('ascii-v1')));
     }
 }
 

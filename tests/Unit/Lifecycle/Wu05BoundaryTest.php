@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Lifecycle;
 
-use Maatify\Slug\Contract\SlugLifecycleServiceInterface;
-use Maatify\Slug\Command\AtomicTransferCommand;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\AtomicTransferResultDTO;
-use Maatify\Slug\DTO\BindingStateResultDTO;
-use Maatify\Slug\DTO\HistoryEventDTO;
-use Maatify\Slug\DTO\SlugMutationResultDTO;
-use Maatify\Slug\Enum\BindingStatusEnum;
-use Maatify\Slug\Enum\ChangeTypeEnum;
-use Maatify\Slug\Enum\OperationTypeEnum;
-use Maatify\Slug\Enum\HistoryEventTypeEnum;
-use Maatify\Slug\Enum\RegistryRoleEnum;
+use Maatify\Slug\Lifecycle\Contract\SlugLifecycleServiceInterface;
+use Maatify\Slug\Lifecycle\Command\AtomicTransferCommand;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Lifecycle\DTO\AtomicTransferResultDTO;
+use Maatify\Slug\Lifecycle\DTO\BindingStateResultDTO;
+use Maatify\Slug\Lifecycle\History\HistoryEventDTO;
+use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
+use Maatify\Slug\Registry\Enum\BindingStatusEnum;
+use Maatify\Slug\Lifecycle\Enum\ChangeTypeEnum;
+use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
+use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
+use Maatify\Slug\Registry\Enum\RegistryRoleEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\History\HistoryEventDraft;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\Slug;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Ownership\SameBindingDecisionEnum;
-use Maatify\Slug\Ownership\SameBindingOwnershipClassifier;
+use Maatify\Slug\Lifecycle\History\HistoryEventDraft;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Text\Value\Slug;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Lifecycle\Ownership\SameBindingDecisionEnum;
+use Maatify\Slug\Lifecycle\Ownership\SameBindingOwnershipClassifier;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;
@@ -201,8 +201,8 @@ final class Wu05BoundaryTest extends TestCase
         $reflection = new ReflectionClass(\Maatify\Slug\Lifecycle\SlugLifecycleService::class);
         $service = $reflection->newInstanceWithoutConstructor();
         $method = $reflection->getMethod('fingerprint');
-        $identity = new \Maatify\Slug\DTO\BindingIdentityDTO(
-            new \Maatify\Slug\DTO\ScopeProfileRequestDTO(new SlugScope('catalog', null, null), new SlugProfileKey('ascii-v1')),
+        $identity = new \Maatify\Slug\Registry\DTO\BindingIdentityDTO(
+            new \Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO(new SlugScope('catalog', null, null), new SlugProfileKey('ascii-v1')),
             new EntityReference('product', '1'),
         );
         $actual = $method->invoke(
@@ -350,10 +350,10 @@ final class Wu05BoundaryTest extends TestCase
         );
     }
 
-    private function transferIdentity(string $entityKey, string $namespace): \Maatify\Slug\DTO\BindingIdentityDTO
+    private function transferIdentity(string $entityKey, string $namespace): \Maatify\Slug\Registry\DTO\BindingIdentityDTO
     {
-        return new \Maatify\Slug\DTO\BindingIdentityDTO(
-            new \Maatify\Slug\DTO\ScopeProfileRequestDTO(new SlugScope($namespace, null, null), new SlugProfileKey('ascii-v1')),
+        return new \Maatify\Slug\Registry\DTO\BindingIdentityDTO(
+            new \Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO(new SlugScope($namespace, null, null), new SlugProfileKey('ascii-v1')),
             new EntityReference('product', $entityKey),
         );
     }

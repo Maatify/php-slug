@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Maatify\Slug\Profile\BuiltIn;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Profile\Contracts\SlugProfileInterface;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Profile\Contract\SlugProfileInterface;
 use Maatify\Slug\Profile\Runtime\RuntimeCompatibilityGuard;
-use Maatify\Slug\Validation\SlugInputValidator;
+use Maatify\Slug\Text\Validation\SlugInputValidator;
 use Normalizer;
 use Transliterator;
 

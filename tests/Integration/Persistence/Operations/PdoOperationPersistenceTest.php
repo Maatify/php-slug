@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Integration\Persistence\Operations;
 
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\DTO\AdoptionResultDTO;
-use Maatify\Slug\Contract\ResultSnapshot\ResultSnapshotEncoder;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Operations\PdoOperationRepository;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\AdoptionResultDTO;
+use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotEncoder;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Persistence\PDO\Operations\PdoOperationRepository;
 use Maatify\Slug\Persistence\Contract\OperationParticipant;
-use Maatify\Slug\Infrastructure\Persistence\PDO\Scope\PdoScopeRepository;
+use Maatify\Slug\Persistence\PDO\Scope\PdoScopeRepository;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
-use Maatify\Slug\Enum\OperationTypeEnum;
+use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
 use Maatify\Slug\Exception\SlugIdempotencyConflictException;
 use Maatify\Slug\Exception\SlugTransactionParticipationException;
-use Maatify\Slug\Internal\ResultSnapshot\ResultSnapshotMetadata;
+use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotMetadata;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
 use Maatify\Slug\Tests\Unit\Contracts\ContractFixtures;
@@ -51,7 +51,7 @@ final class PdoOperationPersistenceTest extends MySqlIntegrationTestCase
 
             self::assertTrue($reservation->created);
             $fixture = ContractFixtures::mutation();
-            $snapshot = \Maatify\Slug\Contract\ResultSnapshot\ResultSnapshotEncoder::encode($fixture);
+            $snapshot = \Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotEncoder::encode($fixture);
             $snapshot = str_replace('"operation_key":null', '"operation_key":"' . $operationKey . '"', $snapshot);
             $metadata = new ResultSnapshotMetadata('mutation', 1, OperationTypeEnum::ASSIGN_EXACT, $operationKey, $snapshot);
             $operationRepository->commitSnapshot($reservation->operation->id, $metadata, $profiles);

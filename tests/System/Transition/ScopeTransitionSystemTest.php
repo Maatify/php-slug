@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\System\Transition;
 
-use Maatify\Slug\Command\AssignExactCommand;
-use Maatify\Slug\Command\TransitionScopeCommand;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\DTO\ScopeTransitionClaimIntentDTO;
+use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
+use Maatify\Slug\Lifecycle\Command\TransitionScopeCommand;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Engine\SlugEngine;
 use Maatify\Slug\Engine\SlugEngineFactory;
-use Maatify\Slug\Enum\ClaimIntentModeEnum;
-use Maatify\Slug\Enum\ScopeTransitionModeEnum;
+use Maatify\Slug\Lifecycle\Enum\ClaimIntentModeEnum;
+use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
 use Maatify\Slug\Exception\SlugRevisionConflictException;
 use Maatify\Slug\Exception\SlugScopeProfileMismatchException;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
 use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
 use Maatify\Slug\Scope\Value\SlugScope;
 use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
@@ -90,7 +90,7 @@ final class ScopeTransitionSystemTest extends MySqlIntegrationTestCase
         self::assertSame('1', $this->operationColumn('transition-move-key', 'result_schema_version'));
         self::assertSame($snapshot, $this->operationColumn('transition-move-key', 'result_snapshot'));
 
-        $engine->releaseAllOwnership(new \Maatify\Slug\Command\ReleaseAllOwnershipCommand($targetIdentity = new BindingIdentityDTO($target, $source->entity), 1, new AuditContextDTO()));
+        $engine->releaseAllOwnership(new \Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand($targetIdentity = new BindingIdentityDTO($target, $source->entity), 1, new AuditContextDTO()));
         $replayAfterLiveChange = $engine->transitionScope($command);
         self::assertTrue($replayAfterLiveChange->replayed);
         self::assertSame($snapshot, $this->operationColumn('transition-move-key', 'result_snapshot'));

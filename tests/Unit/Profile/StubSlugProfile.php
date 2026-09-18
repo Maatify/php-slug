@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Profile;
 
 use LogicException;
-use Maatify\Slug\DTO\CanonicalSlugDTO;
-use Maatify\Slug\DTO\GeneratedSlugDTO;
-use Maatify\Slug\DTO\LookupCanonicalizationDTO;
-use Maatify\Slug\Identity\SlugProfileKey;
-use Maatify\Slug\Profile\Contracts\SlugProfileInterface;
+use Maatify\Slug\Text\DTO\CanonicalSlugDTO;
+use Maatify\Slug\Text\DTO\GeneratedSlugDTO;
+use Maatify\Slug\Text\DTO\LookupCanonicalizationDTO;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
+use Maatify\Slug\Profile\Contract\SlugProfileInterface;
 
 final class StubSlugProfile implements SlugProfileInterface
 {

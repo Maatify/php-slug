@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Allocation;
 
-use Maatify\Slug\Contract\ReservedSlugPolicyInterface;
-use Maatify\Slug\Identity\Slug;
+use Maatify\Slug\Lifecycle\Contract\ReservedSlugPolicyInterface;
+use Maatify\Slug\Text\Value\Slug;
 use Maatify\Slug\Scope\Value\SlugScope;
 
 final class TestReservedSlugPolicy implements ReservedSlugPolicyInterface

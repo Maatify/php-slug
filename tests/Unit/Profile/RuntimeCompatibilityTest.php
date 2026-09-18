@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Profile;
 
 use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Factory\SlugProfileRegistryFactory;
+use Maatify\Slug\Profile\Factory\SlugProfileRegistryFactory;
 use Maatify\Slug\Profile\Runtime\RuntimeCompatibilityGuard;
 use PHPUnit\Framework\TestCase;
 

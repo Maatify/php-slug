@@ -168,29 +168,29 @@ function writeConsumerWorkflow(string $consumerRoot): void
 declare(strict_types=1);
 
 use Maatify\SharedCommon\Contracts\ClockInterface;
-use Maatify\Slug\Command\AssignExactCommand;
-use Maatify\Slug\Command\ChangeExactCommand;
-use Maatify\Slug\Contract\ReservedSlugPolicyInterface;
-use Maatify\Slug\Criteria\CurrentSlugCriteria;
-use Maatify\Slug\DTO\AuditContextDTO;
-use Maatify\Slug\DTO\BindingIdentityDTO;
-use Maatify\Slug\DTO\CanonicalSlugDTO;
-use Maatify\Slug\DTO\CurrentSlugDTO;
-use Maatify\Slug\DTO\GeneratedSlugDTO;
-use Maatify\Slug\DTO\LookupCanonicalizationDTO;
-use Maatify\Slug\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\DTO\SlugMutationResultDTO;
-use Maatify\Slug\DTO\SlugResolutionDTO;
+use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
+use Maatify\Slug\Lifecycle\Command\ChangeExactCommand;
+use Maatify\Slug\Lifecycle\Contract\ReservedSlugPolicyInterface;
+use Maatify\Slug\Query\Criteria\CurrentSlugCriteria;
+use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
+use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Text\DTO\CanonicalSlugDTO;
+use Maatify\Slug\Query\DTO\CurrentSlugDTO;
+use Maatify\Slug\Text\DTO\GeneratedSlugDTO;
+use Maatify\Slug\Text\DTO\LookupCanonicalizationDTO;
+use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
+use Maatify\Slug\Query\DTO\SlugResolutionDTO;
 use Maatify\Slug\Engine\SlugEngine;
 use Maatify\Slug\Engine\SlugEngineFactory;
-use Maatify\Slug\Enum\ChangeTypeEnum;
-use Maatify\Slug\Enum\InputFormCanonicalityEnum;
-use Maatify\Slug\Enum\MatchKindEnum;
+use Maatify\Slug\Lifecycle\Enum\ChangeTypeEnum;
+use Maatify\Slug\Query\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Query\Enum\MatchKindEnum;
 use Maatify\Slug\Exception\SlugAlreadyClaimedException;
-use Maatify\Slug\Factory\SlugProfileRegistryFactory;
-use Maatify\Slug\Factory\SlugTextServiceFactory;
-use Maatify\Slug\Identity\EntityReference;
-use Maatify\Slug\Identity\SlugProfileKey;
+use Maatify\Slug\Profile\Factory\SlugProfileRegistryFactory;
+use Maatify\Slug\Text\Factory\SlugTextServiceFactory;
+use Maatify\Slug\Registry\Value\EntityReference;
+use Maatify\Slug\Profile\Value\SlugProfileKey;
 use Maatify\Slug\Scope\Value\SlugScope;
 require __DIR__ . '/vendor/autoload.php';
 
@@ -198,7 +198,7 @@ expect(! class_exists('Maatify\\Slug\\Tests\\Integration\\Schema\\MySqlIntegrati
 
 final class AcceptAllReservedSlugPolicy implements ReservedSlugPolicyInterface
 {
-    public function isReserved(SlugScope $scope, \Maatify\Slug\Identity\Slug $slug): bool
+    public function isReserved(SlugScope $scope, \Maatify\Slug\Text\Value\Slug $slug): bool
     {
         return false;
     }
@@ -279,7 +279,7 @@ try {
     expect($changed->after->state->revision === 2, 'Change did not produce revision 2.');
     expect($changed->changeType === ChangeTypeEnum::CHANGED, 'Change returned an unexpected change type.');
 
-    $resolved = $engine->resolve(new \Maatify\Slug\Criteria\ResolutionCriteria($scopeProfile, 'UPDATED-PAGE'));
+    $resolved = $engine->resolve(new \Maatify\Slug\Query\Criteria\ResolutionCriteria($scopeProfile, 'UPDATED-PAGE'));
     expect($resolved instanceof SlugResolutionDTO, 'Resolution did not return the public SlugResolutionDTO.');
     expect($resolved->inputCanonicality === InputFormCanonicalityEnum::NON_CANONICAL, 'Resolution did not expose lookup canonicalization.');
     expect($resolved->matchKind === MatchKindEnum::CURRENT, 'Resolution did not match the current claim.');
@@ -287,7 +287,7 @@ try {
     expect($resolved->entity?->entityKey === 'consumer-entity-' . $run, 'Resolution returned an unexpected public entity reference.');
     expect($resolved->bindingRevision === 2, 'Resolution returned an unexpected binding revision.');
 
-    $current = $engine->getCurrent(new \Maatify\Slug\Criteria\CurrentSlugCriteria($identity));
+    $current = $engine->getCurrent(new \Maatify\Slug\Query\Criteria\CurrentSlugCriteria($identity));
     expect($current?->binding->state->currentSlug?->value === 'updated-page', 'Public current lookup did not observe persisted state.');
     expect($current?->revision === 2, 'Public current lookup returned an unexpected revision.');
 
@@ -482,7 +482,7 @@ function runConcurrencyProof(PDO $pdo, SlugEngine $engine, SlugProfileKey $profi
         expect($loserCurrent instanceof CurrentSlugDTO, 'Consumer race loser state was not readable through the public current-query API.');
         expect($loserCurrent->binding->state->currentSlug?->value === 'race-old-' . $loserWorker, 'Consumer race loser did not retain its original current slug.');
         expect($loserCurrent->revision === 1, 'Consumer race loser state was partially mutated.');
-        $resolved = $engine->resolve(new \Maatify\Slug\Criteria\ResolutionCriteria($raceScopeProfile, 'RACE-SLUG'));
+        $resolved = $engine->resolve(new \Maatify\Slug\Query\Criteria\ResolutionCriteria($raceScopeProfile, 'RACE-SLUG'));
         expect($resolved instanceof SlugResolutionDTO, 'Consumer race resolution did not return the public SlugResolutionDTO.');
         expect($resolved->entity?->entityKey === (string) ($winners[0]['entity'] ?? ''), 'Public resolution API returned the wrong consumer race winner.');
         expect($resolved->matchedSlug?->value === 'race-slug', 'Public resolution API returned an unexpected consumer race slug.');
