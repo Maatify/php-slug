@@ -19,7 +19,7 @@ final readonly class PdoSchemaInstaller
     public function installPackageSchema(): void
     {
         ($this->capabilities ?? new PdoCapabilityGuard($this->pdo))->assertSupported();
-        $path = dirname(__DIR__, 5) . '/schema/mysql/001_slug_rc1.sql';
+        $path = dirname(__DIR__, 4) . '/schema/mysql/001_slug_rc1.sql';
         $sql = file_get_contents($path);
         if ($sql === false) {
             throw new SlugPersistenceInvariantException('The package schema file cannot be read.');
