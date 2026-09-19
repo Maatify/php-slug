@@ -1,12 +1,14 @@
 # Maatify Slug — RC1 Blueprint
 
-> **الحالة:** عقد تصميم دائم قابل للتنفيذ لـRC1، وليس سجلًا بأن التنفيذ موجود.
+> **الحالة:** عقد تصميم داعم لـRC1؛ لا يملك الحالة الحالية للـRuntime أو العقد package-facing، وليس سجلًا بأن التنفيذ موجود.
 >
 > **المستودع:** `Maatify/php-slug`
 > **Composer package:** `maatify/php-slug`
 > **Namespace:** `Maatify\\Slug\\`
 > **Baseline التصميم للتأليف:** `006ca7c62b4defc62c8ef2b16374b6f60d48a8dc` على `work/rc-1-preparation`
 > **مصدر التنفيذ اللاحق:** HEAD المحدث لـ`phase-draft/rc-1` بعد إغلاق Preparation ودمج PR #2
+
+`SLUG_PACKAGE_REFERENCE.md` هي **current package-facing contract** ومصدر العقد العام الحالي. يبقى هذا الـBlueprint supporting design artifact يحفظ قرارات التصميم وحقائق authoring التاريخية، ولا يحل محل Package Reference أو `STANDARDS_MANIFEST.md`.
 
 هذا المستند نقل القرارات المقبولة من مسودة النقاش المؤقتة إلى عقد تنفيذ محدد، ثم أُغلقت المسودة ضمن Preparation Closure. لا يكون هذا الـBlueprint مصدرًا بديلًا عن Package Reference للحالة package-facing، ولا يثبت وجود Runtime أو Schema أو Tests؛ تلك نتائج يجب إنتاجها والتحقق منها وفق خطة التنفيذ.
 
@@ -24,7 +26,7 @@
 
 ## 3. المصدر المعياري وحدود الملكية
 
-تطبق على التنفيذ Snapshot المعايير المسجل في `docs/php-engineering-standards/STANDARDS_MANIFEST.md` عند adoption commit `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`:
+هذه القائمة تمثل **historical authoring / execution-start Standards snapshot** المسجل في `docs/php-engineering-standards/STANDARDS_MANIFEST.md` عند adoption commit `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28` القديم:
 
 - `std-package-building` `1.3.0`؛
 - `std-composer-package` `1.2.0`؛
@@ -33,6 +35,8 @@
 - `std-testing` `1.1.0`؛
 - `std-ai-collaboration-workflow` `6.0.0`؛
 - `std-github-phase-stack-workflow` `2.2.0`.
+
+كان تحديث Standards Adoption إلى `44c8827095ab4007c355aa21c56b853f3b49d795` قرارًا معتمدًا من Owner في مرحلة سابقة؛ ويظل هذا الـSHA **historical/interim compliance baseline** ولا يوصف بأنه final أو current baseline. أما الـcurrent authoritative baseline فهو Adoption Commit `4e268089d0aceedbc837d98f28da8b204d39dd7f` المسجل في `STANDARDS_MANIFEST.md`، مع مجموعة المعايير والإصدارات الحالية المسجلة هناك.
 
 تملك الحزمة Slug domain وPersistence الخاصة بها. يملك Host الاتصال والإعداد والـbootstrap ووجود كيان Host وأي سياسة HTTP أو SEO. لا توجد Host FKs أو Host JOINs، ولا تعتمد الحزمة على Framework أو ORM أو `maatify/php-seo`.
 
@@ -334,7 +338,7 @@ ASCII lowercase فقط، pattern:
 
 ### 9.3 canonical empty scope dimensions
 
-في API، `null` فقط يعني غياب locale/context. في MySQL، كلا العمودين `NOT NULL VARCHAR(191)` ويخزن `null` كـempty string `''`. لذلك لا تدخل `profileKey` في unique scope key، ولا تعتمد uniqueness على SQL NULL. Scope key canonical هو `(namespace, '', '')` عند غياب البعدين.
+في API، `null` فقط يعني غياب locale/context. في schema، كلا العمودين `NOT NULL VARCHAR(191)` ويخزن `null` كـempty string `''`. لذلك لا تدخل `profileKey` في unique scope key، ولا تعتمد uniqueness على SQL NULL. Scope key canonical هو `(namespace, '', '')` عند غياب البعدين.
 
 ## 10. Reserved policy وgeneration failure
 
@@ -352,7 +356,22 @@ Host يملك vocabulary/patterns، والحزمة لا تستعلم Host tables
 
 ## 11. Driver contract لـRC1
 
-RC1 يدعم **PDO MySQL فقط** مع **MySQL Server 8.0.36**. `pdo_mysql` و`ext-pdo` مطلوبان. لا يدعي RC1 دعم MariaDB أو PostgreSQL أو SQLite أو أي PDO driver آخر؛ adapters إضافية خارج هذه المرحلة.
+حد Persistence في RC1 هو **direct PDO عبر `ext-pdo` و`ext-pdo_mysql` إلى MySQL-compatible server semantics**. لا يربط العقد الدعم باسم المنتج أو برقم إصدار، ولا يرفض MariaDB بالاسم وحده إذا حققت البيئة القدرات المطلوبة عبر `pdo_mysql`. لا يعني ذلك ادعاء دعم كل إصدارات MySQL أو MariaDB؛ البيئة التي لا تحقق capability لازمة تفشل بوضوح قبل mutation. PostgreSQL وSQLite وأي PDO driver غير `pdo_mysql` خارج نطاق RC1، ولا يوجد SQLite fallback.
+
+تستخدم RC1 **Schema واحدة** وRuntime path واحدة قدر الإمكان. كل جدول package-owned يستخدم `InnoDB` أو transactional engine يحقق الدلالات نفسها، وتكتب SQL على أقل common denominator عملي. لا توجد version branching أو أكثر من Schema scenario حسب vendor أو version، ولا يستخدم Runtime product/version detection كوسيلة قبول أو رفض.
+
+القدرات المطلوبة هي:
+
+- transactional storage و`BEGIN`/`COMMIT`/`ROLLBACK` مع row-level atomicity؛
+- `SAVEPOINT` و`ROLLBACK TO SAVEPOINT` و`RELEASE SAVEPOINT` لمشاركة caller transaction؛
+- row locks و`SELECT ... FOR UPDATE` بالدلالات اللازمة لـCAS والـfirst-create races؛
+- unique constraints/indexes وpackage-local foreign keys؛
+- `utf8mb4` مع binary/exact-safe comparison للنص، وASCII binary comparison للمفاتيح؛
+- `DATETIME(6)` يحفظ UTC وmicroseconds الست؛
+- duplicate-key evidence المتاح عبر `pdo_mysql`، والمصنف بـ`errorInfo[1] === 1062` مع constraint context؛
+- تخزين UTF-8 opaque لـResult Snapshot v1. لا تحتاج الحزمة native JSON functions أو JSON validation من الخادم؛ snapshot يُتحقق منه في package decoder ويُخزن في text column exact-safe.
+
+لا تُعد generated columns أو CHECK enforcement أو native JSON behavior قدرات مطلوبة؛ الحالات والأدوار وcross-field invariants يتحقق منها package قبل الكتابة وعند row hydration، بينما تظل unique/FK/locking/transaction capabilities جزءًا من correctness العقدي. إذا تعذر تحقيق capability لازمة، يفشل adapter قبل mutation بدل اختيار version أو vendor branch.
 
 إعداد الاتصال الذي تملكه طبقة Host ويحقنه Host:
 
@@ -365,11 +384,11 @@ RC1 يدعم **PDO MySQL فقط** مع **MySQL Server 8.0.36**. `pdo_mysql` و`e
 
 ### 11.1 خطأ duplicate
 
-لا تكفي SQLSTATE class `23`. في adapter MySQL لا يحول Duplicate إلا إذا كان `PDOException::$errorInfo[1] === 1062` مع معرفة العملية واسم constraint المتوقع. غير ذلك يعاد كما هو، مع الحفاظ على `previous` عند semantic wrapping. duplicate في `uk_registry_scope_slug` هو race/claim conflict؛ duplicate في Scope identity يعالج فقط في bootstrap path. أما duplicate في `uk_binding_identity` أثناء first-create المسموح في `assignExact`/`assignGenerated` أو `adoptCurrent` أو target `transitionScope` فهو **race متوقع وليس infrastructure failure**: تعتبر طبقة PDO محاولة `INSERT` نفسها failed، ولا تنشئ savepoint خاصة بمحاولة الإدراج ولا تعمل rollback لها؛ يستمر التنفيذ داخل package transaction أو savepoint الحالية، ثم يعاد قفل وقراءة Binding الفائزة بـ`SELECT ... FOR UPDATE`، وبعدها تطبق آلية §29 حرفيًا. مع `idempotencyKey`، تطابق key و`requestFingerprint` مع participant/operation الملتزم يعيد replay snapshot، واختلاف fingerprint يرمى `SlugIdempotencyConflictException`. إذا لم يوجد evidence مطابق، تكون النتيجة semantic conflict/CAS لا Duplicate عام: لأن assertion السابق كان `expectedRevision=null`/target absent وقد ثبت زوال الغياب، يرمى `SlugRevisionConflictException` قبل أي mutation إضافية. duplicate في أي constraint أخرى يبقى infrastructure failure ما لم تنطبق قاعدة صريحة أعلاه.
+لا تكفي SQLSTATE class `23`. في `pdo_mysql` لا يحول adapter duplicate إلى semantic conflict إلا إذا كان `PDOException::$errorInfo[1] === 1062` مع معرفة العملية واسم constraint المتوقع، وهو duplicate-key evidence للعقد MySQL-compatible الحالي وليس claim عن version أو vendor محدد. غير ذلك يعاد كما هو، مع الحفاظ على `previous` عند semantic wrapping. duplicate في `uk_registry_scope_slug` هو race/claim conflict؛ duplicate في Scope identity يعالج فقط في bootstrap path. أما duplicate في `uk_binding_identity` أثناء first-create المسموح في `assignExact`/`assignGenerated` أو `adoptCurrent` أو target `transitionScope` فهو **race متوقع وليس infrastructure failure**: تعتبر طبقة PDO محاولة `INSERT` نفسها failed، ولا تنشئ savepoint خاصة بمحاولة الإدراج ولا تعمل rollback لها؛ يستمر التنفيذ داخل package transaction أو savepoint الحالية، ثم يعاد قفل وقراءة Binding الفائزة بـ`SELECT ... FOR UPDATE`، وبعدها تطبق آلية §29 حرفيًا. مع `idempotencyKey`، تطابق key و`requestFingerprint` مع participant/operation الملتزم يعيد replay snapshot، واختلاف fingerprint يرمى `SlugIdempotencyConflictException`. إذا لم يوجد evidence مطابق، تكون النتيجة semantic conflict/CAS لا Duplicate عام: لأن assertion السابق كان `expectedRevision=null`/target absent وقد ثبت زوال الغياب، يرمى `SlugRevisionConflictException` قبل أي mutation إضافية. duplicate في أي constraint أخرى يبقى infrastructure failure ما لم تنطبق قاعدة صريحة أعلاه.
 
 ## 12. Persistence schema العقدي
 
-ما يلي pseudo-DDL وصفي لا يُحفظ كملف SQL في مهمة Blueprint. ترتيب الإنشاء التنفيذي الملزم هو `scopes → bindings → operations → operation_bindings → registry → history`، أو إنشاء History أولًا ثم إضافة FK بعد إنشاء Operations؛ لا يعتمد SQL على forward FK. كل جدول يستخدم prefix `maa_slug_`، وكل جدول له `id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY`. كل FK هنا package-local؛ لا توجد FKs إلى Host. يجب أن يحافظ ملف SQL الفعلي على أسماء القيود والفهارس المذكورة ويضيف meaningful column/table comments المطلوبة بالـStandard.
+ما يلي pseudo-DDL وصفي لا يُحفظ كملف SQL في مهمة Blueprint. ترتيب الإنشاء التنفيذي الملزم هو `scopes → bindings → operations → operation_bindings → registry → history`، أو إنشاء History أولًا ثم إضافة FK بعد إنشاء Operations؛ لا يعتمد SQL على forward FK. كل جدول يستخدم prefix `maa_slug_` و`ENGINE=InnoDB`، وكل جدول له `id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY`. كل FK هنا package-local؛ لا توجد FKs إلى Host. يجب أن يحافظ ملف SQL الفعلي على أسماء القيود والفهارس المذكورة ويضيف meaningful column/table comments المطلوبة بالـStandard، مع الالتزام بالقدرات المطلوبة في §11 لا بحد إصدار ثابت.
 
 ### 12.1 `maa_slug_scopes`
 
@@ -405,8 +424,9 @@ CONSTRAINT fk_binding_scope FOREIGN KEY(scope_id) REFERENCES maa_slug_scopes(id)
 CONSTRAINT uk_binding_id_scope UNIQUE(id, scope_id)
 INDEX ix_binding_current_registry (current_registry_id)
 INDEX ix_binding_status (status)
-CHECK(status IN ('ACTIVE','INACTIVE','RELEASED'))
 ```
+
+القيم المسموحة لـ`status` والتحولات بينها invariant package-owned؛ يتحقق adapter منها عند الكتابة والـhydration. لا يتطلب العقد enforcement من `CHECK` في الخادم.
 
 `current_registry_id` لا يملك FK عمدًا حتى لا تنشأ circular impossible insert مع Registry. سلامته تُفرض داخل package transaction وبـinvariant read check موثق في §14؛ لا تستخدم القراءة pointer غير المتحقق منه.
 
@@ -420,19 +440,15 @@ slug            VARCHAR(160) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL
 claim_role      VARCHAR(24) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 claimed_at      DATETIME(6) NOT NULL
 updated_at      DATETIME(6) NOT NULL
-current_marker  BIGINT UNSIGNED GENERATED ALWAYS AS
-                (CASE WHEN claim_role = 'CURRENT_CANONICAL' THEN binding_id ELSE NULL END) STORED
 CONSTRAINT fk_registry_scope FOREIGN KEY(scope_id) REFERENCES maa_slug_scopes(id) ON DELETE RESTRICT
 CONSTRAINT fk_registry_binding_scope FOREIGN KEY(binding_id, scope_id) REFERENCES maa_slug_bindings(id, scope_id) ON DELETE RESTRICT
 CONSTRAINT uk_registry_scope_slug UNIQUE(scope_id, slug)
 CONSTRAINT uk_registry_binding_slug UNIQUE(binding_id, slug)
-CONSTRAINT uk_registry_current_marker UNIQUE(current_marker)
-CHECK(claim_role IN ('CURRENT_CANONICAL','HISTORICAL_CANONICAL','ACTIVE_ALIAS','RETIRED_ALIAS'))
 INDEX ix_registry_binding_role (binding_id, claim_role)
 INDEX ix_registry_scope_role_id (scope_id, claim_role, id)
 ```
 
-لا يوجد registry row بحالة `RELEASED`; release يمحو live claim ويكتب snapshot في History. `current_marker` يضمن صف current واحدًا لكل Binding دون partial-index assumption.
+لا يوجد registry row بحالة `RELEASED`; release يمحو live claim ويكتب snapshot في History. يضمن قفل Binding والتحقق من `current_registry_id` داخل transaction وجود صف current واحد لكل Binding؛ لا يعتمد العقد على generated column أو partial-index assumption. القيم المسموحة لـ`claim_role` يتحقق منها package عند الكتابة والـhydration.
 
 ### 12.4 `maa_slug_history`
 
@@ -467,55 +483,13 @@ CONSTRAINT fk_history_operation FOREIGN KEY(operation_id) REFERENCES maa_slug_op
 CONSTRAINT uk_history_binding_sequence UNIQUE(binding_id, sequence_no)
 INDEX ix_history_binding_occurred_id (binding_id, occurred_at, id)
 INDEX ix_history_event_occurred_id (event_type, occurred_at, id)
-CHECK(event_type IN (
-  'ASSIGNED','CHANGED','RESTORED','ALIAS_ADDED','ALIAS_RETIRED',
-  'ALIAS_REACTIVATED','ALIAS_PROMOTED','DEACTIVATED','REACTIVATED',
-  'SCOPE_TRANSITIONED_OUT','SCOPE_TRANSITIONED_IN','OWNERSHIP_RELEASED',
-  'OWNERSHIP_RELEASED_ALL','OWNERSHIP_TRANSFERRED_OUT',
-  'OWNERSHIP_TRANSFERRED_IN','ADOPTED_CURRENT','ADOPTED_HISTORICAL',
-  'ADOPTED_ALIAS'
-))
-CONSTRAINT ck_history_original_occurred_at CHECK (
-  (event_type IN ('ADOPTED_CURRENT','ADOPTED_HISTORICAL','ADOPTED_ALIAS')
-   AND original_occurred_at IS NOT NULL)
-  OR
-  (event_type NOT IN ('ADOPTED_CURRENT','ADOPTED_HISTORICAL','ADOPTED_ALIAS')
-   AND original_occurred_at IS NULL)
-)
-CONSTRAINT ck_history_claim_role_snapshot CHECK (
-  (event_type IN (
-    'ASSIGNED','CHANGED','RESTORED','ALIAS_ADDED','ALIAS_RETIRED',
-    'ALIAS_REACTIVATED','ALIAS_PROMOTED','SCOPE_TRANSITIONED_OUT',
-    'SCOPE_TRANSITIONED_IN','OWNERSHIP_RELEASED','OWNERSHIP_TRANSFERRED_OUT',
-    'OWNERSHIP_TRANSFERRED_IN','ADOPTED_CURRENT','ADOPTED_HISTORICAL',
-    'ADOPTED_ALIAS'
-  ) AND slug_snapshot IS NOT NULL AND claim_role_snapshot IN (
-    'CURRENT_CANONICAL','HISTORICAL_CANONICAL','ACTIVE_ALIAS','RETIRED_ALIAS'
-  ))
-  OR
-  (event_type IN ('DEACTIVATED','REACTIVATED','OWNERSHIP_RELEASED_ALL')
-   AND slug_snapshot IS NULL AND previous_slug_snapshot IS NULL
-   AND claim_role_snapshot IS NULL)
-)
-CONSTRAINT ck_history_previous_claim_role_snapshot CHECK (
-  (previous_slug_snapshot IS NULL AND previous_claim_role_snapshot IS NULL)
-  OR
-  (previous_slug_snapshot IS NOT NULL AND previous_claim_role_snapshot IN (
-    'CURRENT_CANONICAL','HISTORICAL_CANONICAL','ACTIVE_ALIAS','RETIRED_ALIAS'
-  ))
-)
-CONSTRAINT ck_history_previous_event_snapshot CHECK (
-  (event_type IN ('CHANGED','RESTORED','ALIAS_PROMOTED')
-   AND previous_slug_snapshot IS NOT NULL
-   AND previous_claim_role_snapshot IS NOT NULL)
-  OR
-  (event_type NOT IN ('CHANGED','RESTORED','ALIAS_PROMOTED'))
-)
 ```
+
+تُفرض event vocabulary وoriginal timestamp وrole/snapshot applicability داخل package قبل الإدراج وعند row hydration؛ لا يتطلب العقد CHECK enforcement من الخادم لأن هذه invariants تُرفض قبل mutation أو قبل إعادة استعمال row غير صالح.
 
 History لا تملك `idempotency_key` أو `request_fingerprint`؛ تلك evidence تشغيلية في جدول العمليات التالي. كل event ناتج عن عملية ذات idempotency يحمل `operation_id` و`operation_key`. لا يستخدم History JSON dump عامًا. `operation_key` واحد مشترك في حدثي transfer out/in، مع snapshots source/target في كل جهة. `occurred_at` هو وقت حدوث mutation من `ClockInterface`، أما `original_occurred_at` فلا يستخدم إلا لأحداث adoption ويحفظ التاريخ المستورد بعد تطبيع UTC؛ لذلك لا يختلط زمن الاستيراد بزمن تنفيذ الحزمة.
 
-`claim_role_snapshot` هو role الـ`slug_snapshot` عند حدود الحدث، و`previous_claim_role_snapshot` هو role الـ`previous_slug_snapshot` قبل الحدث مباشرةً. كل event متعلق بclaim أو ownership أو transfer أو adoption أو scope transition يجب أن يحمل role snapshot غير null؛ أحداث `DEACTIVATED` و`REACTIVATED` و`OWNERSHIP_RELEASED_ALL` marker-only تحمل الحقلين null. في `CHANGED` و`RESTORED` و`ALIAS_PROMOTED` تحفظ الحقول role السابق والدور الناتج صراحةً، وفي release/transfer-out تحفظ الدور قبل الحذف، وفي transfer-in تحفظ الدور الذي أُدرج به claim في الهدف. لا يجوز استنتاج role من Registry الحالية أو من result snapshot بعد ذلك؛ DTO وCHECKs يفرضان هذه الدلالة.
+`claim_role_snapshot` هو role الـ`slug_snapshot` عند حدود الحدث، و`previous_claim_role_snapshot` هو role الـ`previous_slug_snapshot` قبل الحدث مباشرةً. كل event متعلق بclaim أو ownership أو transfer أو adoption أو scope transition يجب أن يحمل role snapshot غير null؛ أحداث `DEACTIVATED` و`REACTIVATED` و`OWNERSHIP_RELEASED_ALL` marker-only تحمل الحقلين null. في `CHANGED` و`RESTORED` و`ALIAS_PROMOTED` تحفظ الحقول role السابق والدور الناتج صراحةً، وفي release/transfer-out تحفظ الدور قبل الحذف، وفي transfer-in تحفظ الدور الذي أُدرج به claim في الهدف. لا يجوز استنتاج role من Registry الحالية أو من result snapshot بعد ذلك؛ DTO وpackage validation يفرضان هذه الدلالة.
 
 ### 12.5 `maa_slug_operations` و`maa_slug_operation_bindings`
 
@@ -529,17 +503,12 @@ operation_type        VARCHAR(48) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 request_fingerprint   CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 result_type           VARCHAR(48) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 result_schema_version SMALLINT UNSIGNED NOT NULL DEFAULT 1
-result_snapshot       JSON NULL
+result_snapshot       LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL
 status                VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL
 created_at            DATETIME(6) NOT NULL
 completed_at          DATETIME(6) NULL
 CONSTRAINT uk_operation_key UNIQUE(operation_key)
 INDEX ix_operation_type_created_id (operation_type, created_at, id)
-CONSTRAINT ck_operation_status CHECK (
-  (status = 'IN_PROGRESS' AND result_snapshot IS NULL AND completed_at IS NULL)
-  OR
-  (status = 'COMMITTED' AND result_snapshot IS NOT NULL AND completed_at IS NOT NULL)
-)
 
 maa_slug_operation_bindings
 id                    BIGINT UNSIGNED PK
@@ -553,8 +522,9 @@ CONSTRAINT uk_operation_binding_idempotency UNIQUE(binding_id, idempotency_key)
 CONSTRAINT uk_operation_binding_pair UNIQUE(operation_id, binding_id)
 CONSTRAINT uk_operation_binding_role UNIQUE(operation_id, participant_role)
 INDEX ix_operation_binding_role (operation_id, participant_role)
-CHECK(participant_role IN ('SINGLE','SOURCE','TARGET'))
 ```
+
+تتحقق package من توافق `status` مع snapshot/completed time ومن participant roles قبل الكتابة وعند القراءة؛ لا يعتمد schema على CHECK enforcement. `result_snapshot` نص UTF-8 exact-safe يحمل JSON v1 بعد validation، ولا يحتاج native JSON type أو server-side JSON functions.
 
 لا توجد صفوف في `maa_slug_operations` أو `maa_slug_operation_bindings` عند غياب `audit.idempotencyKey`. عند وجوده، يُخزن مرة واحدة لكل Binding مشارك؛ العملية متعددة الـBinding تشترك في صف `maa_slug_operations` واحد وصف `SOURCE` و`TARGET` في جدول المشاركين. لذلك تبقى `idempotency_key NOT NULL` صحيحة: الجدول لا يمثل natural mutations بلا key. `request_fingerprint` هو lowercase hexadecimal SHA-256 بطول 64، و`operation_key` هو lowercase hexadecimal بطول 32. `result_snapshot` هو **Result Snapshot JSON v1** المحدد حرفيًا في §35.6: object canonical يحمل `result_type` و`result_schema_version` و`result`، ويمثل DTO النتيجة الأصلية بعد نجاح mutation مع `replayed = false`. لا يجوز أن يكون snapshot ناقصًا أو يعاد تركيبه من الحالة الحالية، ولا يجوز تخزين replay DTO بدل النتيجة الأصلية.
 
@@ -564,7 +534,7 @@ CHECK(participant_role IN ('SINGLE','SOURCE','TARGET'))
 
 ## 13. Database equality وkeys
 
-تستخدم Slug وopaque identity columns `utf8mb4_bin`، وnamespace/profile/status/role/event keys `ascii_bin`. لا تنفذ قاعدة البيانات accent folding أو case folding أو Unicode normalization. يسبق كل claim/lookup canonicalization على مستوى Profile؛ equality النهائية هي exact value الناتجة عنها.
+تستخدم Slug وopaque identity columns `utf8mb4_bin`، وnamespace/profile/status/role/event keys `ascii_bin`. لا تنفذ قاعدة البيانات accent folding أو case folding أو Unicode normalization. يسبق كل claim/lookup canonicalization على مستوى Profile؛ equality النهائية هي exact value الناتجة عنها. وتبقى هذه binary collations متطلب exact-string capability لا minimum version أو vendor claim.
 
 القيود الملزمة:
 
@@ -574,14 +544,13 @@ CHECK(participant_role IN ('SINGLE','SOURCE','TARGET'))
 | `uk_binding_identity` | Binding واحد لكل EntityReference داخل Scope |
 | `uk_registry_scope_slug` | authority النهائية لـsame-slug claim race |
 | `uk_registry_binding_slug` | منع claim duplicate لنفس Binding |
-| `uk_registry_current_marker` | current canonical واحد لكل Binding |
 | `uk_history_binding_sequence` | sequence ثابت لكل Binding |
 | `uk_operation_key` | هوية عملية واحدة وsnapshot واحد قابل لإعادة القراءة |
 | `uk_operation_binding_idempotency` | منع side-effect مكرر لكل Binding مشارك بالـidempotency key |
 | `uk_operation_binding_pair` | يمنع تسجيل Binding مرتين في العملية نفسها |
 | `uk_operation_binding_role` | يضمن participant واحدًا لكل role؛ العملية الأحادية `SINGLE` أو الثنائية `SOURCE` و`TARGET` |
 
-كل unique/index name جزء من adapter contract؛ أي driver مستقبلي يحتاج equality وduplicate evidence وschema/index contract جديدًا، ولا يرث دعم MySQL تلقائيًا. `uk_operation_binding_idempotency` هي lookup authority للـreplay، و`uk_registry_scope_slug` تبقى authority لملكية slug الحية.
+كل unique/index name جزء من adapter contract؛ أي driver مستقبلي يحتاج equality وduplicate evidence وschema/index contract جديدًا، ولا يرث دعم `pdo_mysql` تلقائيًا. `uk_operation_binding_idempotency` هي lookup authority للـreplay، و`uk_registry_scope_slug` تبقى authority لملكية slug الحية.
 
 ## 14. Scope bootstrap وcurrent-pointer lifecycle
 
@@ -782,7 +751,7 @@ target scope هوية مختلفة؛ إذا تطابقت source والtarget ي�
 
 المصدر لا يكون RELEASED، والهدف لا يساوي المصدر. Reservation تفحص الهدف دائمًا عندما يكون target ownership جديدًا؛ History أو claim retained في الهدف لا تمنح transfer دلالة no-op ولا تتجاوز شرط أن تكون Registry ownership الحية قابلة للنقل. أي live conflict لBinding آخر يفشل ولا يستخدم release ضمني، ولا تكون الإعادة بلا mutation إلا replay مطابقًا بالـidempotency key. في current transfer تكون مصفوفة replacement جزءًا من العقد وليست قرارًا وقت التنفيذ: replacement candidate جديد يطبق **change semantics** (`CHANGED`) على المصدر؛ replacement candidate `HISTORICAL_CANONICAL` لنفس المصدر يطبق **restore semantics** (`RESTORED`)؛ candidate `ACTIVE_ALIAS` أو `RETIRED_ALIAS` لنفس المصدر يرفض بـ`SlugAliasOperationNotPermittedException` وفق matrix §20. إذا كان candidate مملوكًا حيًا لـBinding أخرى، يسود conflict الملكية (`SlugAlreadyClaimedException` في exact، وskip ضمن generated allocation حيث تسمح semantics) ولا يُخفى تحت alias matrix. وexact candidate المساوي للـslug المنقول يرفض بـ`SlugTransferReplacementConflictException`، بينما generated allocation يستبعد الـslug المنقول ولا يعيد اختياره. لا يوجد مسار `replacement retained` عام أو تفسير بديل لهذه الحالات. `sourceReplacementResult` هو contextual replacement result داخل transfer: لا يوجد في non-current transfer، ويظهر في current transfer فقط، ويحمل `operationType = ATOMIC_TRANSFER` و`operationKey/replayed` المطابقين للـouter result. `before/after/revision/historyEvents` فيه final-observable source evidence فقط؛ لا يسجل transient demotion، ولا يضيف transfer out/in إلى replacement-only history list، ولا يسمح بـ`ChangeTypeEnum` غير `CHANGED` أو `RESTORED`.
 
-التسلسل التنفيذي المقفول هو: (1) canonicalize/validate source وtarget وreplacement، ثم lock الـScopes والـBindings والclaims بترتيب §27؛ (2) قبل أي update يحفظ التنفيذ `originalSourceRole` من source claim، وهو الدور المنطقي المنقول حتى لو مرّ source current بمرحلة demotion عابرة؛ (3) إذا كان claim current فـreplacement intent إلزامي، وتُطبق مصفوفة replacement قبل تحرير slug المنقول: candidate جديد يغيّر current وفق `CHANGED`، وcandidate historical يرقّي الـhistorical إلى current وفق `RESTORED`؛ candidate active/retired alias يرفض وفق §20؛ exact المساوي للمنقول يرمى `SlugTransferReplacementConflictException` قبل أي mutation، وgenerated allocation يستعمل exclusion set يحتوي slug المنقول فلا يختاره أبدًا؛ (4) عند `CHANGED` يدرج replacement الجديد بعد demotion المنضبط للـcurrent المنقول، وعند `RESTORED` يستخدم الـhistorical الموجود فقط ولا ينشئ claim بديلًا؛ في الحالتين لا يوجد صفّان `CURRENT_CANONICAL` حتى transientًا ويحافظ التنفيذ على `uk_registry_current_marker`؛ (5) يكتب event replacement (`CHANGED` أو `RESTORED`) قبل `OWNERSHIP_TRANSFERRED_OUT`؛ (6) بعد وجود source current replacement يحذف source moved row، فيتحرر `uk_registry_scope_slug`؛ (7) يدرج target row بالدور المحفوظ في `originalSourceRole` حرفيًا؛ (8) يكتب transfer out/in events بالدور نفسه، ثم يزيد source وtarget revision مرة واحدة لكل طرف ويثبت pointer/status/invariants ثم snapshot/commit. لا يرى قارئ ملتزم gap؛ transient uncommitted states لا تتجاوز transaction ولا تسمح بصفّي current.
+التسلسل التنفيذي المقفول هو: (1) canonicalize/validate source وtarget وreplacement، ثم lock الـScopes والـBindings والclaims بترتيب §27؛ (2) قبل أي update يحفظ التنفيذ `originalSourceRole` من source claim، وهو الدور المنطقي المنقول حتى لو مرّ source current بمرحلة demotion عابرة؛ (3) إذا كان claim current فـreplacement intent إلزامي، وتُطبق مصفوفة replacement قبل تحرير slug المنقول: candidate جديد يغيّر current وفق `CHANGED`، وcandidate historical يرقّي الـhistorical إلى current وفق `RESTORED`؛ candidate active/retired alias يرفض وفق §20؛ exact المساوي للمنقول يرمى `SlugTransferReplacementConflictException` قبل أي mutation، وgenerated allocation يستعمل exclusion set يحتوي slug المنقول فلا يختاره أبدًا؛ (4) عند `CHANGED` يدرج replacement الجديد بعد demotion المنضبط للـcurrent المنقول، وعند `RESTORED` يستخدم الـhistorical الموجود فقط ولا ينشئ claim بديلًا؛ في الحالتين لا يوجد صفّان `CURRENT_CANONICAL` ملتزمان؛ يحافظ التنفيذ على current-pointer invariant بقفل Binding وترتيب mutation المقفول ولا يعتمد على generated marker؛ (5) يكتب event replacement (`CHANGED` أو `RESTORED`) قبل `OWNERSHIP_TRANSFERRED_OUT`؛ (6) بعد وجود source current replacement يحذف source moved row، فيتحرر `uk_registry_scope_slug`؛ (7) يدرج target row بالدور المحفوظ في `originalSourceRole` حرفيًا؛ (8) يكتب transfer out/in events بالدور نفسه، ثم يزيد source وtarget revision مرة واحدة لكل طرف ويثبت pointer/status/invariants ثم snapshot/commit. لا يرى قارئ ملتزم gap؛ transient uncommitted states لا تتجاوز transaction ولا تسمح بصفّي current ملتزمين.
 
 في non-current transfer يكون التسلسل lock ثم حفظ `originalSourceRole` ثم حذف source ثم insert target ثم History out/in؛ لا replacement ولا تغيير status. في current transfer يكون target `RELEASED` فقط، فيصبح `ACTIVE` مع current؛ أما non-current target فيجب أن يكون `ACTIVE` أو `INACTIVE` وله current، وتبقى حالته. transfer-out وtransfer-in يسجلان `originalSourceRole` نفسه، والهدف يستلم الدور نفسه حرفيًا؛ لا يعاد اشتقاق الدور بعد demotion. exact replacement المساوي للمنقول يرفض قبل mutation، وgenerated candidate المنقول excluded، وhistorical replacement هو restore، وnew replacement هو change، وactive/retired alias replacement مرفوض وفق §20. أي duplicate target conflict مع Binding آخر يفشل دون release ضمني. replay مع نفس idempotency key يعيد النتيجة السابقة؛ من دون key لا يوجد exactly-once guarantee ولا operation evidence.
 
@@ -929,7 +898,7 @@ Inactive binding يبقى قابلًا للمطابقة ويفيد Host بأن s
 
 في `adoptCurrent` يكون `expectedRevision = null` فقط إذا أثبت lookup عدم وجود Binding؛ أما `RELEASED` الموجود فيتطلب revision الحالية صراحةً ولا يسمح بإعادة فتحه مع `null`. في `adoptHistorical` و`adoptAlias` يجب أن يساوي `expectedRevision` revision المقروء للـBinding الموجود، ولا يسمحان بـ`null` أو بBinding absent/RELEASED. كل عملية تتحقق من canonical claim/profile، uniqueness، reservation عند إنشاء ownership جديدة، وownership الحالية لنفس Binding؛ conflict مع Binding آخر يرفض ولا يحرر ownership ضمنيًا. replay المطابق هو الاستثناء الوحيد للسماح بوجود نفس النتيجة السابقة، ويعيد `AdoptionResultDTO` المحفوظ.
 
-التاريخ المستورد (`originalOccurredAt`) يقبل أي `DateTimeImmutable` يحمل timezone صالحًا، ثم يحول التنفيذ الـinstant إلى UTC قبل التخزين في `original_occurred_at`؛ لا يشترط أن يكون timezone الأصلي UTC. نوع PHP نفسه هو الحد العام، لذلك لا يقبل العقد نصًا أو overflow، ولا يعيد تفسير timezone من PHP global configuration. تحفظ دقة microseconds الست كاملة دون rounding، ويرفض instant إذا خرج بعد التحويل عن مدى MySQL `DATETIME(6)` من `1000-01-01T00:00:00.000000Z` إلى `9999-12-31T23:59:59.999999Z`. لا توجد قاعدة مستقبل/ماضٍ بالنسبة إلى Clock؛ هذا timestamp دليل مصدر مستقل. إذا كان `null`، يلتقط التنفيذ instant واحدًا من Clock ويستخدمه كـ`original_occurred_at` وكوقت adoption التشغيلي؛ أما كل non-adoption event فيستخدم `occurred_at` من Clock فقط. Registry هي مصدر ownership الحية، وHistory تسجل snapshot الحدث، وBinding revision يرتفع كما في الجدول. legacy semantics المختلفة تتطلب custom/legacy versioned Profile أو mapping صريح قبل الإدخال. لا يوجد generic ETL أو bulk/dry-run API في RC1؛ يكرر Host command ضمن transaction مناسبة.
+التاريخ المستورد (`originalOccurredAt`) يقبل أي `DateTimeImmutable` يحمل timezone صالحًا، ثم يحول التنفيذ الـinstant إلى UTC قبل التخزين في `original_occurred_at`؛ لا يشترط أن يكون timezone الأصلي UTC. نوع PHP نفسه هو الحد العام، لذلك لا يقبل العقد نصًا أو overflow، ولا يعيد تفسير timezone من PHP global configuration. تحفظ دقة microseconds الست كاملة دون rounding، ويرفض instant إذا خرج بعد التحويل عن مدى `DATETIME(6)` المطلوب من `1000-01-01T00:00:00.000000Z` إلى `9999-12-31T23:59:59.999999Z`. لا توجد قاعدة مستقبل/ماضٍ بالنسبة إلى Clock؛ هذا timestamp دليل مصدر مستقل. إذا كان `null`، يلتقط التنفيذ instant واحدًا من Clock ويستخدمه كـ`original_occurred_at` وكوقت adoption التشغيلي؛ أما كل non-adoption event فيستخدم `occurred_at` من Clock فقط. Registry هي مصدر ownership الحية، وHistory تسجل snapshot الحدث، وBinding revision يرتفع كما في الجدول. legacy semantics المختلفة تتطلب custom/legacy versioned Profile أو mapping صريح قبل الإدخال. لا يوجد generic ETL أو bulk/dry-run API في RC1؛ يكرر Host command ضمن transaction مناسبة.
 
 ## 32. Management queries وpagination
 
@@ -1167,7 +1136,7 @@ Slug لا يملك public constructor؛ public caller والـpackage internal �
 | RegistryClaimDTO | int $id، BindingIdentityDTO $binding، Slug $slug، RegistryRoleEnum $role، DateTimeImmutable $claimedAt، DateTimeImmutable $updatedAt. |
 | CurrentSlugDTO | BindingDTO $binding، RegistryClaimDTO $claim، int $revision. |
 | AliasDTO | RegistryClaimDTO $claim، bool $resolvableAsAlias، int $bindingRevision. |
-| HistoryEventDTO | int $id، int $bindingId، int $sequenceNo، HistoryEventTypeEnum $eventType، SlugScope $scopeSnapshot، EntityReference $entitySnapshot، ?Slug $slugSnapshot، ?Slug $previousSlugSnapshot، ?RegistryRoleEnum $claimRoleSnapshot، ?RegistryRoleEnum $previousClaimRoleSnapshot، ?SlugScope $relatedScope، ?EntityReference $relatedEntity، ?string $operationKey، ?string $actorKey، ?string $reason، ?string $correlationKey، DateTimeImmutable $occurredAt، ?DateTimeImmutable $originalOccurredAt. Role fields تطبق applicability/checks §12.4؛ `originalOccurredAt` non-null فقط لأحداث adoption، و`occurredAt` هو وقت mutation من Clock. |
+| HistoryEventDTO | int $id، int $bindingId، int $sequenceNo، HistoryEventTypeEnum $eventType، SlugScope $scopeSnapshot، EntityReference $entitySnapshot، ?Slug $slugSnapshot، ?Slug $previousSlugSnapshot، ?RegistryRoleEnum $claimRoleSnapshot، ?RegistryRoleEnum $previousClaimRoleSnapshot، ?SlugScope $relatedScope، ?EntityReference $relatedEntity، ?string $operationKey، ?string $actorKey، ?string $reason، ?string $correlationKey، DateTimeImmutable $occurredAt، ?DateTimeImmutable $originalOccurredAt. Role fields تطبق applicability rules §12.4؛ `originalOccurredAt` non-null فقط لأحداث adoption، و`occurredAt` هو وقت mutation من Clock. |
 | SlugAvailabilityDTO | ScopeProfileRequestDTO $scopeProfile، string $requestedInput، ?Slug $canonicalSlug، AvailabilityStatusEnum $status، ?BindingDTO $owner، bool $advisory؛ advisory دائمًا true في RC1. |
 | SlugResolutionDTO | ScopeProfileRequestDTO $scopeProfile، string $requestedSegment، InputFormCanonicalityEnum $inputCanonicality، ?Slug $lookupCanonicalSlug، ?Slug $matchedSlug، MatchKindEnum $matchKind، ?BindingStatusEnum $bindingStatus، ?Slug $currentSlug، ?EntityReference $entity، ?int $bindingRevision. حالات NONE/INVALID تجعل الحقول غير المنطبقة null. |
 | SlugMutationResultDTO | OperationTypeEnum $operationType، ?string $operationKey، bool $replayed، ?BindingDTO $before، BindingDTO $after، list<RegistryClaimDTO> $affectedClaims، ?Slug $previousSlug، ?Slug $currentSlug، ChangeTypeEnum $changeType، int $revision، list<HistoryEventDTO> $historyEvents. affectedClaims هي live claims الناتجة؛ تكون فارغة عند releaseAll، وتبقى snapshots لكل claim محذوف في historyEvents. operationKey non-null فقط عند وجود idempotency evidence. |
@@ -1352,7 +1321,7 @@ HistoryEventDTO = {
 
 #### 35.6.6 Full validation وexception contract
 
-يستخدم decoder strict JSON parse مع `JSON_THROW_ON_ERROR`، ويتحقق من أن root object ليس scalar أو array، ومن عدم وجود duplicate keys، ومن key set exact لكل object ومن types exact لكل قيمة ومن ترتيب المفاتيح canonical الذي ينتجه الـEncoder. التخزين في MySQL JSON قد يعيد ترتيب object members داخليًا؛ لذلك يعيد decoder بناء canonical key order من key set المعروف قبل المقارنة/الـDTO hydration، لكن أي missing أو extra أو duplicate key أو key غير معروف أو shape مختلف يرفض. لا يسمح decoder بأي forward-compatible unknown fields في version 1.
+يستخدم decoder strict JSON parse مع `JSON_THROW_ON_ERROR`، ويتحقق من أن root object ليس scalar أو array، ومن عدم وجود duplicate keys، ومن key set exact لكل object ومن types exact لكل قيمة ومن ترتيب المفاتيح canonical الذي ينتجه الـEncoder. يُخزن snapshot في text column UTF-8 exact-safe؛ لا يعتمد العقد على native JSON type أو server-side JSON functions. لذلك يبقى decoder مصدر validation الوحيد لأي missing أو extra أو duplicate key أو key غير معروف أو shape مختلف، ولا يسمح بأي forward-compatible unknown fields في version 1.
 
 يتحقق decoder بالترتيب من:
 
@@ -1512,7 +1481,7 @@ OperationTypeEnum
     SlugUnsupportedDriverException        extends SlugUnsupportedException
     SlugPersistenceInvariantException     extends SlugSystemException
 
-الآباء أعلاه أسماء PHP فعلية ومحددة لكل family، والـpublished family bases هي MaatifyException وValidationMaatifyException وBusinessRuleMaatifyException وConflictMaatifyException وNotFoundMaatifyException وUnsupportedMaatifyException وSystemMaatifyException، والـpublished leaf classes المحددة في الجدول هي التي تستخدمها الحزمة فعليًا. لا تحوّل الحزمة كل SQLSTATE 23xxx؛ Duplicate MySQL 1062 مع constraint context فقط يتحول إلى conflict، وغير ذلك يعاد كـThrowable infrastructure مع previous.
+الآباء أعلاه أسماء PHP فعلية ومحددة لكل family، والـpublished family bases هي MaatifyException وValidationMaatifyException وBusinessRuleMaatifyException وConflictMaatifyException وNotFoundMaatifyException وUnsupportedMaatifyException وSystemMaatifyException، والـpublished leaf classes المحددة في الجدول هي التي تستخدمها الحزمة فعليًا. لا تحوّل الحزمة كل SQLSTATE 23xxx؛ duplicate evidence `1062` من `pdo_mysql` مع constraint context فقط يتحول إلى conflict، وغير ذلك يعاد كـThrowable infrastructure مع previous.
 
 ### 36.2 فهرس التجميع الدلالي
 
@@ -1550,7 +1519,7 @@ SlugDomainExceptionInterface
     └── SlugPersistenceInvariantException
 ```
 
-هذا الفهرس لا يعرّف inheritance مستقلًا. الآباء الفعليون وقواعد تحويل الخطأ هي في §36.1؛ لا تستخدم الحزمة broad catch لتحويل كل SQLSTATE 23xxx. Duplicate MySQL 1062 مع constraint context فقط يتحول إلى conflict، وغير ذلك يعاد كـThrowable infrastructure مع previous. transaction catch يعيد original throwable بعد rollback.
+هذا الفهرس لا يعرّف inheritance مستقلًا. الآباء الفعليون وقواعد تحويل الخطأ هي في §36.1؛ لا تستخدم الحزمة broad catch لتحويل كل SQLSTATE 23xxx. duplicate evidence `1062` من `pdo_mysql` مع constraint context فقط يتحول إلى conflict، وغير ذلك يعاد كـThrowable infrastructure مع previous. transaction catch يعيد original throwable بعد rollback.
 
 ## 37. Consumer workflow
 
@@ -1598,7 +1567,7 @@ stateless path يستخدم `SlugProfileRegistryFactory::createBuiltIn()` ثم `
 
 ### Gate R3 — Registry roles/integrity
 
-يثبت real MySQL schema role CHECKs وunique scope-slug/current-marker/binding-slug وpackage-local FKs، وأن كل role transition ينتج صفًا واحدًا صحيحًا.
+يثبت real MySQL-compatible schema مع capabilities المطلوبة، وunique scope-slug/binding-slug وpackage-local FKs، وأن package-level status/role/current-pointer validation يجعل كل role transition ينتج صفًا واحدًا صحيحًا.
 
 ### Gate R4 — canonical empty dimensions
 
@@ -1610,7 +1579,7 @@ stateless path يستخدم `SlugProfileRegistryFactory::createBuiltIn()` ثم `
 
 ### Gate R6 — driver/transaction/savepoint
 
-يثبت RC1 MySQL 8.0.36 فقط، direct PDO، duplicate 1062 mapping، package-owned transaction، caller savepoint، outer rollback، وfail-before-mutation.
+يثبت direct PDO عبر `pdo_mysql`، transactional/InnoDB semantics، duplicate 1062 mapping، package-owned transaction، caller savepoint، row locking، outer rollback، وfail-before-mutation دون product/version rejection.
 
 ### Gate R7 — history/live ownership/replay contract
 
@@ -1622,7 +1591,7 @@ stateless path يستخدم `SlugProfileRegistryFactory::createBuiltIn()` ثم `
 
 1. public contracts وCommands/Criteria/DTOs/Enums/Exceptions مطابقة لهذا المستند؛
 2. profiles vectors والسياسات الأمنية deterministic على runtime المعلن؛
-3. MySQL schema وindexes وconstraints مثبتة على MySQL 8.0.36؛
+3. Schema واحدة وindexes وconstraints مثبتة على MySQL-compatible verification target يحقق capabilities §11؛
 4. unit وintegration وsystem وreal concurrency وtransaction evidence مكتملة؛
 5. Consumer Verification Harness خارجي يثبت Composer production autoload ويعمل مرتين من clean states؛
 6. PHPStan level max بلا baseline/ignoreErrors، Composer validation/platform/audit، والـfull applicable CI gate؛
@@ -1633,7 +1602,7 @@ stateless path يستخدم `SlugProfileRegistryFactory::createBuiltIn()` ثم `
 
 ## 41. ما يبقى خارج RC1
 
-يبقى خارج RC1 دعم MariaDB/PostgreSQL/SQLite، profile migration/rewrite لScope populated، تغيير profile existing scope، generic ETL أو batch/dry-run adoption، distributed lock خارج MySQL transactions، route/URL/HTTP/SEO/framework adapters، automatic title monitoring، Host entity deletion/existence، Admin UI/auth، event dispatcher requirement، وStable release/tag/Packagist publication. يمكن بناء هذه كقرارات أو adapters لاحقة دون تغيير core identity إذا اعتمدت منفصلًا.
+يبقى خارج RC1 PostgreSQL وSQLite وأي DB adapter غير `pdo_mysql`، وكذلك ادعاء دعم كل إصدارات MySQL/MariaDB أو portability غير مثبتة بالقدرات. لا تُرفض MariaDB بالاسم إذا حققت semantics المطلوبة عبر `pdo_mysql`. كما يبقى خارج RC1 profile migration/rewrite لScope populated، تغيير profile existing scope، generic ETL أو batch/dry-run adoption، distributed lock خارج MySQL-compatible transactions، route/URL/HTTP/SEO/framework adapters، automatic title monitoring، Host entity deletion/existence، Admin UI/auth، event dispatcher requirement، وStable release/tag/Packagist publication. يمكن بناء هذه كقرارات أو adapters لاحقة دون تغيير core identity إذا اعتمدت منفصلًا.
 
 ## 42. قواعد الاتساق والتنفيذ
 
@@ -1659,7 +1628,7 @@ stateless path يستخدم `SlugProfileRegistryFactory::createBuiltIn()` ثم `
 
 | المجال | القرار RC1 |
 |---|---|
-| DB | PDO MySQL / MySQL 8.0.36 فقط |
+| DB | direct PDO عبر `pdo_mysql` إلى MySQL-compatible server يحقق capabilities §11؛ Schema واحدة |
 | Profiles | `unicode-v1`, `ascii-v1` |
 | Slug max | 160 Unicode code points |
 | Auto allocation | base ثم `-2` إلى `-1000` |
@@ -1758,7 +1727,7 @@ main
 
 | القرار | الإغلاق المحدد | موضع العقد أو الدليل المطلوب |
 |---:|---|---|
-| 1 | PDO MySQL مع MySQL Server 8.0.36 فقط؛ لا MariaDB/PostgreSQL/SQLite | §11، §40، Plan §9 |
+| 1 | direct PDO عبر `pdo_mysql` إلى MySQL-compatible server يحقق capabilities §11؛ Schema واحدة، ولا PostgreSQL/SQLite أو version/vendor gate | §11، §40، Plan §9 |
 | 2 | built-in Profile names هما `unicode-v1` و`ascii-v1` فقط، مع Registry factory مستقل؛ custom keys versioned وتسجيل المفتاح المكرر يرفض بلا replacement | §5.1، §7.1–§7.4، §35.5، Plan §3–§5 |
 | 3 | source rules: Unicode NFC/lowercase/allowed-run→hyphen؛ ASCII ICU transliteration ثم ASCII rules | §7.1–§7.3، §38 |
 | 4 | exact claim يطبق NFC/lowercase فقط ثم strict candidate validation؛ لا source lossy transforms | §7، §17، §38 |
@@ -1768,10 +1737,10 @@ main
 | 8 | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql`، وMaatify dependencies direct | §11، §34 |
 | 9 | reject invalid UTF-8/NUL/Cc/Cs/Cf/path separators؛ mixed scripts مسموحة | §8، §38 |
 | 10 | max 160 Unicode code points؛ exact يرفض، generated يقص code points ويحجز suffix | §8، §45 |
-| 11 | MySQL `utf8mb4_bin` للنص، `ascii_bin` للمفاتيح؛ no implicit folding/normalization | §11–§13 |
+| 11 | `utf8mb4_bin` للنص، `ascii_bin` للمفاتيح؛ exact-string semantics بلا implicit folding/normalization | §11–§13 |
 | 12 | API null → DB `''` في NOT NULL locale/context؛ empty string input يرفض | §9.3، §13، Gate R4 |
 | 13 | namespace ASCII lowercase pattern؛ opaque values exact valid UTF-8 envelope وحدود محددة | §9 |
-| 14 | roles الأربع مع `current_marker` generated unique وrole CHECK؛ released rows تُحذف | §12.3، §16 |
+| 14 | roles الأربع مع unique slug constraints، وpackage-enforced status/role/current-pointer invariants؛ released rows تُحذف | §12.3، §16 |
 | 15 | pointer nullable بلا FK؛ placeholder ثم Registry ثم pointer update والتحقق داخل transaction | §12.2، §14، Gate R1 |
 | 16 | Binding status ACTIVE/INACTIVE/RELEASED وانتقالات §15 | §15، §19 |
 | 17 | per-binding sequence وfull snapshots، وoperation_id/operation_key لربط transfer out/in | §12.4–§12.5، §21، Gate R7 |
@@ -1789,7 +1758,7 @@ main
 | 29 | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1`، وأدوات evidence `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94`، مع PHP/extensions §34 | §34، Plan §2، Plan §3.3 |
 | 30 | schema/index/operations evidence plan §12–§13، real MySQL/concurrency matrix Plan §9–§10 | §12–§13، Plan §8–§10 |
 | 31 | Clock-derived UTC `DATETIME(6)` لكل package timestamp؛ imported DateTimeImmutable بأي timezone يتحول إلى UTC مع microseconds ومدى MySQL المحدد | §33، §31، §35.2 |
-| 32 | adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28` وManifest المحلي الحالي؛ Standards Freeze أثناء train | §3، §47، Plan §11 |
+| 32 | historical authoring adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`، ثم Owner-approved `44c8827095ab4007c355aa21c56b853f3b49d795` بوصفه historical/interim compliance baseline؛ والـcurrent authoritative adoption هو `4e268089d0aceedbc837d98f28da8b204d39dd7f` عبر `STANDARDS_MANIFEST.md` | §3، §47، Plan §2.2 |
 | 33 | first-use يثبت Scope profile تحت unique lock؛ same profile يتشارك، mismatch يفشل قبل mutation، public `SlugScopeRegistryInterface` وinternal bootstrap path | §14، §5، Gate R1/R4 |
 | 34 | Preparation تغلق بترتيب إلزامي: قبول Blueprint/Plan، إنشاء/تحديث root `SLUG_PACKAGE_REFERENCE.md` كـcanonical Package Reference، إكمال release-facing README/CHANGELOG/SECURITY عند لزومها، نقل القرارات إلى مصادرها، حذف Discussion Draft، ثم دمج PR #2 إلى `phase-draft/rc-1`. بعد HEAD المحدث فقط يبدأ Execution Batch/Work Branch، وImplementation PR إلى Phase Draft لا Preparation، مع Phase Integration Gate وHarness وreal DB/concurrency evidence وفق Plan | §40، §46–§47، Plan §1–§15 و§16–§17 |
 
