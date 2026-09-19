@@ -25,11 +25,6 @@ abstract class MySqlIntegrationTestCase extends TestCase
         if (! extension_loaded('pdo_mysql')) {
             self::fail('WU-03 Integration requires the pdo_mysql extension.');
         }
-        $envFile = dirname(__DIR__, 3) . '/.env.test';
-        if (! is_file($envFile)) {
-            self::fail('Integration environment must be created by the repository-owned canonical test orchestration.');
-        }
-
         try {
             $this->pdo = $this->newTestConnection();
             $this->pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_bin");
@@ -88,11 +83,6 @@ abstract class MySqlIntegrationTestCase extends TestCase
     /** @return array<string, string> */
     private function testConfiguration(): array
     {
-        $envFile = dirname(__DIR__, 3) . '/.env.test';
-        if (! is_file($envFile)) {
-            throw new RuntimeException('Required .env.test file is missing.');
-        }
-
         $configuration = [];
         foreach ([
             'SLUG_TEST_DB_HOST',
@@ -103,7 +93,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         ] as $variable) {
             $value = getenv($variable);
             if (! is_string($value) || $value === '') {
-                throw new RuntimeException(sprintf('Required .env.test variable %s is missing.', $variable));
+                throw new RuntimeException(sprintf('Required Integration environment variable %s is missing.', $variable));
             }
             $configuration[$variable] = $value;
         }

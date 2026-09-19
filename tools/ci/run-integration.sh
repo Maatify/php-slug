@@ -6,7 +6,6 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
 compose_file="$repo_root/compose.integration.yml"
-env_file="$repo_root/.env.test"
 mode="${1:-}"
 
 if [[ $# -ne 1 || ! "$mode" =~ ^(integration|system|full|consumer)$ ]]; then
@@ -65,13 +64,6 @@ cleanup() {
             fi
         else
             echo 'Unable to verify disposable Compose teardown.' >&2
-            teardown_status=1
-        fi
-    fi
-
-    if [[ -e "$env_file" ]]; then
-        if ! rm -f "$env_file"; then
-            echo 'Unable to remove generated .env.test.' >&2
             teardown_status=1
         fi
     fi
@@ -138,14 +130,6 @@ if [[ -z "$database_port" ]]; then
     echo 'Unable to discover the dynamic MySQL loopback port.' >&2
     exit 1
 fi
-
-printf '%s\n' \
-    "SLUG_TEST_DB_HOST=$SLUG_TEST_DB_HOST" \
-    "SLUG_TEST_DB_PORT=$SLUG_TEST_DB_PORT" \
-    "SLUG_TEST_DB_NAME=$SLUG_TEST_DB_NAME" \
-    "SLUG_TEST_DB_USER=$SLUG_TEST_DB_USER" \
-    "SLUG_TEST_DB_PASSWORD=$SLUG_TEST_DB_PASSWORD" > "$env_file"
-chmod 600 "$env_file"
 
 probe_database() {
     php -r '

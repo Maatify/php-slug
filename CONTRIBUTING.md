@@ -34,9 +34,10 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 
 The PHP runtime remains on the host or CI runner. The canonical disposable database uses
 `mysql:8.0.36`, binds a dynamic port on loopback, and uses the temporary database
-`maatify_slug_test` with disposable non-production credentials. The orchestration creates and
-removes the generated `.env.test` automatically; developers must not provide an external MySQL
-service or export `SLUG_TEST_DB_*` variables manually.
+`maatify_slug_test` with disposable non-production credentials. The orchestration starts the
+isolated Compose service, discovers the port, exports the Integration-scoped process environment,
+runs the requested verification, and tears everything down. Developers must not provide an
+external MySQL service or export `SLUG_TEST_DB_*` variables manually.
 
 ## Running Tests and Quality Gates
 
