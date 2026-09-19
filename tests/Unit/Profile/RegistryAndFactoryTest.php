@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Profile;
 
-use Maatify\Slug\Exception\SlugProfileAlreadyRegisteredException;
-use Maatify\Slug\Exception\SlugProfileNotFoundException;
-use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Profile\Factory\SlugProfileRegistryFactory;
-use Maatify\Slug\Text\Factory\SlugTextServiceFactory;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Profile\BuiltIn\AsciiSlugProfile;
-use Maatify\Slug\Profile\BuiltIn\UnicodeSlugProfile;
-use Maatify\Slug\Profile\Contract\SlugProfileRegistryInterface;
-use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
-use Maatify\Slug\Text\SlugTextService;
+use Maatify\Slug\Canonicalization\Exception\SlugProfileAlreadyRegisteredException;
+use Maatify\Slug\Canonicalization\Exception\SlugProfileNotFoundException;
+use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
+use Maatify\Slug\Canonicalization\Factory\SlugProfileRegistryFactory;
+use Maatify\Slug\Canonicalization\Factory\SlugTextServiceFactory;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\AsciiSlugProfile;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\UnicodeSlugProfile;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistry;
+use Maatify\Slug\Canonicalization\Service\SlugTextService;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 use ReflectionNamedType;

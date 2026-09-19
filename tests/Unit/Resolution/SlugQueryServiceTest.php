@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Resolution;
 
-use Maatify\Slug\Query\Criteria\ResolutionCriteria;
-use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Query\Enum\InputFormCanonicalityEnum;
-use Maatify\Slug\Query\Enum\MatchKindEnum;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Query\Availability\SlugAvailabilityChecker;
-use Maatify\Slug\Persistence\PDO\Registry\PdoRegistryRepository;
-use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
-use Maatify\Slug\Query\Resolution\SlugQueryService;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Lifecycle\Consumer\Criteria\ResolutionCriteria;
+use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\Consumer\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Lifecycle\Consumer\Enum\MatchKindEnum;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Lifecycle\Consumer\Service\SlugAvailabilityChecker;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Registry\PdoRegistryRepository;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistry;
+use Maatify\Slug\Lifecycle\Consumer\Service\Resolution\SlugQueryService;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -41,17 +41,17 @@ final class SlugQueryServiceTest extends TestCase
 
     public function testEngineSurfaceIsClosedToTheSixPublishedContracts(): void
     {
-        $interfaces = array_map(static fn(ReflectionClass $interface): string => $interface->getName(), (new ReflectionClass(\Maatify\Slug\Engine\SlugEngine::class))->getInterfaces());
+        $interfaces = array_map(static fn(ReflectionClass $interface): string => $interface->getName(), (new ReflectionClass(\Maatify\Slug\Facade\SlugEngine::class))->getInterfaces());
         sort($interfaces);
 
         self::assertSame([
-            'Maatify\\Slug\\Lifecycle\\Contract\\SlugLifecycleServiceInterface',
-            'Maatify\\Slug\\Management\\Contract\\SlugManagementQueryInterface',
-            'Maatify\\Slug\\Profile\\Contract\\SlugProfileRegistryInterface',
-            'Maatify\\Slug\\Query\\Contract\\SlugQueryServiceInterface',
-            'Maatify\\Slug\\Scope\\Contract\\SlugScopeRegistryInterface',
-            'Maatify\\Slug\\Text\\Contract\\SlugTextServiceInterface',
+            'Maatify\\Slug\\Canonicalization\\Service\\SlugProfileRegistryInterface',
+            'Maatify\\Slug\\Canonicalization\\Service\\SlugTextServiceInterface',
+            'Maatify\\Slug\\Lifecycle\\Consumer\\Service\\SlugQueryServiceInterface',
+            'Maatify\\Slug\\Lifecycle\\Management\\Service\\SlugManagementQueryInterface',
+            'Maatify\\Slug\\Lifecycle\\Service\\SlugLifecycleServiceInterface',
+            'Maatify\\Slug\\Lifecycle\\Service\\SlugScopeRegistryInterface',
         ], $interfaces);
-        self::assertTrue((new ReflectionClass(\Maatify\Slug\Engine\SlugEngine::class))->getConstructor()?->isPrivate());
+        self::assertTrue((new ReflectionClass(\Maatify\Slug\Facade\SlugEngine::class))->getConstructor()?->isPrivate());
     }
 }

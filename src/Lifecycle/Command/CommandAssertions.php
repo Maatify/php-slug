@@ -25,7 +25,12 @@ final class CommandAssertions
     public static function dateTime(?\DateTimeImmutable $value, string $field): void
     {
         if ($value !== null) {
-            \Maatify\Slug\Shared\Validation\IdentityValidator::assertDateTimeRange($value, $field);
+            $utc = $value->setTimezone(new \DateTimeZone('UTC'));
+            $min = new \DateTimeImmutable('1000-01-01T00:00:00.000000Z');
+            $max = new \DateTimeImmutable('9999-12-31T23:59:59.999999Z');
+            if ($utc < $min || $utc > $max) {
+                throw new SlugInvalidArgumentException(sprintf('%s is outside the supported UTC range.', $field));
+            }
         }
     }
 

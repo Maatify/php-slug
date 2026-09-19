@@ -77,6 +77,27 @@ $engine = SlugEngineFactory::create(
 
 هذه أمثلة من الـ Runtime الحالي قابلة للتشغيل؛ حيث لا تنشئ أي Factory اتصالًا مخفيًا أو تقرأ `.env` أو تعمل Service Locator.
 
+### 3.1 Source topology
+
+**Source Topology: Multi Capability**
+
+Capabilities:
+
+- Canonicalization
+- Lifecycle
+
+Dependency:
+
+`Lifecycle → Canonicalization`
+
+Package-wide responsibilities:
+
+- Exception
+- Factory
+- Facade
+
+Consumer وManagement داخل `Lifecycle/`، ولا تُعد Persistence Capability أو architecture root.
+
 ## 4. Runtime وPlatform contract لـRC1
 
 تم استيفاء المتطلبات التالية وتتوفر بشكل فعلي في المستودع الحالي:

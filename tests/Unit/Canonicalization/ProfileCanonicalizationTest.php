@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Canonicalization;
 
-use Maatify\Slug\Query\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Lifecycle\Consumer\Enum\InputFormCanonicalityEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Text\Value\Slug;
-use Maatify\Slug\Profile\BuiltIn\AsciiSlugProfile;
-use Maatify\Slug\Profile\BuiltIn\UnicodeSlugProfile;
+use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\AsciiSlugProfile;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\UnicodeSlugProfile;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 

@@ -4,21 +4,21 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Contracts;
 
-use Maatify\Slug\Registry\DTO\AliasDTO;
+use Maatify\Slug\Lifecycle\DTO\AliasDTO;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
-use Maatify\Slug\Text\DTO\CanonicalSlugDTO;
-use Maatify\Slug\Query\DTO\CurrentSlugDTO;
-use Maatify\Slug\Text\DTO\GeneratedSlugDTO;
-use Maatify\Slug\Text\DTO\LookupCanonicalizationDTO;
-use Maatify\Slug\Scope\DTO\ScopeDTO;
+use Maatify\Slug\Canonicalization\DTO\CanonicalSlugDTO;
+use Maatify\Slug\Lifecycle\DTO\CurrentSlugDTO;
+use Maatify\Slug\Canonicalization\DTO\GeneratedSlugDTO;
+use Maatify\Slug\Canonicalization\DTO\LookupCanonicalizationDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
-use Maatify\Slug\Query\DTO\SlugAvailabilityDTO;
-use Maatify\Slug\Query\DTO\SlugResolutionDTO;
+use Maatify\Slug\Lifecycle\Consumer\DTO\SlugAvailabilityDTO;
+use Maatify\Slug\Lifecycle\Consumer\DTO\SlugResolutionDTO;
 use Maatify\Slug\Lifecycle\DTO\TransferReplacementIntentDTO;
-use Maatify\Slug\Query\Enum\AvailabilityStatusEnum;
+use Maatify\Slug\Lifecycle\Consumer\Enum\AvailabilityStatusEnum;
 use Maatify\Slug\Lifecycle\Enum\ClaimIntentModeEnum;
-use Maatify\Slug\Query\Enum\InputFormCanonicalityEnum;
-use Maatify\Slug\Query\Enum\MatchKindEnum;
+use Maatify\Slug\Lifecycle\Consumer\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Lifecycle\Consumer\Enum\MatchKindEnum;
 use PHPUnit\Framework\TestCase;
 
 final class DTOJsonSerializationTest extends TestCase
@@ -43,7 +43,7 @@ final class DTOJsonSerializationTest extends TestCase
         yield 'current' => [new CurrentSlugDTO($binding, $claim, 1), ['binding', 'claim', 'revision']];
         yield 'alias' => [new AliasDTO($claim, true, 1), ['claim', 'resolvable_as_alias', 'binding_revision']];
         yield 'availability' => [new SlugAvailabilityDTO($scope, 'hello', $slug, AvailabilityStatusEnum::AVAILABLE, $binding, true), ['scope_profile', 'requested_input', 'canonical_slug', 'status', 'owner', 'advisory']];
-        yield 'resolution' => [new SlugResolutionDTO($scope, 'hello', InputFormCanonicalityEnum::CANONICAL, $slug, $slug, MatchKindEnum::CURRENT, \Maatify\Slug\Registry\Enum\BindingStatusEnum::ACTIVE, $slug, $identity->entity, 1), ['scope_profile', 'requested_segment', 'input_canonicality', 'lookup_canonical_slug', 'matched_slug', 'match_kind', 'binding_status', 'current_slug', 'entity', 'binding_revision']];
+        yield 'resolution' => [new SlugResolutionDTO($scope, 'hello', InputFormCanonicalityEnum::CANONICAL, $slug, $slug, MatchKindEnum::CURRENT, \Maatify\Slug\Lifecycle\Enum\BindingStatusEnum::ACTIVE, $slug, $identity->entity, 1), ['scope_profile', 'requested_segment', 'input_canonicality', 'lookup_canonical_slug', 'matched_slug', 'match_kind', 'binding_status', 'current_slug', 'entity', 'binding_revision']];
         yield 'transition intent' => [new ScopeTransitionClaimIntentDTO(ClaimIntentModeEnum::EXACT, 'hello'), ['mode', 'value']];
         yield 'transfer intent' => [new TransferReplacementIntentDTO(ClaimIntentModeEnum::GENERATED, 'Hello source'), ['mode', 'value']];
         yield 'mutation result' => [ContractFixtures::mutation(), ['operation_type', 'operation_key', 'replayed', 'before', 'after', 'affected_claims', 'previous_slug', 'current_slug', 'change_type', 'revision', 'history_events']];

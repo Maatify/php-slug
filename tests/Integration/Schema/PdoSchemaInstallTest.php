@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Integration\Schema;
 
-use Maatify\Slug\Persistence\PDO\Schema\PdoSchemaVerifier;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Schema\PdoSchemaVerifier;
 
 final class PdoSchemaInstallTest extends MySqlIntegrationTestCase
 {

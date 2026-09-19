@@ -7,16 +7,16 @@ namespace Maatify\Slug\Tests\System\Lifecycle;
 use Maatify\Slug\Lifecycle\Command\AddAliasCommand;
 use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
-use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
-use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Exception\SlugAlreadyClaimedException;
-use Maatify\Slug\Exception\SlugRevisionConflictException;
-use Maatify\Slug\Registry\Value\EntityReference;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Lifecycle\SlugLifecycleService;
-use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\Exception\SlugAlreadyClaimedException;
+use Maatify\Slug\Lifecycle\Exception\SlugRevisionConflictException;
+use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Lifecycle\Service\SlugLifecycleService;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistry;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
+use Maatify\Slug\Tests\Support\SlugLifecycleServiceFactory;
 use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
 use Maatify\Slug\Tests\Unit\Allocation\TestReservedSlugPolicy;
 use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;
@@ -227,7 +227,7 @@ final class SlugLifecycleRaceTest extends MySqlIntegrationTestCase
     {
         $profiles = new SlugProfileRegistry();
         $profiles->register(new TestSlugProfile());
-        return new SlugLifecycleService($this->pdo, $profiles, new TestReservedSlugPolicy(), $this->clock(), new PdoCapabilityGuard($this->pdo));
+        return SlugLifecycleServiceFactory::create($this->pdo, $profiles, new TestReservedSlugPolicy(), $this->clock());
     }
 
     private function identity(string $entityKey): BindingIdentityDTO

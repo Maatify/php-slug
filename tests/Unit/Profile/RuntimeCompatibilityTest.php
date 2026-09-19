@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Profile;
 
-use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Profile\Factory\SlugProfileRegistryFactory;
-use Maatify\Slug\Profile\Runtime\RuntimeCompatibilityGuard;
+use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
+use Maatify\Slug\Canonicalization\Factory\SlugProfileRegistryFactory;
+use Maatify\Slug\Canonicalization\Service\RuntimeCompatibilityGuard;
 use PHPUnit\Framework\TestCase;
 
 final class RuntimeCompatibilityTest extends TestCase
