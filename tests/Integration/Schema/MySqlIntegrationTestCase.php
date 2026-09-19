@@ -27,7 +27,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         }
         $envFile = dirname(__DIR__, 3) . '/.env.test';
         if (! is_file($envFile)) {
-            self::fail('WU-03 Integration requires the local .env.test file. Copy .env.test.example and configure a dedicated *_test database.');
+            self::fail('Integration environment must be created by the repository-owned canonical test orchestration.');
         }
 
         try {
