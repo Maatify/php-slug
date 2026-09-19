@@ -26,7 +26,7 @@
 | حد PHP المقصود | PHP `^8.4` |
 | Extensions التشغيلية | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
 | حالة Runtime | توجد ملفات `composer.json` و`src/` و`tests/` و`schema/mysql/` و`.github/workflows/ci.yml` في الـcheckout الحالي |
-| Persistence | الحزمة تملك SQL persistence مملوكة لها، مع طبقة PDO تحت `src/Persistence/PDO/` ومخطط package-owned تحت `schema/mysql/` |
+| Persistence | الحزمة تملك SQL persistence مملوكة لها، مع مستودعات PDO تحت `src/Lifecycle/Repository/Pdo/` واستعلامات الإدارة تحت `src/Lifecycle/Management/Repository/Pdo/` ومخطط package-owned تحت `schema/mysql/` |
 | قاعدة البيانات | مسار MySQL-compatible عبر `pdo_mysql`؛ الجداول والعلاقات package-local ولا توجد Host FKs أو Host table joins |
 | حدود الاستضافة | Host-agnostic؛ Host يهيئ اتصال PDO ويحقنه، والحزمة لا تنشئ اتصالًا مخفيًا |
 | نطاق الحوكمة | قواعد الحوكمة مفعلة على جذر المستودع `/` |

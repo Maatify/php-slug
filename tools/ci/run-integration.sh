@@ -8,8 +8,8 @@ cd "$repo_root"
 compose_file="$repo_root/compose.integration.yml"
 mode="${1:-}"
 
-if [[ $# -ne 1 || ! "$mode" =~ ^(integration|system|full|consumer)$ ]]; then
-    echo 'Usage: tools/ci/run-integration.sh {integration|system|full|consumer}' >&2
+if [[ $# -ne 1 || ! "$mode" =~ ^(integration|system|full|consumer|examples)$ ]]; then
+    echo 'Usage: tools/ci/run-integration.sh {integration|system|full|consumer|examples}' >&2
     exit 2
 fi
 
@@ -90,7 +90,7 @@ if ! php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'; then
     echo 'The pdo_mysql extension is required for Integration infrastructure.' >&2
     exit 1
 fi
-if [[ "$mode" != consumer && ! -x vendor/bin/phpunit ]]; then
+if [[ "$mode" =~ ^(integration|system|full)$ && ! -x vendor/bin/phpunit ]]; then
     echo 'PHPUnit is unavailable; run a dependency gate first.' >&2
     exit 1
 fi
@@ -195,6 +195,9 @@ run_workflow() {
             ;;
         consumer)
             php tests/Consumer/run.php
+            ;;
+        examples)
+            php examples/persisted-lifecycle.php
             ;;
     esac
 }

@@ -45,7 +45,7 @@ syntax() {
     local files=()
     while IFS= read -r -d '' file; do
         files+=("$file")
-    done < <(find src tests tools -type f -name '*.php' -print0)
+    done < <(find src tests tools examples -type f -name '*.php' -print0)
     if ((${#files[@]} == 0)); then
         echo 'No package-owned PHP files were found for syntax verification.' >&2
         exit 1
@@ -64,7 +64,7 @@ phpstan() {
         echo 'PHPStan is unavailable; run a dependency gate first.' >&2
         exit 1
     fi
-    vendor/bin/phpstan analyse src tests --level=max --memory-limit=512M
+    vendor/bin/phpstan analyse --memory-limit=512M
 }
 
 test_unit() {
@@ -159,6 +159,12 @@ consumer() {
     bash tools/ci/run-integration.sh consumer
 }
 
+examples_smoke() {
+    latest_dependencies
+    php examples/canonicalization.php
+    bash tools/ci/run-integration.sh examples
+}
+
 usage() {
     cat >&2 <<'USAGE'
 Usage: tools/ci/run-gate.sh <gate> [argument]
@@ -171,14 +177,15 @@ Gates:
   test-unit        Unit suite only; Docker is not required
   test-integration Integration suite through the canonical Compose lifecycle
   test-system      System suite through the canonical Compose lifecycle
-  syntax           PHP syntax for src/, tests/, tools/, and PHP tool configuration
-  phpstan          PHPStan max for src/ and tests/
+  syntax           PHP syntax for src/, tests/, tools/, examples/, and PHP tool configuration
+  phpstan          PHPStan max using phpstan.neon
   style            PHP CS Fixer dry-run
   audit            Composer security and abandoned-package audit
   schema           Verify the package-owned schema path exists
   workflow-lint    actionlint for every .github/workflows/*.yml|*.yaml
   whitespace RANGE Git-aware whitespace check for an explicit BASE...HEAD committed range
   consumer         Consumer Verification Harness clean run x2
+  examples-smoke   Stateless and persisted examples through the canonical Compose lifecycle
 USAGE
     exit 2
 }
@@ -200,5 +207,6 @@ case "$gate" in
     workflow-lint) workflow_lint ;;
     whitespace) whitespace "${2:-}" ;;
     consumer) consumer ;;
+    examples-smoke) examples_smoke ;;
     *) usage ;;
 esac

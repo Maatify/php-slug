@@ -17,7 +17,7 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 1. **Bug Fixes:** Please provide a reproducible test case.
 2. **Feature Changes:** Architectural changes and large additions should be discussed before implementation to ensure alignment with the package's design blueprint.
 3. **Documentation:** Typo fixes and conceptual clarifications are welcome.
-4. **Security Vulnerabilities:** Do not use GitHub Issues or PRs. Refer to [SECURITY.md](SECURITY.md) to report security flaws privately via `support@maatify.com`.
+4. **Security Vulnerabilities:** Do not use GitHub Issues or PRs. Refer to [SECURITY.md](SECURITY.md) to report security flaws privately via `support@maatify.dev`.
 
 ## PR and Architecture Expectations
 
@@ -29,7 +29,7 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 
 - **PHP:** `^8.4`
 - **Extensions:** `intl`, `mbstring`, `pdo`, `pdo_mysql`
-- **Docker Engine:** Required for Integration, System, complete-suite, and Consumer Harness gates.
+- **Docker Engine:** Required for Integration, System, complete-suite, Consumer Harness, and examples-smoke gates.
 - **Docker Compose v2:** Required for the repository-owned Integration lifecycle.
 
 The PHP runtime remains on the host or CI runner. The canonical disposable database uses
@@ -94,7 +94,18 @@ bash tools/ci/run-gate.sh consumer
 The Consumer Verification Harness uses the same canonical Compose definition and lifecycle as
 the Integration and System suites.
 
-### 4. Workflow Linting and Diff Checks
+### 4. Examples smoke verification
+
+Run the stateless example and the persisted example through the canonical Compose lifecycle:
+```bash
+bash tools/ci/run-gate.sh examples-smoke
+```
+
+The persisted example uses the same `compose.integration.yml`, isolated project, dynamic loopback
+port, readiness probe, process environment, diagnostics, and teardown as the other Integration
+boundaries.
+
+### 5. Workflow Linting and Diff Checks
 
 Lint GitHub workflows:
 ```bash

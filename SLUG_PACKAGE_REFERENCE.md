@@ -21,8 +21,8 @@
 
 المراجع الدائمة المرتبطة بهذا الملف:
 
-- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md): supporting architecture and public-contract contract.
-- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md): execution source، dependency graph، evidence، وgates.
+- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md): supporting/historical architecture and public-contract design artifact، وليس current-state owner.
+- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md): supporting/historical execution plan وevidence map، وليس current runtime owner.
 - [`docs/php-engineering-standards/STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md): Local Resolver Record لمجموعة المعايير المنطبقة.
 
 ## 2. الغرض وحدود الملكية
@@ -618,7 +618,7 @@ revision
 historyEvents
 ```
 
-يمكن لـUsage Guide المستقبلية ضمن AF-012 أن تعرض هذا المسار نفسه للمستهلك، لكنها لا تنشئ technical contract منافسة؛ Package Reference هو مصدر العقد التقني المعياري.
+تشرح [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) هذا المسار نفسه للمستهلك، لكنها لا تنشئ technical contract منافسة؛ Package Reference هو مصدر العقد التقني المعياري.
 
 ## 12. Exception contract
 
@@ -653,18 +653,20 @@ SlugUnsupportedDriverException, SlugPersistenceInvariantException
 
 ## 13. Evidence وRelease state
 
-يحدد الـPlan evidence الذي تم تحقيقه بنجاح عبر CI، بما فيه:
+توجد أدلة نجاح تاريخية محددة في GitHub Actions run #9 على SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b`، وتشمل لذلك الـSHA فقط:
 
 - Composer validation وplatform checks وproduction autoload.
 - PHPStan `level: max` وPHPUnit والـstyle/whitespace gates.
 - Unit وIntegration وSystem/Concurrency/Transaction evidence مع بيئة MySQL الحقيقية.
 - Consumer Verification Harness من Composer root مستقل مرتين من clean states.
 
-**ملاحظة:** المراجعة النهائية (Fresh Full Acceptance Review, مراجعة accumulated diff, و Full Applicable Integration Gate) تبقى معلقة ولن تكتمل حتى يتم قبول هذا الفرع تنفيذيًا. نجاح أدلة الـ CI المذكورة أعلاه يثبت اجتياز بوابات الجودة الحالية، ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
+هذه الأدلة التاريخية لا تؤهل current remediation HEAD ولا تثبت نجاح أي HEAD لاحقة. بعد إغلاق `AF-001 → AF-015` ما زال `VG-001` و`Fresh Full Acceptance Review` مطلوبين قبل أي release-readiness claim أو integration acceptance.
 
 ## 14. Supporting documents
 
-- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md) — التفاصيل المعمارية والعقود التنفيذية المقفلة.
-- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md) — Work Units وdependency graph وverification gates.
+- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md) — supporting/historical تفاصيل معمارية وعقود تصميم مقفلة؛ ليست current-state owner.
+- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md) — supporting/historical Work Units وdependency graph وverification gates؛ ليست current runtime owner.
+- [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) — طريقة الاستخدام والتكامل للمستهلك.
+- [`examples/`](examples/) — أمثلة المستهلك القابلة للتشغيل.
 - [`CHANGELOG.md`](CHANGELOG.md) — تاريخ التغييرات التوثيقية وحالة النشر.
 - [`SECURITY.md`](SECURITY.md) — حالة الدعم ومسار البلاغات الأمنية.
