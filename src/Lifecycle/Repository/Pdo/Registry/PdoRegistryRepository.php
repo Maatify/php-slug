@@ -24,6 +24,8 @@ use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
 use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
 use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoDuplicateClassifier;
 use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoRowHydrator;
+use Maatify\Slug\Lifecycle\Repository\Registry\RegistryBindingRecord;
+use Maatify\Slug\Lifecycle\Repository\Registry\RegistryClaimRecord;
 use Maatify\Slug\Lifecycle\Repository\Registry\RegistryRepositoryInterface;
 use Maatify\Slug\Lifecycle\Repository\Scope\ScopePersistenceInterface;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
@@ -410,7 +412,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
             if (PdoDuplicateClassifier::matches($exception, 'uk_registry_scope_slug')) {
                 return null;
             }
-            throw new SlugPersistenceInvariantException('Registry claim insert failed.', 0, $exception);
+            throw $exception;
         }
 
         $id = filter_var($this->pdo->lastInsertId(), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);

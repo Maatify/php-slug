@@ -12,7 +12,7 @@ use Maatify\Slug\Lifecycle\Consumer\DTO\SlugAvailabilityDTO;
 use Maatify\Slug\Lifecycle\Consumer\Enum\AvailabilityStatusEnum;
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
-use Maatify\Slug\Lifecycle\Repository\Pdo\Registry\RegistryClaimRecord;
+use Maatify\Slug\Lifecycle\Repository\Registry\RegistryClaimRecord;
 use Maatify\Slug\Lifecycle\Repository\Registry\RegistryRepositoryInterface;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 use Maatify\Slug\Lifecycle\Service\Reserved\ReservationEvaluator;

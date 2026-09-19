@@ -17,8 +17,9 @@ use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 use Maatify\Slug\Lifecycle\Exception\SlugReservedException;
 use Maatify\Slug\Lifecycle\Exception\SlugRevisionConflictException;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
-use Maatify\Slug\Lifecycle\Repository\Pdo\Registry\RegistryBindingRecord;
-use Maatify\Slug\Lifecycle\Repository\Pdo\Registry\RegistryClaimRecord;
+use Maatify\Slug\Lifecycle\Repository\Registry\RegistryBindingRecord;
+use Maatify\Slug\Lifecycle\Repository\Registry\RegistryClaimRecord;
+use Maatify\Slug\Lifecycle\DTO\OwnershipClaimResultDTO;
 use Maatify\Slug\Lifecycle\Repository\Registry\RegistryRepositoryInterface;
 use Maatify\Slug\Lifecycle\Repository\Transaction\TransactionCoordinatorInterface;
 use Maatify\Slug\Lifecycle\Enum\SameBindingDecisionEnum;
@@ -49,12 +50,12 @@ final readonly class RegistryClaimCoordinator
         BindingIdentityDTO $binding,
         string $slugCandidate,
         ?int $expectedRevision = null,
-    ): OwnershipClaimResult {
+    ): OwnershipClaimResultDTO {
         $profile = $this->profiles->get($binding->scopeProfile->expectedProfileKey);
         $slug = $profile->canonicalizeClaim($slugCandidate)->slug;
         $this->registry->assertInstalledSchemaSupported();
 
-        return $this->transactions->run(function () use ($binding, $slug, $expectedRevision): OwnershipClaimResult {
+        return $this->transactions->run(function () use ($binding, $slug, $expectedRevision): OwnershipClaimResultDTO {
             $scope = $this->registry->ensureScope(
                 $binding->scopeProfile->scope,
                 $binding->scopeProfile->expectedProfileKey,
@@ -68,12 +69,12 @@ final readonly class RegistryClaimCoordinator
         BindingIdentityDTO $binding,
         string $sourceText,
         ?int $expectedRevision = null,
-    ): OwnershipClaimResult {
+    ): OwnershipClaimResultDTO {
         $profile = $this->profiles->get($binding->scopeProfile->expectedProfileKey);
         $candidates = $this->candidates->fromSource($profile, $sourceText);
         $this->registry->assertInstalledSchemaSupported();
 
-        return $this->transactions->run(function () use ($binding, $candidates, $expectedRevision): OwnershipClaimResult {
+        return $this->transactions->run(function () use ($binding, $candidates, $expectedRevision): OwnershipClaimResultDTO {
             $scope = $this->registry->ensureScope(
                 $binding->scopeProfile->scope,
                 $binding->scopeProfile->expectedProfileKey,
@@ -88,7 +89,7 @@ final readonly class RegistryClaimCoordinator
         \Maatify\Slug\Lifecycle\DTO\ScopeDTO $scope,
         Slug $slug,
         ?int $expectedRevision,
-    ): OwnershipClaimResult {
+    ): OwnershipClaimResultDTO {
         $lockedScope = $this->registry->lockScope($scope->scope, $scope->profileKey);
         $binding = $this->registry->lockOrCreateBinding($lockedScope, $identity->entity);
         $this->assertAssignmentState($binding, $expectedRevision);
@@ -113,7 +114,7 @@ final readonly class RegistryClaimCoordinator
         \Maatify\Slug\Lifecycle\DTO\ScopeDTO $scope,
         array $candidates,
         ?int $expectedRevision,
-    ): OwnershipClaimResult {
+    ): OwnershipClaimResultDTO {
         $lockedScope = $this->registry->lockScope($scope->scope, $scope->profileKey);
         $binding = $this->registry->lockOrCreateBinding($lockedScope, $identity->entity);
         $this->assertAssignmentState($binding, $expectedRevision);
@@ -202,13 +203,13 @@ final readonly class RegistryClaimCoordinator
         }
     }
 
-    private function result(BindingIdentityDTO $identity, RegistryClaimRecord $claim, int $attempts): OwnershipClaimResult
+    private function result(BindingIdentityDTO $identity, RegistryClaimRecord $claim, int $attempts): OwnershipClaimResultDTO
     {
         $binding = $this->registry->binding($identity, true);
         if ($binding === null || $binding->currentClaim === null) {
             throw new SlugPersistenceInvariantException('Claim activation did not produce a readable current Binding.');
         }
 
-        return new OwnershipClaimResult($binding, $claim->toDto($this->profiles), $attempts);
+        return new OwnershipClaimResultDTO($binding, $claim->toDto($this->profiles), $attempts);
     }
 }

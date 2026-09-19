@@ -11,8 +11,6 @@ use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
-use Maatify\Slug\Lifecycle\Repository\Pdo\Registry\RegistryBindingRecord;
-use Maatify\Slug\Lifecycle\Repository\Pdo\Registry\RegistryClaimRecord;
 use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 

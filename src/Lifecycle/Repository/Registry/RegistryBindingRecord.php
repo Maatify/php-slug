@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Maatify\Slug\Lifecycle\Repository\Pdo\Registry;
+namespace Maatify\Slug\Lifecycle\Repository\Registry;
 
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 

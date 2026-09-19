@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Maatify\Slug\Lifecycle\Repository\Pdo\Registry;
+namespace Maatify\Slug\Lifecycle\Repository\Registry;
 
 use DateTimeImmutable;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
 use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
-use Maatify\Slug\Canonicalization\ValueObject\Slug;
-use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
-use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
 /** @internal Raw, validated Registry row used before DTO hydration. */
