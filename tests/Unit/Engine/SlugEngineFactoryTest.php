@@ -8,11 +8,11 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Maatify\SharedCommon\Contracts\ClockInterface;
 use Maatify\Slug\Lifecycle\Contract\ReservedSlugPolicyInterface;
-use Maatify\Slug\Engine\SlugEngineFactory;
-use Maatify\Slug\Text\Value\Slug;
-use Maatify\Slug\Scope\Value\SlugScope;
-use Maatify\Slug\Engine\SlugEngine;
-use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
+use Maatify\Slug\Factory\SlugEngineFactory;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
+use Maatify\Slug\Facade\SlugEngine;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistry;
 use Maatify\Slug\Tests\Unit\Allocation\TestReservedSlugPolicy;
 use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;
 use PDO;
@@ -28,7 +28,7 @@ final class SlugEngineFactoryTest extends TestCase
         $engine = SlugEngineFactory::create($pdo, $profiles, new TestReservedSlugPolicy(), new TestClock());
 
         self::assertInstanceOf(SlugEngine::class, $engine);
-        self::assertTrue($engine->has(new \Maatify\Slug\Profile\Value\SlugProfileKey('ascii-v1')));
+        self::assertTrue($engine->has(new \Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey('ascii-v1')));
     }
 }
 

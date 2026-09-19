@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Generation;
 
-use Maatify\Slug\Exception\SlugCannotBeGeneratedException;
-use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Profile\BuiltIn\AsciiSlugProfile;
-use Maatify\Slug\Profile\BuiltIn\UnicodeSlugProfile;
+use Maatify\Slug\Canonicalization\Exception\SlugCannotBeGeneratedException;
+use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\AsciiSlugProfile;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\UnicodeSlugProfile;
 use PHPUnit\Framework\TestCase;
 
 final class SourceGenerationTest extends TestCase

@@ -12,15 +12,15 @@ use Maatify\Slug\Lifecycle\Command\ChangeExactCommand;
 use Maatify\Slug\Lifecycle\Command\ChangeGeneratedCommand;
 use Maatify\Slug\Lifecycle\Contract\ReservedSlugPolicyInterface;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
-use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
-use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Registry\Value\EntityReference;
-use Maatify\Slug\Text\Value\Slug;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Lifecycle\SlugLifecycleService;
-use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Lifecycle\Service\SlugLifecycleService;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistry;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
+use Maatify\Slug\Tests\Support\SlugLifecycleServiceFactory;
 use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;
 use PDO;
 
@@ -71,7 +71,7 @@ $policy = new class implements ReservedSlugPolicyInterface {
         return false;
     }
 };
-$service = new SlugLifecycleService($pdo, $profiles, $policy, $clock, new PdoCapabilityGuard($pdo));
+$service = SlugLifecycleServiceFactory::create($pdo, $profiles, $policy, $clock);
 $identity = new BindingIdentityDTO(
     new ScopeProfileRequestDTO(new SlugScope('lifecycle-system', null, null), new SlugProfileKey('ascii-v1')),
     new EntityReference('product', $entityKey),

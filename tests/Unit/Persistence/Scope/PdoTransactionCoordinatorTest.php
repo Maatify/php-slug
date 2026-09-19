@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Persistence\Scope;
 
-use Maatify\Slug\Persistence\Transaction\PdoTransactionCoordinator;
-use Maatify\Slug\Exception\SlugTransactionParticipationException;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Transaction\PdoTransactionCoordinator;
+use Maatify\Slug\Lifecycle\Exception\SlugTransactionParticipationException;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;

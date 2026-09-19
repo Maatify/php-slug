@@ -7,9 +7,9 @@ namespace Maatify\Slug\Tests\Integration\Schema;
 use DateTimeImmutable;
 use DateTimeZone;
 use Maatify\SharedCommon\Contracts\ClockInterface;
-use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Persistence\PDO\Schema\PdoSchemaInstaller;
-use Maatify\Slug\Persistence\PDO\Schema\PdoSchemaVerifier;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Schema\PdoSchemaInstaller;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Schema\PdoSchemaVerifier;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -25,11 +25,6 @@ abstract class MySqlIntegrationTestCase extends TestCase
         if (! extension_loaded('pdo_mysql')) {
             self::fail('WU-03 Integration requires the pdo_mysql extension.');
         }
-        $envFile = dirname(__DIR__, 3) . '/.env.test';
-        if (! is_file($envFile)) {
-            self::fail('WU-03 Integration requires the local .env.test file. Copy .env.test.example and configure a dedicated *_test database.');
-        }
-
         try {
             $this->pdo = $this->newTestConnection();
             $this->pdo->exec("SET NAMES utf8mb4 COLLATE utf8mb4_bin");
@@ -88,11 +83,6 @@ abstract class MySqlIntegrationTestCase extends TestCase
     /** @return array<string, string> */
     private function testConfiguration(): array
     {
-        $envFile = dirname(__DIR__, 3) . '/.env.test';
-        if (! is_file($envFile)) {
-            throw new RuntimeException('Required .env.test file is missing.');
-        }
-
         $configuration = [];
         foreach ([
             'SLUG_TEST_DB_HOST',
@@ -103,7 +93,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         ] as $variable) {
             $value = getenv($variable);
             if (! is_string($value) || $value === '') {
-                throw new RuntimeException(sprintf('Required .env.test variable %s is missing.', $variable));
+                throw new RuntimeException(sprintf('Required Integration environment variable %s is missing.', $variable));
             }
             $configuration[$variable] = $value;
         }

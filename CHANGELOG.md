@@ -11,8 +11,8 @@ All notable changes to `maatify/php-slug` are documented here.
 - **Lifecycle & History:** Alias creation, scoped ownership, release, purge, scope transition, atomic transfer, and legacy adoption rules.
 - **Resolution & Management:** Management queries with robust shared pagination (`maatify/persistence`).
 - **Concurrency & Integration:** Lock ordering and safe concurrency behavior verified via integration tests.
-- **Infrastructure Evidence:** Fully integrated CI gates with Unit, Integration, and system-level tests running against a real MySQL environment.
-- **Verification Harness:** Successfully ran Consumer Verification Harness from clean states to prove correct structural integration.
+- **Historical Infrastructure Evidence:** GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` reported successful Unit, Integration, system-level, and real-MySQL CI verification for that historical SHA only.
+- **Historical Verification Harness:** Consumer Verification Harness was successfully reported on run #9 from clean states for SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b`; the current remediation HEAD still awaits `VG-001`.
 
 ### Documentation
 
@@ -22,3 +22,4 @@ All notable changes to `maatify/php-slug` are documented here.
 ### Scope Notice
 
 - Note: Although fully implemented internally, no Tag, Release, Packagist publication, or Stable support claim has been published yet.
+- The historical run above does not qualify the current remediation HEAD; `VG-001` and the Fresh Full Acceptance Review remain required.

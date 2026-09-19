@@ -6,10 +6,9 @@ namespace Maatify\Slug\Lifecycle\DTO;
 
 use JsonSerializable;
 use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
-use Maatify\Slug\Lifecycle\History\HistoryEventDTO;
-use Maatify\Slug\Registry\DTO\BindingDTO;
-use Maatify\Slug\Registry\DTO\RegistryClaimDTO;
-use Maatify\Slug\Shared\Validation\DTOAssertions;
+use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
+use Maatify\Slug\Lifecycle\DTO\BindingDTO;
+use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 
 final readonly class AdoptionResultDTO implements JsonSerializable
 {
@@ -29,7 +28,9 @@ final readonly class AdoptionResultDTO implements JsonSerializable
         ], true)) {
             throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('Adoption result requires an adoption operation.');
         }
-        DTOAssertions::operationKey($operationKey);
+        if ($operationKey !== null && preg_match('/\A[a-f0-9]{32}\z/', $operationKey) !== 1) {
+            throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('Operation key must be lowercase hexadecimal of length 32.');
+        }
     }
 
     public function withReplayed(bool $replayed): self

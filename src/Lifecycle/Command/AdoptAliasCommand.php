@@ -6,7 +6,7 @@ namespace Maatify\Slug\Lifecycle\Command;
 
 use DateTimeImmutable;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
-use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
+use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 
 final readonly class AdoptAliasCommand
 {

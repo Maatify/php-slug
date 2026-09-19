@@ -6,7 +6,7 @@ use PhpCsFixer\Config;
 use PhpCsFixer\Finder;
 
 $directories = array_values(array_filter(
-    [__DIR__ . '/src', __DIR__ . '/tests'],
+    [__DIR__ . '/src', __DIR__ . '/tests', __DIR__ . '/examples'],
     static fn (string $directory): bool => is_dir($directory),
 ));
 

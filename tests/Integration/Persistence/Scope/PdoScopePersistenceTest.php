@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Integration\Persistence\Scope;
 
-use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Registry\Value\EntityReference;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
-use Maatify\Slug\Persistence\Transaction\PdoTransactionCoordinator;
-use Maatify\Slug\Persistence\PDO\Scope\PdoScopeRepository;
-use Maatify\Slug\Exception\SlugPersistenceInvariantException;
-use Maatify\Slug\Exception\SlugScopeProfileMismatchException;
-use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Transaction\PdoTransactionCoordinator;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Scope\PdoScopeRepository;
+use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
+use Maatify\Slug\Lifecycle\Exception\SlugScopeProfileMismatchException;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistry;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
 use Maatify\Slug\Tests\Unit\Profile\StubSlugProfile;
 

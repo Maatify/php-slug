@@ -7,19 +7,19 @@ namespace Maatify\Slug\Tests\System\Transition;
 use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
 use Maatify\Slug\Lifecycle\Command\TransitionScopeCommand;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
-use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
-use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
-use Maatify\Slug\Engine\SlugEngine;
-use Maatify\Slug\Engine\SlugEngineFactory;
+use Maatify\Slug\Facade\SlugEngine;
+use Maatify\Slug\Factory\SlugEngineFactory;
 use Maatify\Slug\Lifecycle\Enum\ClaimIntentModeEnum;
 use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
-use Maatify\Slug\Exception\SlugRevisionConflictException;
-use Maatify\Slug\Exception\SlugScopeProfileMismatchException;
-use Maatify\Slug\Registry\Value\EntityReference;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Profile\Registry\SlugProfileRegistry;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Lifecycle\Exception\SlugRevisionConflictException;
+use Maatify\Slug\Lifecycle\Exception\SlugScopeProfileMismatchException;
+use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistry;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 use Maatify\Slug\Tests\Integration\Schema\MySqlIntegrationTestCase;
 use Maatify\Slug\Tests\Unit\Allocation\TestReservedSlugPolicy;
 use Maatify\Slug\Tests\Unit\Allocation\TestSlugProfile;
@@ -174,8 +174,8 @@ final class ScopeTransitionSystemTest extends MySqlIntegrationTestCase
         try {
             $engine->transitionScope(new TransitionScopeCommand($source, $target, ScopeTransitionModeEnum::PARALLEL, new ScopeTransitionClaimIntentDTO(ClaimIntentModeEnum::EXACT, 'different-target-slug'), 1, $audit));
             self::fail('A changed transition fingerprint was accepted for one idempotency key.');
-        } catch (\Maatify\Slug\Exception\SlugIdempotencyConflictException $exception) {
-            self::assertSame(\Maatify\Slug\Exception\SlugIdempotencyConflictException::class, $exception::class);
+        } catch (\Maatify\Slug\Lifecycle\Exception\SlugIdempotencyConflictException $exception) {
+            self::assertSame(\Maatify\Slug\Lifecycle\Exception\SlugIdempotencyConflictException::class, $exception::class);
         }
 
         $competing = $this->identityInScope('transition-competing-source', 'competing-source');

@@ -12,19 +12,6 @@ require_command() {
     fi
 }
 
-require_database_environment() {
-    for variable in SLUG_TEST_DB_HOST SLUG_TEST_DB_PORT SLUG_TEST_DB_NAME SLUG_TEST_DB_USER SLUG_TEST_DB_PASSWORD; do
-        if [[ -z "${!variable:-}" ]]; then
-            echo "Required database environment variable is missing: $variable" >&2
-            exit 1
-        fi
-    done
-    if [[ "$SLUG_TEST_DB_NAME" != *_test ]]; then
-        echo "SLUG_TEST_DB_NAME must end with _test." >&2
-        exit 1
-    fi
-}
-
 latest_dependencies() {
     require_command composer
     composer validate --strict
@@ -44,11 +31,21 @@ lowest_dependencies() {
 
 syntax() {
     require_command php
-    bash -n tools/ci/run-gate.sh
+    local shell_files=()
+    while IFS= read -r -d '' file; do
+        shell_files+=("$file")
+    done < <(find tools/ci -type f -name '*.sh' -print0)
+    if ((${#shell_files[@]} == 0)); then
+        echo 'No package-owned shell scripts were found for syntax verification.' >&2
+        exit 1
+    fi
+    for file in "${shell_files[@]}"; do
+        bash -n "$file"
+    done
     local files=()
     while IFS= read -r -d '' file; do
         files+=("$file")
-    done < <(find src tests tools -type f -name '*.php' -print0)
+    done < <(find src tests tools examples -type f -name '*.php' -print0)
     if ((${#files[@]} == 0)); then
         echo 'No package-owned PHP files were found for syntax verification.' >&2
         exit 1
@@ -67,20 +64,16 @@ phpstan() {
         echo 'PHPStan is unavailable; run a dependency gate first.' >&2
         exit 1
     fi
-    vendor/bin/phpstan analyse src tests --level=max --memory-limit=512M
+    vendor/bin/phpstan analyse --memory-limit=512M
 }
 
-phpunit() {
+test_unit() {
     require_command php
     if [[ ! -x vendor/bin/phpunit ]]; then
         echo 'PHPUnit is unavailable; run a dependency gate first.' >&2
         exit 1
     fi
-    if [[ ! -f .env.test ]]; then
-        echo 'Full PHPUnit requires a local or CI-generated .env.test; use integration-env first.' >&2
-        exit 1
-    fi
-    vendor/bin/phpunit --configuration phpunit.xml.dist tests --do-not-cache-result
+    vendor/bin/phpunit --configuration phpunit.xml.dist --testsuite unit --do-not-cache-result
 }
 
 style() {
@@ -101,44 +94,6 @@ schema_contract() {
         echo 'The required package schema is missing: schema/mysql/001_slug_rc1.sql' >&2
         exit 1
     fi
-}
-
-integration_env() {
-    require_database_environment
-    umask 077
-    printf '%s\n' \
-        "SLUG_TEST_DB_HOST=$SLUG_TEST_DB_HOST" \
-        "SLUG_TEST_DB_PORT=$SLUG_TEST_DB_PORT" \
-        "SLUG_TEST_DB_NAME=$SLUG_TEST_DB_NAME" \
-        "SLUG_TEST_DB_USER=$SLUG_TEST_DB_USER" \
-        "SLUG_TEST_DB_PASSWORD=$SLUG_TEST_DB_PASSWORD" > .env.test
-}
-
-wait_mysql() {
-    require_command php
-    require_database_environment
-    for attempt in $(seq 1 60); do
-        if php -r '
-            if (!extension_loaded("pdo_mysql")) { exit(2); }
-            $host = getenv("SLUG_TEST_DB_HOST");
-            $port = getenv("SLUG_TEST_DB_PORT");
-            $name = getenv("SLUG_TEST_DB_NAME");
-            $user = getenv("SLUG_TEST_DB_USER");
-            $password = getenv("SLUG_TEST_DB_PASSWORD");
-            try {
-                $pdo = new PDO("mysql:host={$host};port={$port};dbname={$name};charset=utf8mb4", $user, $password, [PDO::ATTR_TIMEOUT => 2, PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-                $pdo->query("SELECT 1");
-            } catch (Throwable) {
-                exit(1);
-            }
-        '; then
-            echo "MySQL-compatible target is ready after attempt $attempt."
-            return
-        fi
-        sleep 2
-    done
-    echo 'MySQL-compatible target did not become ready within 120 seconds.' >&2
-    exit 1
 }
 
 workflow_lint() {
@@ -177,25 +132,37 @@ latest_quality() {
 
 latest_tests() {
     latest_dependencies
-    schema_contract
-    wait_mysql
-    integration_env
-    phpunit
+    test
 }
 
 lowest_tests() {
     lowest_dependencies
-    schema_contract
-    wait_mysql
-    integration_env
-    phpunit
+    test
+}
+
+test_integration() {
+    bash tools/ci/run-integration.sh integration
+}
+
+test_system() {
+    bash tools/ci/run-integration.sh system
+}
+
+test() {
+    test_unit
+    bash tools/ci/run-integration.sh full
 }
 
 consumer() {
     require_command php
     require_command composer
-    require_database_environment
-    php tests/Consumer/run.php
+    bash tools/ci/run-integration.sh consumer
+}
+
+examples_smoke() {
+    latest_dependencies
+    php examples/canonicalization.php
+    bash tools/ci/run-integration.sh examples
 }
 
 usage() {
@@ -204,19 +171,21 @@ Usage: tools/ci/run-gate.sh <gate> [argument]
 
 Gates:
   latest-quality   Latest dependency resolution, syntax, PHPStan max, style, audit
-  latest-tests     Latest dependency resolution, real MySQL, full PHPUnit
-  lowest-tests     Lowest dependency resolution on PHP 8.4, real MySQL, full PHPUnit
-  syntax           PHP syntax for src/, tests/, tools/, and PHP tool configuration
-  phpstan          PHPStan max for src/ and tests/
-  phpunit          Full PHPUnit suite; requires .env.test
+  latest-tests     Latest dependency resolution, then the complete maintained suite
+  lowest-tests     Lowest dependency resolution on PHP 8.4, then the complete maintained suite
+  test             Unit, Integration, and System suites
+  test-unit        Unit suite only; Docker is not required
+  test-integration Integration suite through the canonical Compose lifecycle
+  test-system      System suite through the canonical Compose lifecycle
+  syntax           PHP syntax for src/, tests/, tools/, examples/, and PHP tool configuration
+  phpstan          PHPStan max using phpstan.neon
   style            PHP CS Fixer dry-run
   audit            Composer security and abandoned-package audit
   schema           Verify the package-owned schema path exists
-  integration-env  Write the ignored CI/local .env.test from database environment variables
-  wait-mysql       Deterministic pdo_mysql readiness check
   workflow-lint    actionlint for every .github/workflows/*.yml|*.yaml
   whitespace RANGE Git-aware whitespace check for an explicit BASE...HEAD committed range
   consumer         Consumer Verification Harness clean run x2
+  examples-smoke   Stateless and persisted examples through the canonical Compose lifecycle
 USAGE
     exit 2
 }
@@ -226,16 +195,18 @@ case "$gate" in
     latest-quality) latest_quality ;;
     latest-tests) latest_tests ;;
     lowest-tests) lowest_tests ;;
+    test) test ;;
+    test-unit) test_unit ;;
+    test-integration) test_integration ;;
+    test-system) test_system ;;
     syntax) syntax ;;
     phpstan) phpstan ;;
-    phpunit) phpunit ;;
     style) style ;;
     audit) audit ;;
     schema) schema_contract ;;
-    integration-env) integration_env ;;
-    wait-mysql) wait_mysql ;;
     workflow-lint) workflow_lint ;;
     whitespace) whitespace "${2:-}" ;;
     consumer) consumer ;;
+    examples-smoke) examples_smoke ;;
     *) usage ;;
 esac

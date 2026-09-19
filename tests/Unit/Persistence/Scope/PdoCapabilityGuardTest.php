@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Persistence\Scope;
 
-use Maatify\Slug\Exception\SlugUnsupportedDriverException;
-use Maatify\Slug\Persistence\PDO\Connection\PdoCapabilityGuard;
+use Maatify\Slug\Lifecycle\Exception\SlugUnsupportedDriverException;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
 use PDO;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;

@@ -6,11 +6,10 @@ namespace Maatify\Slug\Lifecycle\DTO;
 
 use JsonSerializable;
 use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
-use Maatify\Slug\Lifecycle\History\HistoryEventDTO;
+use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
-use Maatify\Slug\Registry\DTO\BindingDTO;
-use Maatify\Slug\Shared\Validation\DTOAssertions;
-use Maatify\Slug\Text\Value\Slug;
+use Maatify\Slug\Lifecycle\DTO\BindingDTO;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
 
 final readonly class ScopeTransitionResultDTO implements JsonSerializable
 {
@@ -36,10 +35,47 @@ final readonly class ScopeTransitionResultDTO implements JsonSerializable
         if ($operationType !== OperationTypeEnum::TRANSITION_SCOPE) {
             throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('Transition result requires TRANSITION_SCOPE.');
         }
-        DTOAssertions::operationKey($operationKey);
-        DTOAssertions::nonNegative($sourceRevision, 'sourceRevision');
-        DTOAssertions::nonNegative($targetRevision, 'targetRevision');
-        DTOAssertions::participantHistory($historyEvents, [$sourceAfter->id, $targetAfter->id], 'historyEvents');
+        if ($operationKey !== null && preg_match('/\A[a-f0-9]{32}\z/', $operationKey) !== 1) {
+            throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('Operation key must be lowercase hexadecimal of length 32.');
+        }
+        if ($sourceRevision < 0) {
+            throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('sourceRevision must be non-negative.');
+        }
+        if ($targetRevision < 0) {
+            throw new \Maatify\Slug\Exception\SlugInvalidArgumentException('targetRevision must be non-negative.');
+        }
+        self::participantHistory($historyEvents, [$sourceAfter->id, $targetAfter->id], 'historyEvents');
+    }
+
+    /**
+     * @param array<int, mixed> $items
+     * @param list<int> $bindingIds
+     */
+    private static function participantHistory(array $items, array $bindingIds, string $field): void
+    {
+        if (! array_is_list($items)) {
+            throw new \Maatify\Slug\Exception\SlugInvalidArgumentException(sprintf('%s must be a list.', $field));
+        }
+        $lastParticipant = -1;
+        $lastSequence = [];
+        $lastId = [];
+        foreach ($items as $item) {
+            if (! is_object($item) || ! property_exists($item, 'bindingId') || ! property_exists($item, 'sequenceNo') || ! property_exists($item, 'id') || ! is_int($item->bindingId) || ! is_int($item->sequenceNo) || ! is_int($item->id)) {
+                throw new \Maatify\Slug\Exception\SlugInvalidArgumentException(sprintf('%s contains an invalid history event.', $field));
+            }
+            $participant = array_search($item->bindingId, $bindingIds, true);
+            if ($participant === false || $participant < $lastParticipant) {
+                throw new \Maatify\Slug\Exception\SlugInvalidArgumentException(sprintf('%s has invalid participant ordering.', $field));
+            }
+            if ($participant > $lastParticipant) {
+                $lastParticipant = $participant;
+            }
+            if (isset($lastSequence[$item->bindingId]) && ($item->sequenceNo < $lastSequence[$item->bindingId] || ($item->sequenceNo === $lastSequence[$item->bindingId] && $item->id <= $lastId[$item->bindingId]))) {
+                throw new \Maatify\Slug\Exception\SlugInvalidArgumentException(sprintf('%s must be ordered within each participant.', $field));
+            }
+            $lastSequence[$item->bindingId] = $item->sequenceNo;
+            $lastId[$item->bindingId] = $item->id;
+        }
     }
 
     public function withReplayed(bool $replayed): self
