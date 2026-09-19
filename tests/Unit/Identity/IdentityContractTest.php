@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Identity;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Registry\Value\EntityReference;
-use Maatify\Slug\Text\Value\Slug;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 use Maatify\Slug\Tests\Unit\Contracts\ContractFixtures;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;

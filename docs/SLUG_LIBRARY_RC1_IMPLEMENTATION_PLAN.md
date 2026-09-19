@@ -1,13 +1,16 @@
 # Maatify Slug — RC1 Implementation Plan
 
-> **الحالة:** خطة تنفيذ مرتبطة بـ`SLUG_LIBRARY_RC1_BLUEPRINT.md`؛ لا تثبت أن أي Work Unit نُفذت.
+> **الحالة:** Historical execution plan؛ لا تملك هذه الوثيقة current runtime أو package-facing contract ولا تثبت أن أي Work Unit نُفذت.
 >
 > **المرجع:** `docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`
+> **Current package/runtime contract:** `SLUG_PACKAGE_REFERENCE.md`
+> **Current Standards resolution:** `docs/php-engineering-standards/STANDARDS_MANIFEST.md`
+> **Git/PR/CI history:** execution evidence
 > **RC1 source baseline المعتمد للتأليف:** `006ca7c62b4defc62c8ef2b16374b6f60d48a8dc`
 > **الـPhase Draft:** `phase-draft/rc-1`
 > **Preparation Work Branch:** `work/rc-1-preparation`
 
-هذه الخطة تحول الـBlueprint إلى dependency graph وExecution Batch وWork Units قابلة للتسليم والمراجعة. نطاق مهمة remediation الحالية هو تأليف الوثيقتين فقط؛ لا تنشئ هذه الخطة Runtime أو Schema أو Tests أو CI أو Composer files.
+كانت هذه الوثيقة تحول الـBlueprint إلى dependency graph وExecution Batch وWork Units قابلة للتسليم والمراجعة. لا تُستخدم الآن كـcurrent runtime owner أو كعقد package-facing؛ ولا تنشئ هذه الخطة Runtime أو Schema أو Tests أو CI أو Composer files.
 
 ## 1. النتيجة المستهدفة
 
@@ -36,7 +39,22 @@ Package Foundation (Composer/autoload/PHPStan/PHPUnit)
 
 ### 2.2 Standards snapshot
 
-يستخدم RC1 historical authoring snapshot adoption المحلي عند `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`. بناءً على explicit Owner decision قبل الـfinal integration، تم تحديث Standards Adoption إلى `44c8827095ab4007c355aa21c56b853f3b49d795`، ويظل `STANDARDS_MANIFEST.md` هو authoritative baseline. المعايير السبعة المنطبقة (بالإصدارات الحالية) هي:
+تحتفظ الخطة بالـhistorical authoring/execution Standards snapshots، لكنها لا تساويها بالـcurrent authoritative compliance baseline. snapshot التأليف التاريخية هي `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`، وكان `44c8827095ab4007c355aa21c56b853f3b49d795` Owner-approved **historical/interim compliance baseline** في مرحلة لاحقة؛ لا يوصف أي منهما بأنه current أو final. المرجع الحالي الوحيد للحل هو `STANDARDS_MANIFEST.md`، والـcurrent authoritative Adoption Commit هو `4e268089d0aceedbc837d98f28da8b204d39dd7f`.
+
+### Current authoritative set
+
+```text
+std-package-building@2.0.0
+std-composer-package@3.0.0
+std-ci-workflow@2.0.0
+std-library-presentation@2.0.0
+std-testing@1.1.0
+std-documentation-lifecycle@1.0.0
+std-ai-collaboration-workflow@7.0.0
+std-github-phase-stack-workflow@3.0.0
+```
+
+الجدول التالي يحفظ snapshot التاريخية المرتبطة بتأليف الخطة ولا يمثل المجموعة الحالية:
 
 | Standard | Version | موضع التطبيق في الخطة |
 |---|---:|---|
@@ -48,7 +66,7 @@ Package Foundation (Composer/autoload/PHPStan/PHPUnit)
 | `std-ai-collaboration-workflow` | 6.0.0 | scope، direct review، evidence، Git |
 | `std-github-phase-stack-workflow` | 2.2.0 | Phase/Batch/WU boundaries وFull Gate |
 
-تظل هذه snapshot ثابتة أثناء Active Execution Train. لا يحدث standards refresh داخل train إلا بقرار مالك المشروع أو security/correctness blocker مؤثر.
+تظل هذه snapshot جزءًا من التاريخ التنفيذي للخطة. لا تُستخدم بدل المجموعة الحالية؛ أي قرار أو تحقق حالي يرجع إلى `STANDARDS_MANIFEST.md`.
 
 ### 2.3 Git boundaries
 

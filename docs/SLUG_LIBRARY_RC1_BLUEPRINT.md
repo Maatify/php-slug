@@ -1,12 +1,14 @@
 # Maatify Slug — RC1 Blueprint
 
-> **الحالة:** عقد تصميم دائم قابل للتنفيذ لـRC1، وليس سجلًا بأن التنفيذ موجود.
+> **الحالة:** عقد تصميم داعم لـRC1؛ لا يملك الحالة الحالية للـRuntime أو العقد package-facing، وليس سجلًا بأن التنفيذ موجود.
 >
 > **المستودع:** `Maatify/php-slug`
 > **Composer package:** `maatify/php-slug`
 > **Namespace:** `Maatify\\Slug\\`
 > **Baseline التصميم للتأليف:** `006ca7c62b4defc62c8ef2b16374b6f60d48a8dc` على `work/rc-1-preparation`
 > **مصدر التنفيذ اللاحق:** HEAD المحدث لـ`phase-draft/rc-1` بعد إغلاق Preparation ودمج PR #2
+
+`SLUG_PACKAGE_REFERENCE.md` هي **current package-facing contract** ومصدر العقد العام الحالي. يبقى هذا الـBlueprint supporting design artifact يحفظ قرارات التصميم وحقائق authoring التاريخية، ولا يحل محل Package Reference أو `STANDARDS_MANIFEST.md`.
 
 هذا المستند نقل القرارات المقبولة من مسودة النقاش المؤقتة إلى عقد تنفيذ محدد، ثم أُغلقت المسودة ضمن Preparation Closure. لا يكون هذا الـBlueprint مصدرًا بديلًا عن Package Reference للحالة package-facing، ولا يثبت وجود Runtime أو Schema أو Tests؛ تلك نتائج يجب إنتاجها والتحقق منها وفق خطة التنفيذ.
 
@@ -34,7 +36,7 @@
 - `std-ai-collaboration-workflow` `6.0.0`؛
 - `std-github-phase-stack-workflow` `2.2.0`.
 
-الملف `STANDARDS_MANIFEST.md` يظل هو authoritative final compliance baseline. بناءً على قرار صريح من Owner، تم تحديث Standards Adoption إلى `44c8827095ab4007c355aa21c56b853f3b49d795` قبل final integration، وهذا لا يناقض الـStandards Freeze rule لأنه Owner-approved.
+كان تحديث Standards Adoption إلى `44c8827095ab4007c355aa21c56b853f3b49d795` قرارًا معتمدًا من Owner في مرحلة سابقة؛ ويظل هذا الـSHA **historical/interim compliance baseline** ولا يوصف بأنه final أو current baseline. أما الـcurrent authoritative baseline فهو Adoption Commit `4e268089d0aceedbc837d98f28da8b204d39dd7f` المسجل في `STANDARDS_MANIFEST.md`، مع مجموعة المعايير والإصدارات الحالية المسجلة هناك.
 
 تملك الحزمة Slug domain وPersistence الخاصة بها. يملك Host الاتصال والإعداد والـbootstrap ووجود كيان Host وأي سياسة HTTP أو SEO. لا توجد Host FKs أو Host JOINs، ولا تعتمد الحزمة على Framework أو ORM أو `maatify/php-seo`.
 
@@ -1756,7 +1758,7 @@ main
 | 29 | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1`، وأدوات evidence `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94`، مع PHP/extensions §34 | §34، Plan §2، Plan §3.3 |
 | 30 | schema/index/operations evidence plan §12–§13، real MySQL/concurrency matrix Plan §9–§10 | §12–§13، Plan §8–§10 |
 | 31 | Clock-derived UTC `DATETIME(6)` لكل package timestamp؛ imported DateTimeImmutable بأي timezone يتحول إلى UTC مع microseconds ومدى MySQL المحدد | §33، §31، §35.2 |
-| 32 | historical authoring adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`، وتم تحديثه لـ`44c8827095ab4007c355aa21c56b853f3b49d795` كـfinal compliance baseline عبر `STANDARDS_MANIFEST.md` | §3، §47، Plan §11 |
+| 32 | historical authoring adoption snapshot `2fc57f9320f8a7f7147fb20abbcfa311fdf40c28`، ثم Owner-approved `44c8827095ab4007c355aa21c56b853f3b49d795` بوصفه historical/interim compliance baseline؛ والـcurrent authoritative adoption هو `4e268089d0aceedbc837d98f28da8b204d39dd7f` عبر `STANDARDS_MANIFEST.md` | §3، §47، Plan §2.2 |
 | 33 | first-use يثبت Scope profile تحت unique lock؛ same profile يتشارك، mismatch يفشل قبل mutation، public `SlugScopeRegistryInterface` وinternal bootstrap path | §14، §5، Gate R1/R4 |
 | 34 | Preparation تغلق بترتيب إلزامي: قبول Blueprint/Plan، إنشاء/تحديث root `SLUG_PACKAGE_REFERENCE.md` كـcanonical Package Reference، إكمال release-facing README/CHANGELOG/SECURITY عند لزومها، نقل القرارات إلى مصادرها، حذف Discussion Draft، ثم دمج PR #2 إلى `phase-draft/rc-1`. بعد HEAD المحدث فقط يبدأ Execution Batch/Work Branch، وImplementation PR إلى Phase Draft لا Preparation، مع Phase Integration Gate وHarness وreal DB/concurrency evidence وفق Plan | §40، §46–§47، Plan §1–§15 و§16–§17 |
 

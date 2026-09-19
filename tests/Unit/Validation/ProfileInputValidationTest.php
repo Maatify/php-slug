@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Validation;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Exception\SlugRuntimeCompatibilityException;
-use Maatify\Slug\Lifecycle\Allocation\SuffixCandidateGenerator;
-use Maatify\Slug\Profile\BuiltIn\AsciiSlugProfile;
-use Maatify\Slug\Profile\BuiltIn\UnicodeSlugProfile;
+use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
+use Maatify\Slug\Lifecycle\Service\Allocation\SuffixCandidateGenerator;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\AsciiSlugProfile;
+use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\UnicodeSlugProfile;
 use PHPUnit\Framework\TestCase;
 
 final class ProfileInputValidationTest extends TestCase

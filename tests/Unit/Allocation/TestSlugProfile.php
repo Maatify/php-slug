@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Allocation;
 
-use Maatify\Slug\Text\Canonicalization\CanonicalSlugRules;
-use Maatify\Slug\Text\DTO\CanonicalSlugDTO;
-use Maatify\Slug\Text\DTO\GeneratedSlugDTO;
-use Maatify\Slug\Text\DTO\LookupCanonicalizationDTO;
-use Maatify\Slug\Query\Enum\InputFormCanonicalityEnum;
-use Maatify\Slug\Exception\SlugCannotBeGeneratedException;
+use Maatify\Slug\Canonicalization\Service\CanonicalSlugRules;
+use Maatify\Slug\Canonicalization\DTO\CanonicalSlugDTO;
+use Maatify\Slug\Canonicalization\DTO\GeneratedSlugDTO;
+use Maatify\Slug\Canonicalization\DTO\LookupCanonicalizationDTO;
+use Maatify\Slug\Lifecycle\Consumer\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Canonicalization\Exception\SlugCannotBeGeneratedException;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Text\Value\Slug;
-use Maatify\Slug\Profile\Value\SlugProfileKey;
-use Maatify\Slug\Profile\Contract\SlugProfileInterface;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
+use Maatify\Slug\Canonicalization\Contract\SlugProfileInterface;
 
 final class TestSlugProfile implements SlugProfileInterface
 {

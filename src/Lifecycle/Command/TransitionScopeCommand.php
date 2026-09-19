@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Maatify\Slug\Lifecycle\Command;
 
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
-use Maatify\Slug\Registry\DTO\BindingIdentityDTO;
-use Maatify\Slug\Scope\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
 

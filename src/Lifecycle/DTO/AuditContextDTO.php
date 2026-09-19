@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maatify\Slug\Lifecycle\DTO;
 
 use JsonSerializable;
-use Maatify\Slug\Shared\Validation\IdentityValidator;
+use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
 final readonly class AuditContextDTO implements JsonSerializable
 {
@@ -16,16 +16,45 @@ final readonly class AuditContextDTO implements JsonSerializable
         public ?string $idempotencyKey = null,
     ) {
         if ($actorKey !== null) {
-            IdentityValidator::assertAuditString($actorKey, 191, 'actorKey');
+            self::assertAuditString($actorKey, 191, 'actorKey');
         }
         if ($reason !== null) {
-            IdentityValidator::assertReason($reason);
+            self::assertReason($reason);
         }
         if ($correlationKey !== null) {
-            IdentityValidator::assertAuditString($correlationKey, 191, 'correlationKey');
+            self::assertAuditString($correlationKey, 191, 'correlationKey');
         }
         if ($idempotencyKey !== null) {
-            IdentityValidator::assertAuditString($idempotencyKey, 191, 'idempotencyKey');
+            self::assertAuditString($idempotencyKey, 191, 'idempotencyKey');
+        }
+    }
+
+    private static function assertAuditString(string $value, int $maxCodePoints, string $field): void
+    {
+        if ($value === '' || preg_match('//u', $value) !== 1) {
+            throw new SlugInvalidArgumentException(sprintf('%s must be non-empty valid UTF-8.', $field));
+        }
+        if (preg_match('/[\p{Cc}\p{Cs}\p{Cf}]/u', $value) === 1 || strpbrk($value, '/\\') !== false) {
+            throw new SlugInvalidArgumentException(sprintf('%s contains a forbidden character.', $field));
+        }
+        if (preg_match('/^[\x09-\x0D\x20\x{00A0}]|[\x09-\x0D\x20\x{00A0}]$/u', $value) === 1) {
+            throw new SlugInvalidArgumentException(sprintf('%s has forbidden boundary whitespace.', $field));
+        }
+        if (mb_strlen($value, 'UTF-8') > $maxCodePoints) {
+            throw new SlugInvalidArgumentException(sprintf('%s exceeds its maximum length.', $field));
+        }
+    }
+
+    private static function assertReason(string $value, int $maxCodePoints = 500, string $field = 'reason'): void
+    {
+        if ($value === '' || preg_match('//u', $value) !== 1) {
+            throw new SlugInvalidArgumentException(sprintf('%s must be non-empty valid UTF-8.', $field));
+        }
+        if (preg_match('/[\p{Cc}\p{Cs}\p{Cf}]/u', $value) === 1) {
+            throw new SlugInvalidArgumentException(sprintf('%s contains a forbidden character.', $field));
+        }
+        if (mb_strlen($value, 'UTF-8') > $maxCodePoints) {
+            throw new SlugInvalidArgumentException(sprintf('%s exceeds its maximum length.', $field));
         }
     }
 

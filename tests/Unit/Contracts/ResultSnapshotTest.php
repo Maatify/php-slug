@@ -4,15 +4,15 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Tests\Unit\Contracts;
 
-use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotDecoder;
-use Maatify\Slug\Lifecycle\ResultSnapshot\ResultSnapshotEncoder;
+use Maatify\Slug\Lifecycle\Mapper\ResultSnapshot\ResultSnapshotDecoder;
+use Maatify\Slug\Lifecycle\Mapper\ResultSnapshot\ResultSnapshotEncoder;
 use Maatify\Slug\Lifecycle\DTO\AdoptionResultDTO;
 use Maatify\Slug\Lifecycle\DTO\AtomicTransferResultDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionResultDTO;
 use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
-use Maatify\Slug\Registry\Enum\BindingStatusEnum;
+use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
-use Maatify\Slug\Exception\SlugPersistenceInvariantException;
+use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 use PHPUnit\Framework\TestCase;
 
 final class ResultSnapshotTest extends TestCase

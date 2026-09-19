@@ -17,7 +17,7 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 1. **Bug Fixes:** Please provide a reproducible test case.
 2. **Feature Changes:** Architectural changes and large additions should be discussed before implementation to ensure alignment with the package's design blueprint.
 3. **Documentation:** Typo fixes and conceptual clarifications are welcome.
-4. **Security Vulnerabilities:** Do not use GitHub Issues or PRs. Refer to [SECURITY.md](SECURITY.md) to report security flaws privately via `support@maatify.com`.
+4. **Security Vulnerabilities:** Do not use GitHub Issues or PRs. Refer to [SECURITY.md](SECURITY.md) to report security flaws privately via `support@maatify.dev`.
 
 ## PR and Architecture Expectations
 
@@ -29,16 +29,15 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 
 - **PHP:** `^8.4`
 - **Extensions:** `intl`, `mbstring`, `pdo`, `pdo_mysql`
-- **Database:** A MySQL database. The CI verification target is `8.0.36`, but the package uses standard MySQL-compatible semantics.
+- **Docker Engine:** Required for Integration, System, complete-suite, Consumer Harness, and examples-smoke gates.
+- **Docker Compose v2:** Required for the repository-owned Integration lifecycle.
 
-For integration DB gates, the user/CI environment supplies these environment variables:
-- `SLUG_TEST_DB_HOST`
-- `SLUG_TEST_DB_PORT`
-- `SLUG_TEST_DB_NAME`
-- `SLUG_TEST_DB_USER`
-- `SLUG_TEST_DB_PASSWORD`
-
-`tools/ci/run-gate.sh` / `integration-env` then writes the ignored local `.env.test` using these variables.
+The PHP runtime remains on the host or CI runner. The canonical disposable database uses
+`mysql:8.0.36`, binds a dynamic port on loopback, and uses the temporary database
+`maatify_slug_test` with disposable non-production credentials. The orchestration starts the
+isolated Compose service, discovers the port, exports the Integration-scoped process environment,
+runs the requested verification, and tears everything down. Developers must not provide an
+external MySQL service or export `SLUG_TEST_DB_*` variables manually.
 
 ## Running Tests and Quality Gates
 
@@ -55,16 +54,35 @@ Note: In CI, this quality gate is exercised on both PHP 8.4 and PHP 8.5 to ensur
 
 ### 2. Run Test Suites
 
-Run the tests against the latest dependencies:
+Run Unit tests only; Docker is not required:
+```bash
+composer test:unit
+```
+
+Run the focused Integration suite through the canonical Compose lifecycle:
+```bash
+composer test:integration
+```
+
+Run focused System evidence through the same lifecycle:
+```bash
+bash tools/ci/run-gate.sh test-system
+```
+
+Run the complete maintained suite (Unit + Integration + System):
+```bash
+composer test
+```
+
+Resolve latest dependencies and run the complete suite:
 ```bash
 bash tools/ci/run-gate.sh latest-tests
 ```
-Run the tests against the lowest dependencies:
+
+Resolve lowest dependencies and run the complete suite:
 ```bash
 bash tools/ci/run-gate.sh lowest-tests
 ```
-
-**Note:** Test gates require a clean MySQL testing database. As documented above, PHPUnit consumes the ignored `.env.test` file generated dynamically by `integration-env` / composite DB gates based on the `SLUG_TEST_DB_*` environment variables you export.
 
 ### 3. Verification Harness
 
@@ -73,7 +91,21 @@ Verify consumer integration by running the consumer harness from clean external 
 bash tools/ci/run-gate.sh consumer
 ```
 
-### 4. Workflow Linting and Diff Checks
+The Consumer Verification Harness uses the same canonical Compose definition and lifecycle as
+the Integration and System suites.
+
+### 4. Examples smoke verification
+
+Run the stateless example and the persisted example through the canonical Compose lifecycle:
+```bash
+bash tools/ci/run-gate.sh examples-smoke
+```
+
+The persisted example uses the same `compose.integration.yml`, isolated project, dynamic loopback
+port, readiness probe, process environment, diagnostics, and teardown as the other Integration
+boundaries.
+
+### 5. Workflow Linting and Diff Checks
 
 Lint GitHub workflows:
 ```bash

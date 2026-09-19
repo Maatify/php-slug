@@ -21,8 +21,8 @@
 
 المراجع الدائمة المرتبطة بهذا الملف:
 
-- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md): supporting architecture and public-contract contract.
-- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md): execution source، dependency graph، evidence، وgates.
+- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md): supporting/historical architecture and public-contract design artifact، وليس current-state owner.
+- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md): supporting/historical execution plan وevidence map، وليس current runtime owner.
 - [`docs/php-engineering-standards/STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md): Local Resolver Record لمجموعة المعايير المنطبقة.
 
 ## 2. الغرض وحدود الملكية
@@ -76,6 +76,27 @@ $engine = SlugEngineFactory::create(
 ```
 
 هذه أمثلة من الـ Runtime الحالي قابلة للتشغيل؛ حيث لا تنشئ أي Factory اتصالًا مخفيًا أو تقرأ `.env` أو تعمل Service Locator.
+
+### 3.1 Source topology
+
+**Source Topology: Multi Capability**
+
+Capabilities:
+
+- Canonicalization
+- Lifecycle
+
+Dependency:
+
+`Lifecycle → Canonicalization`
+
+Package-wide responsibilities:
+
+- Exception
+- Factory
+- Facade
+
+Consumer وManagement داخل `Lifecycle/`، ولا تُعد Persistence Capability أو architecture root.
 
 ## 4. Runtime وPlatform contract لـRC1
 
@@ -405,7 +426,201 @@ tie-breaker = id ASC
 
 لا توجد local pagination DTOs أو enums أو paginator، ولا يفسر Host هذه العقود عبر generic filters أو Admin UI.
 
-## 11. Exception contract
+### 10.1 Operational Read / Reporting
+
+```text
+Classification: IN SCOPE
+```
+
+الحزمة تملك حالة Slug persisted ذات معنى تشغيلي، وتشمل:
+
+- `Scopes`.
+- `Bindings`.
+- `Registry claims`.
+- `History`.
+- حالات دورة الحياة و`revisions`.
+
+لذلك لا تعيد الحزمة تصنيف Operational Read / Reporting على أنها خارج النطاق، ولا يضطر Host إلى قراءة جداول الحزمة مباشرة لإعادة بناء معاني هذه الحالة. العقد العام المستقر للقراءة التشغيلية هو `SlugManagementQueryInterface`، وهو read-only، وتفصل الحزمة بين `Management API` و`Consumer API` بعقود مستقلة؛ لا يمثل جمعهما في واجهة `SlugEngine` تغييرًا لهذا الفصل.
+
+العقد وsemantics الحالية هي:
+
+```text
+getBinding(BindingCriteria)
+→ exact Binding identity، ويرجع BindingDTO أو null
+
+getCurrent(CurrentSlugCriteria)
+→ current canonical slug read، ويرجع CurrentSlugDTO أو null
+
+listAliases(AliasCriteria)
+→ aliases الخاصة بـBinding واحد مع pagination
+
+getHistory(HistoryCriteria)
+→ History الخاصة بـBinding واحد مع optional HistoryEventTypeEnum وpagination
+
+inspectRegistry(RegistryCriteria)
+→ Registry الخاصة بـScope واحدة مع optional Binding وoptional RegistryRoleEnum وpagination
+
+inspectScope(ScopeCriteria)
+→ قراءة Scope المطابقة لـScopeProfileRequestDTO، وترجع ScopeDTO أو null
+
+searchBindings(BindingSearchCriteria)
+→ Scope مع optional entityType وentityKeyPrefix وBindingStatusEnum وpagination
+
+searchRegistry(RegistrySearchCriteria)
+→ Scope مع optional slugPrefix وRegistryRoleEnum وBindingStatusEnum وpagination
+```
+
+هذه Management API لا تعدل الحالة ولا تمثل مسار mutation بديلًا. تملك الحزمة معاني `Slug` scopes وbindings وclaims وhistory وstatus وrevision، بينما يملك Host العرض والصلاحيات وHTTP وexports ومعنى الكيانات وأسماءها وتجميع البيانات بين الحزم.
+
+لا تملك RC1 حاليًا public reporting contracts لـ:
+
+```text
+generic dashboard
+aggregate/count/grouped metrics
+time-window reporting filters
+CSV/PDF/Excel exports
+Host actor/name resolution
+cross-package reporting
+```
+
+ولا تضيف الحزمة API لهذه الأبعاد لمجرد استيفاء معيار Reporting. كما أن internal operation أو idempotency rows، رغم كونها persisted، ليست public reporting contract.
+
+## 11. Technical Consumer Workflow
+
+المسار التقني المعياري للمستهلك في RC1 هو مسار واحد مترابط:
+
+```text
+Host Input
+→ Public API
+→ Domain Service
+→ Integration Boundary
+→ Observable Result
+```
+
+### 11.1 Host Input and Construction
+
+يوفر Host المدخلات والعقود التالية:
+
+```text
+PDO مطابق للـruntime contract
+SlugProfileRegistryInterface
+ReservedSlugPolicyInterface
+ClockInterface
+
+BindingIdentityDTO
+slug candidate
+expectedRevision
+AuditContextDTO
+```
+
+يمكن تكوين الـbuilt-in Profiles عبر المسار العام المدعوم، ثم إنشاء الـstateful engine عبر Factory:
+
+```php
+$profiles = SlugProfileRegistryFactory::createBuiltIn();
+
+$engine = SlugEngineFactory::create(
+    $pdo,
+    $profiles,
+    $reservedPolicy,
+    $clock,
+);
+```
+
+```text
+SlugEngineFactory::create(
+    PDO,
+    SlugProfileRegistryInterface,
+    ReservedSlugPolicyInterface,
+    ClockInterface
+)
+→ SlugEngine
+```
+
+لا تنشئ الـFactory اتصالًا مخفيًا ولا تقرأ إعدادات Host أو `.env` من تلقاء نفسها.
+
+### 11.2 Public API and Domain Path
+
+يستخدم المستهلك `assignExact` عبر Command واحد:
+
+```php
+$result = $engine->assignExact(
+    new AssignExactCommand(
+        $binding,
+        $slugCandidate,
+        $expectedRevision,
+        $audit,
+    ),
+);
+```
+
+والـdomain path الفعلي هو:
+
+```text
+SlugEngine
+→ PersistedSlugLifecycleService
+→ SlugLifecycleService
+```
+
+لا توجد طبقة Domain Service إضافية مفترضة في هذا المسار. `SlugEngine` يمرر العملية إلى `PersistedSlugLifecycleService`، الذي يمرر `assignExact` إلى `SlugLifecycleService`.
+
+### 11.3 Integration Boundary and Concurrency
+
+يدخل المسار حدود Persistence المملوكة للحزمة عبر:
+
+```text
+Scope
+Binding / Registry
+History
+Operation / Result Snapshot
+Transaction coordination
+```
+
+تتولى هذه الحدود repositories وmappers الخاصة بالحزمة، ولا يتعامل Host مع جداولها أو يعيد تنفيذ invariants الخاصة بها. الـunique Registry constraint هي السلطة النهائية في race الخاصة بـexact claim؛ وتتحول النتيجة إلى semantic duplicate وفق عقد lifecycle، دون automatic retry.
+
+عقد transaction والمشاركة هو:
+
+```text
+No outer transaction
+→ package owns begin/commit/rollback
+
+Outer transaction exists
+→ package participates without committing/rolling back caller transaction
+→ savepoint is used when required/supported
+
+Concurrent exact claim race
+→ unique Registry constraint is authoritative
+→ semantic duplicate handling follows lifecycle contract
+```
+
+إذا لم تدعم البيئة capability المطلوبة للمشاركة، يفشل المسار قبل mutation بـ`SlugTransactionParticipationException`. لا يغير هذا العقد ownership الخاص بـHost للـouter transaction.
+
+### 11.4 Observable Result
+
+يعيد `assignExact` الناتج العام:
+
+```text
+SlugMutationResultDTO
+```
+
+ويعرض للمستهلك، حسب العملية، الحقول التالية:
+
+```text
+operationType
+operationKey
+replayed
+before
+after
+affectedClaims
+previousSlug
+currentSlug
+changeType
+revision
+historyEvents
+```
+
+تشرح [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) هذا المسار نفسه للمستهلك، لكنها لا تنشئ technical contract منافسة؛ Package Reference هو مصدر العقد التقني المعياري.
+
+## 12. Exception contract
 
 الـmarker العام هو `SlugExceptionInterface` و`SlugDomainExceptionInterface`. الـfamilies العامة هي:
 
@@ -436,20 +651,22 @@ SlugUnsupportedDriverException, SlugPersistenceInvariantException
 
 تستخدم الحزمة hierarchy المنشورة من `maatify/exceptions ^1.0`. لا تُحوّل كل SQLSTATE `23xxx` إلى conflict؛ التحويل الخاص بالـduplicate محصور في MySQL `1062` مع constraint context. transaction catch يعيد الـThrowable الأصلي بعد rollback.
 
-## 12. Evidence وRelease state
+## 13. Evidence وRelease state
 
-يحدد الـPlan evidence الذي تم تحقيقه بنجاح عبر CI، بما فيه:
+توجد أدلة نجاح تاريخية محددة في GitHub Actions run #9 على SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b`، وتشمل لذلك الـSHA فقط:
 
 - Composer validation وplatform checks وproduction autoload.
 - PHPStan `level: max` وPHPUnit والـstyle/whitespace gates.
 - Unit وIntegration وSystem/Concurrency/Transaction evidence مع بيئة MySQL الحقيقية.
 - Consumer Verification Harness من Composer root مستقل مرتين من clean states.
 
-**ملاحظة:** المراجعة النهائية (Fresh Full Acceptance Review, مراجعة accumulated diff, و Full Applicable Integration Gate) تبقى معلقة ولن تكتمل حتى يتم قبول هذا الفرع تنفيذيًا. نجاح أدلة الـ CI المذكورة أعلاه يثبت اجتياز بوابات الجودة الحالية، ولا يعتبر وعدًا بالدعم (public support promise) أو إثباتاً لـ production deployment قبل النشر النهائي (Release أو Packagist publication).
+هذه الأدلة التاريخية لا تؤهل current remediation HEAD ولا تثبت نجاح أي HEAD لاحقة. بعد إغلاق `AF-001 → AF-015` ما زال `VG-001` و`Fresh Full Acceptance Review` مطلوبين قبل أي release-readiness claim أو integration acceptance.
 
-## 13. Supporting documents
+## 14. Supporting documents
 
-- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md) — التفاصيل المعمارية والعقود التنفيذية المقفلة.
-- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md) — Work Units وdependency graph وverification gates.
+- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md) — supporting/historical تفاصيل معمارية وعقود تصميم مقفلة؛ ليست current-state owner.
+- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md) — supporting/historical Work Units وdependency graph وverification gates؛ ليست current runtime owner.
+- [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) — طريقة الاستخدام والتكامل للمستهلك.
+- [`examples/`](examples/) — أمثلة المستهلك القابلة للتشغيل.
 - [`CHANGELOG.md`](CHANGELOG.md) — تاريخ التغييرات التوثيقية وحالة النشر.
 - [`SECURITY.md`](SECURITY.md) — حالة الدعم ومسار البلاغات الأمنية.

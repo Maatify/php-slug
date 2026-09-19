@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Allocation;
 
 use Maatify\Slug\Lifecycle\Contract\ReservedSlugPolicyInterface;
-use Maatify\Slug\Text\Value\Slug;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
 final class TestReservedSlugPolicy implements ReservedSlugPolicyInterface
 {

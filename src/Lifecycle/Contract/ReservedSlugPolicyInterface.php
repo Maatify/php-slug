@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Lifecycle\Contract;
 
-use Maatify\Slug\Text\Value\Slug;
-use Maatify\Slug\Scope\Value\SlugScope;
+use Maatify\Slug\Canonicalization\ValueObject\Slug;
+use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
 interface ReservedSlugPolicyInterface
 {
