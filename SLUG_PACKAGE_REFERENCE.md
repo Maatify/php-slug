@@ -1,70 +1,70 @@
 # Maatify Slug — Package Reference
 
-> **Canonical root Package Reference** للحزمة `maatify/php-slug`.
+> **Canonical root Package Reference** for `maatify/php-slug`.
 >
-> **الحالة الحالية:** تم الانتهاء من تنفيذ RC1. هذا الملف يسجل العقد المنفذ فعليًا وحدود الحزمة كما هي متوفرة حالياً في الـ Runtime (من الكود المصدري) و Tests و CI. الحزمة غير منشورة بعد على Packagist (لا توجد نسخة Stable أو SemVer RC منشورة للاستخدام العام).
+> **Current status:** RC1 implementation is complete. This file records the implemented contract and package boundaries available in the Runtime, source schema, tests, and CI configuration. The package is not published on Packagist; no Stable release or SemVer Release Candidate is publicly available.
 
-## 1. هوية الحزمة وحالتها
+## 1. Package Identity and Status
 
-| الحقل | القيمة الحالية |
+| Field | Current value |
 |---|---|
 | Composer package name | `maatify/php-slug` |
 | Repository | `Maatify/php-slug` |
 | Namespace | `Maatify\\Slug\\` |
-| Artifact | standalone reusable PHP/Composer library |
+| Artifact | Standalone reusable PHP/Composer library |
 | Host model | Host-agnostic |
 | Current workflow state | Implemented (Unpublished) |
-| Published Stable line | لا توجد |
-| Published SemVer RC | لا توجد |
+| Published Stable line | None |
+| Published SemVer RC | None |
 
-هذا المستودع يحتوي على التنفيذ الفعلي (الـ Runtime، Tests، Schema، CI)، ولكن لا يتوفر أمر تثبيت عبر `composer require` متاح للعموم قبل النشر الرسمي.
+This repository contains the implementation (Runtime, Tests, Schema, and CI), but no public `composer require` installation command is available before official publication.
 
-المراجع الدائمة المرتبطة بهذا الملف:
+The durable references associated with this document are:
 
-- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md): supporting/historical architecture and public-contract design artifact، وليس current-state owner.
-- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md): supporting/historical execution plan وevidence map، وليس current runtime owner.
-- [`docs/php-engineering-standards/STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md): Local Resolver Record لمجموعة المعايير المنطبقة.
+- [`docs/php-engineering-standards/STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) — the Local Resolver Record for the applicable Standards.
+- [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) — consumer usage and integration guidance.
+- [`examples/`](examples/) — runnable consumer examples.
 
-## 2. الغرض وحدود الملكية
+## 2. Purpose and Ownership Boundaries
 
-RC1 هو **Authoritative Slug Lifecycle Engine** مستقل، وليس helper لتوليد النص فقط. تملك الحزمة generation وcanonicalization وscoped ownership وallocation وlifecycle وaliases وhistory وresolution وadoption وpackage-owned persistence، مع عقود concurrency وtransactions وresults وexceptions محددة.
+RC1 is an **Authoritative Slug Lifecycle Engine**, not only a text-generation helper. The package owns generation, canonicalization, scoped ownership, allocation, lifecycle, aliases, history, resolution, adoption, and package-owned persistence, with defined concurrency, transaction, result, and exception contracts.
 
-تملك الحزمة:
+The package owns:
 
-- Slug generation وcanonicalization وlookup semantics.
-- versioned Profiles وسياسة reserved-slug الممررة من Host.
-- `SlugScope` و`EntityReference` كهوية domain مستقرة.
-- current ownership وhistorical canonical ownership وactive/retired aliases.
-- exact claiming وbounded generated allocation وavailability advisory.
-- lifecycle transitions وrelease وpurge وscope transition وatomic transfer.
-- immutable normal-lifecycle History وadoption وmanagement queries.
-- Persistence المملوكة للحزمة عند استخدام المسار persisted.
+- slug generation, canonicalization, and lookup semantics;
+- versioned profiles and the reserved-slug policy supplied by the Host;
+- `SlugScope` and `EntityReference` as stable domain identity;
+- current ownership, historical canonical ownership, and active or retired aliases;
+- exact claiming, bounded generated allocation, and advisory availability;
+- lifecycle transitions, release, purge, scope transition, and atomic transfer;
+- immutable normal-lifecycle history, adoption, and management queries; and
+- package-owned persistence when the persisted path is used.
 
-يملك Host:
+The Host owns:
 
-- الاتصال والإعداد وbootstrap وتهيئة `PDO` ووجود كيان Host وحياته.
-- هوية `EntityReference` وقواعد التحقق من وجود الكيان.
-- vocabulary وpatterns الخاصة بـreserved slugs.
-- routing وfull path/URL construction وpercent encoding/decoding.
-- HTTP controllers وmiddleware وstatus policy وredirects.
-- SEO records وcanonical tags وhreflang وأي integration بين Slug وSEO.
-- authentication وauthorization وAdmin UI وapplication bootstrap.
+- connection setup, bootstrap, `PDO` configuration, and Host entity existence and lifecycle;
+- `EntityReference` identity and validation of entity existence;
+- reserved-slug vocabulary and patterns;
+- routing, full path and URL construction, and percent encoding or decoding;
+- HTTP controllers, middleware, status policy, and redirects;
+- SEO records, canonical tags, hreflang, and any Slug-to-SEO integration; and
+- authentication, authorization, Admin UI, and application bootstrap.
 
-لا توجد Host foreign keys أو Host table joins أو Host repository dependencies، ولا تعتمد الحزمة على Framework أو ORM أو `maatify/php-seo`.
+The package has no Host foreign keys, Host table joins, or Host repository dependencies, and does not depend on a framework, ORM, or `maatify/php-seo`.
 
-## 3. الحالة المدعومة والتثبيت
+## 3. Supported State and Installation
 
-الحزمة متوفرة ككود مصدري (Runtime كامل، و`composer.json` موجود)، ولكنها **غير منشورة بعد**. الوصول المدعوم الآن هو استنساخ المستودع وقراءة هذا المرجع؛ لا تُستخدم `composer require maatify/php-slug` من مصادر عامة حتى النشر الرسمي.
+The package is available as source code with a complete Runtime and `composer.json`, but it is **not published**. The currently supported access path is cloning the repository and reading this reference. Do not use `composer require maatify/php-slug` from public sources before official publication.
 
-الـ Runtime يوفر أمثلة فعلية منفذة. مسار الإنشاء العام المفصول عن Persistence المنفذ حاليًا هو:
+The Runtime provides implemented examples. The current stateless construction path is:
 
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
-$profiles->register($customProfile); // اختياري قبل إنشاء الخدمات
+$profiles->register($customProfile); // optional before creating services
 $text = SlugTextServiceFactory::create($profiles);
 ```
 
-ومسار Persistence في العقد هو:
+The persisted construction path is:
 
 ```php
 $engine = SlugEngineFactory::create(
@@ -75,9 +75,9 @@ $engine = SlugEngineFactory::create(
 );
 ```
 
-هذه أمثلة من الـ Runtime الحالي قابلة للتشغيل؛ حيث لا تنشئ أي Factory اتصالًا مخفيًا أو تقرأ `.env` أو تعمل Service Locator.
+These are supported Runtime paths. No Factory creates a hidden connection, reads `.env`, or acts as a Service Locator.
 
-### 3.1 Source topology
+### 3.1 Source Topology
 
 **Source Topology: Multi Capability**
 
@@ -96,69 +96,69 @@ Package-wide responsibilities:
 - Factory
 - Facade
 
-Consumer وManagement داخل `Lifecycle/`، ولا تُعد Persistence Capability أو architecture root.
+Consumer and Management use cases remain inside `Lifecycle`; Persistence is not a separate Capability or architecture root.
 
-## 4. Runtime وPlatform contract لـRC1
+## 4. Runtime and Platform Contract for RC1
 
-تم استيفاء المتطلبات التالية وتتوفر بشكل فعلي في المستودع الحالي:
+The following requirements are implemented in the repository:
 
-| المتطلب | القيمة |
+| Requirement | Value |
 |---|---|
-| PHP | `^8.4`؛ المصفوفة الحالية المقصودة PHP 8.4 و8.5 دون PHP ceiling |
+| PHP | `^8.4`; the intended matrix is PHP 8.4 and 8.5 without a PHP ceiling |
 | Extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
-| ICU | major `74` وUnicode data `15.1` للـbuilt-in Profiles |
-| Database adapter | PDO MySQL (يدعم MySQL-compatible semantics) |
-| MySQL | Server `8.0.36` كـ CI reproducibility target |
+| ICU | Major `74` and Unicode data `15.1` for the built-in profiles |
+| Database adapter | PDO MySQL with MySQL-compatible semantics |
+| MySQL | Server `8.0.36` as the CI reproducibility target |
 | Runtime packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
-| Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` (متوفرة في `require-dev`) |
+| Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` in `require-dev` |
 
-يجب أن يستخدم التنفيذ `ext-intl` في NFC وICU lowercase/transliteration، وأن يقتصر `ext-mbstring` على code-point length. اختلاف ICU أو Unicode tuple يفشل مغلقًا بـ`SlugRuntimeCompatibilityException` قبل أي mutation؛ لا يثبت PHP `^8.4` دعم أي ICU tuple آخر.
+The implementation uses `ext-intl` for NFC and ICU lowercasing or transliteration and uses `ext-mbstring` only for code-point length. An ICU or Unicode tuple mismatch fails closed with `SlugRuntimeCompatibilityException` before any mutation; PHP `^8.4` alone does not prove support for another ICU tuple.
 
-## 5. الهوية والنص
+## 5. Identity and Text
 
-### 5.1 `Slug` و`Profile`
+### 5.1 `Slug` and `Profile`
 
-`Slug` هو decoded canonical URL path-segment token، وليس full path أو URL أو percent-encoded text. لا يملك public constructor؛ مسار الإنشاء الوحيد هو:
+`Slug` is a decoded canonical URL path-segment token, not a full path, URL, or percent-encoded text. It has no public constructor; the only construction path is:
 
 ```php
 Slug::fromProfile(SlugProfileInterface $profile, string $canonicalValue): Slug
 ```
 
-ويستدعي `assertCanonicalSlug()` دون تحويل. لا توجد `fromRaw` أو `fromTrusted` أو hydration bypass.
+This invokes `assertCanonicalSlug()` without conversion. There are no `fromRaw`, `fromTrusted`, or hydration bypass paths.
 
-المفاتيح المضمنة هي `unicode-v1` و`ascii-v1` فقط. Custom Profiles تستخدم key versioned يطابق:
+The built-in keys are only `unicode-v1` and `ascii-v1`. Custom profiles use a versioned key matching:
 
 ```text
 ^(?=.{1,63}$)[a-z][a-z0-9-]*-v[1-9][0-9]*$
 ```
 
-لا يجوز استبدال built-in key أو التسجيل المكرر؛ يُرفض بـ`SlugProfileAlreadyRegisteredException`.
+A built-in key cannot be replaced and duplicate registration is rejected with `SlugProfileAlreadyRegisteredException`.
 
-### 5.2 العمليات الثلاث
+### 5.2 The Three Operations
 
-| العملية | المعنى | القاعدة الأساسية |
+| Operation | Meaning | Core rule |
 |---|---|---|
-| `generateFromSource` | source بشري | يسمح بالتحويلات lossy التي يعلنها Profile |
-| `canonicalizeClaim` | exact candidate | NFC/lowercase والـequivalences المعلنة فقط؛ لا source cleanup |
-| `canonicalizeLookup` | decoded URL segment | canonicalization الأضيق؛ لا generation-only transforms |
+| `generateFromSource` | Human source text | Allows the lossy transformations declared by the Profile |
+| `canonicalizeClaim` | Exact candidate | Applies only NFC, lowercase, and declared equivalences; no source cleanup |
+| `canonicalizeLookup` | Decoded URL segment | Uses the narrowest canonicalization; no generation-only transformations |
 
-كل canonicalization idempotent على نطاقها. `hello!!!` في lookup يرفض ولا يتحول إلى `hello`.
+Each canonicalization operation is idempotent within its scope. `hello!!!` is rejected during lookup and is not converted to `hello`.
 
-### 5.3 Profiles والأمن والطول
+### 5.3 Profiles, Safety, and Length
 
-`unicode-v1` يستخدم NFC وICU `Any-Lower` ويحافظ على Arabic، ويسمح canonical code points من `L/M/Nd` وASCII hyphen. `ascii-v1` يستخدم NFC ثم ICU `Any-Latin; Latin-ASCII` وASCII lowercase. مثالان مقفلان: `آيفون ١٧ برو` → `آيفون-١٧-برو` و`Über Café` → `uber-cafe`.
+`unicode-v1` uses NFC and ICU `Any-Lower`, preserves Arabic, and permits canonical code points from `L/M/Nd` plus the ASCII hyphen. `ascii-v1` uses NFC followed by ICU `Any-Latin; Latin-ASCII` and ASCII lowercase. Locked examples are the Unicode-escaped Arabic input `\\u{0622}\\u{064a}\\u{0641}\\u{0648}\\u{0646}\\u{0020}\\u{0661}\\u{0667}\\u{0020}\\u{0628}\\u{0631}\\u{0648}` → the corresponding hyphenated Arabic output, and `Über Café` → `uber-cafe`.
 
-قبل أي lossy transform تُرفض invalid UTF-8 وNUL و`Cc` و`Cs` و`Cf` و`/` و`\\` والنتيجة الفارغة. mixed scripts مسموحة في `unicode-v1` ما دامت بقية القواعد مستوفاة.
+Before any lossy transformation, invalid UTF-8, NUL, `Cc`, `Cs`, `Cf`, `/`, `\\`, and an empty result are rejected. Mixed scripts are allowed in `unicode-v1` when the remaining rules are satisfied.
 
-الحد الأقصى هو 160 Unicode code points بعد canonicalization. exact claim/lookup الأطول يرفض؛ generated allocation تستخدم base ثم `-2` إلى `-1000` فقط، وتحسب طول اللاحقة قبل code-point truncation، ثم تزيل trailing hyphen وتعيد `SlugAllocationExhaustedException` عند الاستنفاد.
+The maximum is 160 Unicode code points after canonicalization. An exact claim or lookup exceeding the limit is rejected. Generated allocation uses the base and then only `-2` through `-1000`; it accounts for the suffix before code-point truncation, removes a trailing hyphen, and raises `SlugAllocationExhaustedException` when exhausted.
 
-`namespace` يطابق `^[a-z][a-z0-9-]{0,62}$`. `localeKey` و`contextKey` و`entityType` و`entityKey` opaque، valid UTF-8، exact دون trim أو normalization أو case folding؛ `null` في locale/context يعني exact empty dimension فقط، وليس wildcard أو fallback. `profileKey` إعداد immutable للـScope وليس بُعد uniqueness.
+`namespace` matches `^[a-z][a-z0-9-]{0,62}$`. `localeKey`, `contextKey`, `entityType`, and `entityKey` are opaque, valid UTF-8, and exact, without trimming, normalization, or case folding. A `null` locale or context is the exact empty dimension only; it is not a wildcard or fallback. `profileKey` is immutable Scope configuration and is not a uniqueness dimension.
 
-## 6. Public API inventory
+## 6. Public API Inventory
 
-كل الأنواع العامة تحت `Maatify\\Slug\\`. كل interface تنتهي بـ`Interface`، وكل enum بـ`Enum`، وكل DTO وCommand وCriteria `final readonly`، وكل DTO يطبق `JsonSerializable`. لا تُكشف repositories أو SQL builders أو lock coordinators كـpublic API.
+All public types are under `Maatify\\Slug\\`. Every interface ends with `Interface`, every enum with `Enum`, every DTO, Command, and Criteria is `final readonly`, and every DTO implements `JsonSerializable`. Repositories, SQL builders, and lock coordinators are not Public API.
 
-### 6.1 Interfaces والعمليات
+### 6.1 Interfaces and Operations
 
 ```text
 SlugTextServiceInterface
@@ -221,11 +221,11 @@ SlugManagementQueryInterface
   searchRegistry(RegistrySearchCriteria): PageResult<RegistryClaimDTO>
 ```
 
-`SlugProfileRegistryFactory::createBuiltIn()` و`SlugTextServiceFactory::create(SlugProfileRegistryInterface)` مساران stateless. `SlugEngineFactory::create(PDO, SlugProfileRegistryInterface, ReservedSlugPolicyInterface, ClockInterface)` يعيد `SlugEngine` النهائي للمسار persisted؛ لا يضيف `SlugEngine` contract أخرى.
+`SlugProfileRegistryFactory::createBuiltIn()` and `SlugTextServiceFactory::create(SlugProfileRegistryInterface)` are stateless paths. `SlugEngineFactory::create(PDO, SlugProfileRegistryInterface, ReservedSlugPolicyInterface, ClockInterface)` returns the final `SlugEngine` for the persisted path; it does not add another `SlugEngine` contract.
 
-### 6.2 Commands وCriteria
+### 6.2 Commands and Criteria
 
-كل mutation method تستقبل Command واحدًا، ولا تستقبل raw parameter list. الفهرس الكامل للـCommands هو:
+Every mutation method accepts one Command rather than a raw parameter list. The complete Command index is:
 
 ```text
 AssignExactCommand, AssignGeneratedCommand,
@@ -239,9 +239,9 @@ AdoptCurrentCommand, AdoptHistoricalCommand, AdoptAliasCommand,
 PurgeBindingCommand
 ```
 
-كلها تستخدم `BindingIdentityDTO` أو `ScopeProfileRequestDTO` والعقود التالية عند انطباقها: `AuditContextDTO`، `expectedRevision`، `ScopeTransitionClaimIntentDTO`، `TransferReplacementIntentDTO`، و`originalOccurredAt`. `expectedRevision = null` يثبت غياب Binding فقط؛ كل Binding موجود، بما فيه `RELEASED`، يتطلب revision الحالية.
+Commands use `BindingIdentityDTO` or `ScopeProfileRequestDTO` and, where applicable, `AuditContextDTO`, `expectedRevision`, `ScopeTransitionClaimIntentDTO`, `TransferReplacementIntentDTO`, and `originalOccurredAt`. `expectedRevision = null` asserts that the Binding is absent; every existing Binding, including `RELEASED`, requires its current revision.
 
-والـconstructors العامة المقفلة هي:
+The locked public constructors are:
 
 ```text
 AssignExactCommand(BindingIdentityDTO, string slugCandidate, ?int expectedRevision, AuditContextDTO)
@@ -265,9 +265,9 @@ AdoptAliasCommand(BindingIdentityDTO, string slugCandidate, ?DateTimeImmutable o
 PurgeBindingCommand(BindingIdentityDTO, int expectedRevision)
 ```
 
-كل Command `final readonly` ويتحقق من input contract فقط؛ لا ينفذ orchestration أو Persistence. `PurgeBindingCommand` وحده لا يحمل `AuditContextDTO` أو idempotency contract.
+Every Command is `final readonly` and validates only its input contract; it does not perform orchestration or persistence. `PurgeBindingCommand` alone has no `AuditContextDTO` or idempotency contract.
 
-الفهرس الكامل للـCriteria هو:
+The complete Criteria index is:
 
 ```text
 AvailabilityCriteria, ResolutionCriteria, BindingCriteria,
@@ -275,9 +275,9 @@ CurrentSlugCriteria, AliasCriteria, HistoryCriteria, RegistryCriteria,
 ScopeCriteria, BindingSearchCriteria, RegistrySearchCriteria
 ```
 
-تستخدم الـCriteria النوع المنشور `Maatify\\Persistence\\Pdo\\Pagination\\PageRequest` باعتباره المدخل الوحيد للـpagination وsort حيث يلزم. لا توجد `PageRequest` أو `PageResult` أو `SortDirectionEnum` محلية ولا `*PageDTO`.
+Criteria use the published `Maatify\\Persistence\\Pdo\\Pagination\\PageRequest` as the only pagination and sorting input where required. There are no local `PageRequest`, `PageResult`, `SortDirectionEnum`, or `*PageDTO` types.
 
-constructors الـCriteria المقفلة هي:
+The locked Criteria constructors are:
 
 ```text
 AvailabilityCriteria(ScopeProfileRequestDTO, string candidate, ?BindingIdentityDTO requestingBinding = null)
@@ -292,11 +292,11 @@ BindingSearchCriteria(ScopeProfileRequestDTO, PageRequest pageRequest, ?string e
 RegistrySearchCriteria(ScopeProfileRequestDTO, PageRequest pageRequest, ?string slugPrefix = null, ?RegistryRoleEnum role = null, ?BindingStatusEnum bindingStatus = null)
 ```
 
-قواعد الـCriteria هي query validation فقط؛ لا تعيد تعريف result DTO أو pagination mechanics.
+Criteria provide query validation only; they do not redefine result DTOs or pagination mechanics.
 
-### 6.3 DTOs وEnums
+### 6.3 DTOs and Enums
 
-DTOs العامة هي:
+The public DTOs are:
 
 ```text
 GeneratedSlugDTO, CanonicalSlugDTO, LookupCanonicalizationDTO,
@@ -309,7 +309,7 @@ BindingStateResultDTO, ScopeTransitionResultDTO,
 AtomicTransferResultDTO, AdoptionResultDTO
 ```
 
-Enums وقيمها المقفلة:
+Locked enum values are:
 
 ```text
 BindingStatusEnum: ACTIVE, INACTIVE, RELEASED
@@ -324,9 +324,9 @@ OperationTypeEnum: ASSIGN_EXACT, ASSIGN_GENERATED, CHANGE_EXACT, CHANGE_GENERATE
 HistoryEventTypeEnum: ASSIGNED, CHANGED, RESTORED, ALIAS_ADDED, ALIAS_RETIRED, ALIAS_REACTIVATED, ALIAS_PROMOTED, DEACTIVATED, REACTIVATED, SCOPE_TRANSITIONED_OUT, SCOPE_TRANSITIONED_IN, OWNERSHIP_RELEASED, OWNERSHIP_RELEASED_ALL, OWNERSHIP_TRANSFERRED_OUT, OWNERSHIP_TRANSFERRED_IN, ADOPTED_CURRENT, ADOPTED_HISTORICAL, ADOPTED_ALIAS
 ```
 
-الـDTOs الناتجة تحمل قبل/بعد وrevision وclaims وHistory وفق العملية. `SlugResolutionDTO` يميز match kind عن binding status وinput canonicality. `SlugAvailabilityDTO` advisory دائمًا ولا يتحول إلى ضمان claim.
+Result DTOs carry before and after state, revisions, claims, and history according to the operation. `SlugResolutionDTO` distinguishes match kind from Binding status and input canonicality. `SlugAvailabilityDTO` is always advisory and never becomes a claim guarantee.
 
-الحقول العامة المقفلة للـDTOs هي:
+The locked public DTO fields are:
 
 ```text
 GeneratedSlugDTO: SlugProfileKey $profileKey, string $source, Slug $slug
@@ -347,75 +347,75 @@ AtomicTransferResultDTO: OperationTypeEnum $operationType, ?string $operationKey
 AdoptionResultDTO: OperationTypeEnum $operationType, ?string $operationKey, bool $replayed, ?BindingDTO $before, BindingDTO $after, RegistryClaimDTO $adoptedClaim, HistoryEventDTO $historyEvent
 ```
 
-`ScopeProfileRequestDTO` يحمل `SlugScope $scope` و`SlugProfileKey $expectedProfileKey`، و`BindingIdentityDTO` يحمل `ScopeProfileRequestDTO $scopeProfile` و`EntityReference $entity`. تحمل intent DTOs `ClaimIntentModeEnum $mode` و`string $value`. يحمل `AuditContextDTO` الحقول الاختيارية `?string $actorKey`, `?string $reason`, `?string $correlationKey`, و`?string $idempotencyKey`. `HistoryEventDTO` وحقول role snapshots الخاصة به تتبع applicability المحددة في الـBlueprint §12.4 و§35.4.
+`ScopeProfileRequestDTO` carries `SlugScope $scope` and `SlugProfileKey $expectedProfileKey`; `BindingIdentityDTO` carries `ScopeProfileRequestDTO $scopeProfile` and `EntityReference $entity`. Intent DTOs carry `ClaimIntentModeEnum $mode` and `string $value`. `AuditContextDTO` has optional `?string $actorKey`, `?string $reason`, `?string $correlationKey`, and `?string $idempotencyKey`. `HistoryEventDTO` and its role-snapshot fields follow the applicability defined by the current lifecycle implementation.
 
-## 7. Ownership وLifecycle
+## 7. Ownership and Lifecycle
 
-الهوية الحية للـclaim هي `(Scope, canonical Slug)`. `EntityReference` هو `(entityType, entityKey)` كما يقدمه Host؛ الحزمة لا تتحقق من وجود الكيان ولا تعيد تفسير هويته.
+The live claim identity is `(Scope, canonical Slug)`. `EntityReference` is `(entityType, entityKey)` supplied by the Host; the package does not validate entity existence or reinterpret that identity.
 
-### 7.1 Registry وBinding
+### 7.1 Registry and Binding
 
-| المفهوم | العقد |
+| Concept | Contract |
 |---|---|
-| Scope identity | `namespace + localeKey + contextKey`; `profileKey` ليس جزءًا من uniqueness |
+| Scope identity | `namespace + localeKey + contextKey`; `profileKey` is not part of uniqueness |
 | Binding states | `ACTIVE`, `INACTIVE`, `RELEASED` |
 | Live roles | `CURRENT_CANONICAL`, `HISTORICAL_CANONICAL`, `ACTIVE_ALIAS`, `RETIRED_ALIAS` |
-| ACTIVE/INACTIVE | يجب أن يملكا current pointer وRegistry claim صالحًا |
-| RELEASED | بلا Registry claims وبلا current pointer |
-| History | immutable normal-lifecycle snapshots؛ لا يعتمد على بقاء Registry |
+| ACTIVE/INACTIVE | Must have a current pointer and a valid Registry claim |
+| RELEASED | Has no Registry claims and no current pointer |
+| History | Immutable normal-lifecycle snapshots; does not depend on Registry retention |
 
-التغيير العادي يحفظ الـprevious canonical كـhistorical ولا يحرر ownership. retired aliases تبقى محجوزة. `releaseClaim` يحرر non-current claim فقط، و`releaseAllOwnership` يمسح كل claims ويضع Binding في `RELEASED`. `purgeBinding` destructive ومسموح لـ`RELEASED` بلا claims فقط؛ بعد نجاحه ينتهي ضمان replay الخاص بذلك Binding.
+An ordinary change preserves the previous canonical as historical and does not release ownership. Retired aliases remain reserved. `releaseClaim` releases only a non-current claim, and `releaseAllOwnership` clears all claims and places the Binding in `RELEASED`. `purgeBinding` is destructive and is allowed only for `RELEASED` Bindings with no claims; after success, replay guarantees for that Binding end.
 
-### 7.2 العمليات المركبة
+### 7.2 Composite Operations
 
-- `transitionScope` ينشئ target Binding جديدًا بعد target-profile canonicalization. `MOVE` يجعل source `INACTIVE`، و`PARALLEL` يبقي source دون mutation؛ لا يعيد كتابة `scope_id`.
-- `atomicTransfer` same Scope فقط، إلى target Binding موجودة قبل العملية. ينقل claim في transaction واحدة؛ current يتطلب replacement مختلفًا، وتحفظ role الأصلية حرفيًا في الهدف. لا يدعم RC1 cross-scope transfer.
-- `adoptCurrent` يسمح بـabsent أو `RELEASED` وفق `expectedRevision`، بينما `adoptHistorical` و`adoptAlias` يتطلبان Binding `ACTIVE/INACTIVE` مع current قائم.
-- `originalOccurredAt` في adoption هو `DateTimeImmutable` بأي timezone، يحول إلى UTC ويحفظ microseconds الست، ويرفض فقط خارج مدى MySQL `DATETIME(6)`؛ لا توجد مقارنة future/past مع Clock.
+- `transitionScope` creates a new target Binding after target-profile canonicalization. `MOVE` makes the source `INACTIVE`, while `PARALLEL` leaves the source unchanged; it does not rewrite `scope_id`.
+- `atomicTransfer` is same-Scope only and requires a target Binding that exists before the operation. It moves a claim in one transaction; transferring a current claim requires a different replacement, and the target preserves the original role exactly. RC1 does not support cross-scope transfer.
+- `adoptCurrent` permits an absent or `RELEASED` Binding according to `expectedRevision`, while `adoptHistorical` and `adoptAlias` require an `ACTIVE` or `INACTIVE` Binding with a current claim.
+- `originalOccurredAt` in adoption is a `DateTimeImmutable` in any timezone, converted to UTC with six microseconds preserved. It is rejected only outside the MySQL `DATETIME(6)` range; it is not compared with the Clock for future or past validation.
 
-## 8. Replay وResult Snapshot
+## 8. Replay and Result Snapshot
 
-idempotency اختياري. عند غياب key تكون mutation طبيعية بلا operation أو participant evidence، و`operationKey = null` و`replayed = false`. عند وجود key تُحفظ operation evidence وrequest fingerprint SHA-256 وResult Snapshot immutable.
+Idempotency is optional. Without a key, a mutation has no operation or participant evidence, `operationKey = null`, and `replayed = false`. With a key, operation evidence, a request fingerprint SHA-256, and an immutable Result Snapshot are stored.
 
-Result Snapshot JSON v1 له أربعة discriminators فقط:
+Result Snapshot JSON v1 has only four discriminators:
 
-| `result_type` | aggregate |
+| `result_type` | Aggregate |
 |---|---|
-| `mutation` | `SlugMutationResultDTO` للعمليات الأحادية فقط |
+| `mutation` | `SlugMutationResultDTO` for single operations only |
 | `transition` | `ScopeTransitionResultDTO` |
 | `transfer` | `AtomicTransferResultDTO` |
 | `adoption` | `AdoptionResultDTO` |
 
-`result_schema_version` هو JSON integer `1`، والشكل العلوي وترتيب مفاتيحه `result_type`, ثم `result_schema_version`, ثم `result`. الـsnapshot compact UTF-8، immutable، وليس dump للحالة الحية. replay يقرأ snapshot الملتزم ويعيد DTO نفسه مع `replayed = true` في الذاكرة فقط؛ لا يعيد بناء النتيجة من Registry الحالية ولا ينشئ History أو revision جديدة. أي mismatch في metadata أو schema أو nested shape يرمى `SlugPersistenceInvariantException`.
+`result_schema_version` is JSON integer `1`, and the top-level key order is `result_type`, then `result_schema_version`, then `result`. The snapshot is compact UTF-8 and immutable; it is not a dump of live state. Replay reads the committed snapshot and returns the same DTO with `replayed = true` in memory only. It does not rebuild the result from the current Registry or create new History or revisions. Any metadata, schema, or nested-shape mismatch raises `SlugPersistenceInvariantException`.
 
-في current `atomicTransfer` فقط يجوز أن تحتوي النتيجة nested `sourceReplacementResult`؛ تكون `operationKey` و`replayed` مساويتين للـouter result. لا يسمح top-level `mutation` بـ`ATOMIC_TRANSFER`.
+Only a current `atomicTransfer` result may contain nested `sourceReplacementResult`; its `operationKey` and `replayed` values equal those of the outer result. A top-level `mutation` cannot use `ATOMIC_TRANSFER`.
 
-## 9. Persistence وTransactions وConcurrency
+## 9. Persistence, Transactions, and Concurrency
 
-المسار persisted يستخدم direct PDO داخل package infrastructure فقط:
+The persisted path uses direct PDO inside package infrastructure only:
 
-- `PDO::ATTR_ERRMODE = PDO::ERRMODE_EXCEPTION` و`PDO::ATTR_EMULATE_PREPARES = false`.
-- connection charset `utf8mb4`، وtimestamps من `ClockInterface` إلى UTC `DATETIME(6)`؛ لا تستخدم DB defaults كمصدر سلوكي.
-- لا ORM ولا external query builder، ولا SQLite/MariaDB/PostgreSQL fallback.
-- package-owned transaction عند غياب outer transaction؛ caller-owned transaction لا تعمل الحزمة لها commit أو rollback.
-- nested participation تستخدم savepoint إذا كانت capability مدعومة، وإلا يفشل التنفيذ قبل mutation بـ`SlugTransactionParticipationException`.
-- unique database constraints هي claim authority النهائية. duplicate يتحول semantic فقط عند MySQL `errorInfo[1] === 1062` مع constraint context معروف؛ غير ذلك يعاد كـThrowable infrastructure مع الحفاظ على `previous` عند wrapping.
-- first-create races على Binding وScope تعاد قراءتها تحت lock في المسارات المحددة؛ لا يوجد savepoint خاص بمحاولة `INSERT` ولا automatic deadlock retry.
-- `revision` تحمي same-binding CAS، وmulti-row lifecycle/history mutations atomic. ترتيب locks في transfer/transition جزء من العقد التنفيذي.
+- `PDO::ATTR_ERRMODE = PDO::ERRMODE_EXCEPTION` and `PDO::ATTR_EMULATE_PREPARES = false`.
+- Connection charset is `utf8mb4`; timestamps come from `ClockInterface` as UTC `DATETIME(6)`. Database defaults are not a behavioral source.
+- There is no ORM, external query builder, or SQLite, MariaDB, or PostgreSQL fallback.
+- The package owns a transaction when no outer transaction exists; it never commits or rolls back a caller-owned transaction.
+- Nested participation uses a savepoint when the capability is supported; otherwise execution fails before mutation with `SlugTransactionParticipationException`.
+- Unique database constraints are the final claim authority. A duplicate is converted semantically only for MySQL `errorInfo[1] === 1062` with known constraint context; other infrastructure throwables are rethrown, retaining `previous` when wrapping.
+- First-create races on Binding and Scope are reread under lock in the defined paths. There is no savepoint for an attempted `INSERT` and no automatic deadlock retry.
+- `revision` protects same-Binding CAS, and multi-row lifecycle and History mutations are atomic. Lock ordering in transfer and transition is part of the execution contract.
 
-عند failure أو invariant violation يجب أن تزول mutation الجزئية والـHistory والـoperations غير الملتزمة بالـrollback العام للعملية، ويعاد الـThrowable الأصلي ما لم يوجد semantic conversion موثق.
+On failure or invariant violation, partial mutation, uncommitted History, and uncommitted operations must be removed by the operation rollback. The original throwable is rethrown unless a documented semantic conversion applies.
 
-## 10. Management وResolution وPagination
+## 10. Management, Resolution, and Pagination
 
-`resolve` يقرأ decoded segment ويعيد `SlugResolutionDTO` حتى في `NONE` و`INVALID`. القيم `MatchKindEnum` تميز `CURRENT` و`ALIAS` و`HISTORICAL` و`RETIRED_ALIAS` و`NONE`، ولا تعيد resolution live لـ`RELEASED`. `INACTIVE` يبقى قابلًا للمطابقة؛ قرار 404/410/redirect يملكه Host.
+`resolve` reads a decoded segment and returns `SlugResolutionDTO` even for `NONE` and `INVALID`. `MatchKindEnum` distinguishes `CURRENT`, `ALIAS`, `HISTORICAL`, `RETIRED_ALIAS`, and `NONE`, and does not return live resolution for `RELEASED`. `INACTIVE` remains matchable; the Host owns the 404, 410, or redirect decision.
 
-Management queries تفصل live Registry عن History:
+Management queries separate the live Registry from History:
 
 ```text
 listAliases, getHistory, inspectRegistry, searchBindings, searchRegistry
 ```
 
-كل list/search غير محدود يستخدم `PageResult` من `maatify/persistence ^1.1`. Slug يملك filters وselected columns وcount/data predicate alignment وrow mapping، و`PdoPaginator` يملك mechanics المشتركة. القيم package-specific الحالية:
+Every unbounded list or search uses `PageResult` from `maatify/persistence ^1.1`. Slug owns filters, selected columns, count/data predicate alignment, and row mapping; `PdoPaginator` owns shared mechanics. Current package-specific values are:
 
 ```text
 defaultPerPage = 25
@@ -424,7 +424,7 @@ maxPerPage = 100
 tie-breaker = id ASC
 ```
 
-لا توجد local pagination DTOs أو enums أو paginator، ولا يفسر Host هذه العقود عبر generic filters أو Admin UI.
+There are no local pagination DTOs, enums, or paginator, and the Host does not interpret these contracts through generic filters or an Admin UI.
 
 ### 10.1 Operational Read / Reporting
 
@@ -432,47 +432,47 @@ tie-breaker = id ASC
 Classification: IN SCOPE
 ```
 
-الحزمة تملك حالة Slug persisted ذات معنى تشغيلي، وتشمل:
+The package owns meaningful persisted Slug state, including:
 
-- `Scopes`.
-- `Bindings`.
-- `Registry claims`.
-- `History`.
-- حالات دورة الحياة و`revisions`.
+- `Scopes`;
+- `Bindings`;
+- Registry claims;
+- History; and
+- lifecycle states and `revisions`.
 
-لذلك لا تعيد الحزمة تصنيف Operational Read / Reporting على أنها خارج النطاق، ولا يضطر Host إلى قراءة جداول الحزمة مباشرة لإعادة بناء معاني هذه الحالة. العقد العام المستقر للقراءة التشغيلية هو `SlugManagementQueryInterface`، وهو read-only، وتفصل الحزمة بين `Management API` و`Consumer API` بعقود مستقلة؛ لا يمثل جمعهما في واجهة `SlugEngine` تغييرًا لهذا الفصل.
+Therefore the package does not classify Operational Read / Reporting as out of scope, and the Host does not need to query package tables directly to reconstruct these meanings. The stable public operational-read contract is `SlugManagementQueryInterface`, which is read-only. Management and Consumer APIs have separate contracts; exposing both through `SlugEngine` does not change that separation.
 
-العقد وsemantics الحالية هي:
+The current contracts and semantics are:
 
 ```text
 getBinding(BindingCriteria)
-→ exact Binding identity، ويرجع BindingDTO أو null
+→ exact Binding identity; returns BindingDTO or null
 
 getCurrent(CurrentSlugCriteria)
-→ current canonical slug read، ويرجع CurrentSlugDTO أو null
+→ current canonical slug read; returns CurrentSlugDTO or null
 
 listAliases(AliasCriteria)
-→ aliases الخاصة بـBinding واحد مع pagination
+→ aliases for one Binding with pagination
 
 getHistory(HistoryCriteria)
-→ History الخاصة بـBinding واحد مع optional HistoryEventTypeEnum وpagination
+→ History for one Binding with optional HistoryEventTypeEnum and pagination
 
 inspectRegistry(RegistryCriteria)
-→ Registry الخاصة بـScope واحدة مع optional Binding وoptional RegistryRoleEnum وpagination
+→ Registry for one Scope with optional Binding, optional RegistryRoleEnum, and pagination
 
 inspectScope(ScopeCriteria)
-→ قراءة Scope المطابقة لـScopeProfileRequestDTO، وترجع ScopeDTO أو null
+→ Scope matching ScopeProfileRequestDTO; returns ScopeDTO or null
 
 searchBindings(BindingSearchCriteria)
-→ Scope مع optional entityType وentityKeyPrefix وBindingStatusEnum وpagination
+→ Scope with optional entityType, entityKeyPrefix, BindingStatusEnum, and pagination
 
 searchRegistry(RegistrySearchCriteria)
-→ Scope مع optional slugPrefix وRegistryRoleEnum وBindingStatusEnum وpagination
+→ Scope with optional slugPrefix, RegistryRoleEnum, BindingStatusEnum, and pagination
 ```
 
-هذه Management API لا تعدل الحالة ولا تمثل مسار mutation بديلًا. تملك الحزمة معاني `Slug` scopes وbindings وclaims وhistory وstatus وrevision، بينما يملك Host العرض والصلاحيات وHTTP وexports ومعنى الكيانات وأسماءها وتجميع البيانات بين الحزم.
+These Management APIs do not mutate state and are not an alternate mutation path. The package owns the meanings of Slug scopes, Bindings, claims, History, status, and revision; the Host owns presentation, permissions, HTTP, exports, entity meaning and names, and cross-package aggregation.
 
-لا تملك RC1 حاليًا public reporting contracts لـ:
+RC1 does not currently expose public reporting contracts for:
 
 ```text
 generic dashboard
@@ -483,11 +483,11 @@ Host actor/name resolution
 cross-package reporting
 ```
 
-ولا تضيف الحزمة API لهذه الأبعاد لمجرد استيفاء معيار Reporting. كما أن internal operation أو idempotency rows، رغم كونها persisted، ليست public reporting contract.
+The package does not add APIs for these dimensions merely to satisfy a Reporting standard. Internal operation or idempotency rows, although persisted, are not public reporting contracts.
 
 ## 11. Technical Consumer Workflow
 
-المسار التقني المعياري للمستهلك في RC1 هو مسار واحد مترابط:
+The normative RC1 consumer workflow is one connected path:
 
 ```text
 Host Input
@@ -499,10 +499,10 @@ Host Input
 
 ### 11.1 Host Input and Construction
 
-يوفر Host المدخلات والعقود التالية:
+The Host supplies these inputs and contracts:
 
 ```text
-PDO مطابق للـruntime contract
+PDO matching the Runtime contract
 SlugProfileRegistryInterface
 ReservedSlugPolicyInterface
 ClockInterface
@@ -513,7 +513,7 @@ expectedRevision
 AuditContextDTO
 ```
 
-يمكن تكوين الـbuilt-in Profiles عبر المسار العام المدعوم، ثم إنشاء الـstateful engine عبر Factory:
+Built-in profiles are configured through the supported public path, then the stateful engine is created through the Factory:
 
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -536,11 +536,11 @@ SlugEngineFactory::create(
 → SlugEngine
 ```
 
-لا تنشئ الـFactory اتصالًا مخفيًا ولا تقرأ إعدادات Host أو `.env` من تلقاء نفسها.
+The Factory does not create a hidden connection or read Host configuration or `.env` automatically.
 
 ### 11.2 Public API and Domain Path
 
-يستخدم المستهلك `assignExact` عبر Command واحد:
+The consumer uses `assignExact` through one Command:
 
 ```php
 $result = $engine->assignExact(
@@ -553,7 +553,7 @@ $result = $engine->assignExact(
 );
 ```
 
-والـdomain path الفعلي هو:
+The actual domain path is:
 
 ```text
 SlugEngine
@@ -561,11 +561,11 @@ SlugEngine
 → SlugLifecycleService
 ```
 
-لا توجد طبقة Domain Service إضافية مفترضة في هذا المسار. `SlugEngine` يمرر العملية إلى `PersistedSlugLifecycleService`، الذي يمرر `assignExact` إلى `SlugLifecycleService`.
+No additional assumed Domain Service layer exists in this path. `SlugEngine` passes the operation to `PersistedSlugLifecycleService`, which passes `assignExact` to `SlugLifecycleService`.
 
 ### 11.3 Integration Boundary and Concurrency
 
-يدخل المسار حدود Persistence المملوكة للحزمة عبر:
+The path enters package-owned persistence through:
 
 ```text
 Scope
@@ -575,34 +575,34 @@ Operation / Result Snapshot
 Transaction coordination
 ```
 
-تتولى هذه الحدود repositories وmappers الخاصة بالحزمة، ولا يتعامل Host مع جداولها أو يعيد تنفيذ invariants الخاصة بها. الـunique Registry constraint هي السلطة النهائية في race الخاصة بـexact claim؛ وتتحول النتيجة إلى semantic duplicate وفق عقد lifecycle، دون automatic retry.
+These boundaries own the package repositories and mappers. The Host does not use their tables or reimplement their invariants. The unique Registry constraint is the final authority in an exact-claim race, and the result is mapped to the lifecycle contract without an automatic retry.
 
-عقد transaction والمشاركة هو:
+The transaction participation contract is:
 
 ```text
 No outer transaction
 → package owns begin/commit/rollback
 
 Outer transaction exists
-→ package participates without committing/rolling back caller transaction
-→ savepoint is used when required/supported
+→ package participates without committing/rolling back the caller transaction
+→ savepoint is used when required and supported
 
 Concurrent exact claim race
 → unique Registry constraint is authoritative
-→ semantic duplicate handling follows lifecycle contract
+→ semantic duplicate handling follows the lifecycle contract
 ```
 
-إذا لم تدعم البيئة capability المطلوبة للمشاركة، يفشل المسار قبل mutation بـ`SlugTransactionParticipationException`. لا يغير هذا العقد ownership الخاص بـHost للـouter transaction.
+If the environment does not support the required participation capability, the path fails before mutation with `SlugTransactionParticipationException`. This does not change the Host's ownership of the outer transaction.
 
 ### 11.4 Observable Result
 
-يعيد `assignExact` الناتج العام:
+`assignExact` returns:
 
 ```text
 SlugMutationResultDTO
 ```
 
-ويعرض للمستهلك، حسب العملية، الحقول التالية:
+Depending on the operation, the consumer receives:
 
 ```text
 operationType
@@ -618,11 +618,11 @@ revision
 historyEvents
 ```
 
-تشرح [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) هذا المسار نفسه للمستهلك، لكنها لا تنشئ technical contract منافسة؛ Package Reference هو مصدر العقد التقني المعياري.
+[`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) explains this same path for consumers but does not create a competing technical contract; this Package Reference is the normative technical-contract source.
 
-## 12. Exception contract
+## 12. Exception Contract
 
-الـmarker العام هو `SlugExceptionInterface` و`SlugDomainExceptionInterface`. الـfamilies العامة هي:
+The public markers are `SlugExceptionInterface` and `SlugDomainExceptionInterface`. The general families are:
 
 ```text
 SlugValidationException
@@ -633,7 +633,7 @@ SlugUnsupportedException
 SlugSystemException
 ```
 
-والـconcrete exceptions المقفلة هي:
+The locked concrete exceptions are:
 
 ```text
 SlugInvalidArgumentException, SlugCannotBeGeneratedException,
@@ -649,24 +649,26 @@ SlugPurgeNotPermittedException, SlugTransactionParticipationException,
 SlugUnsupportedDriverException, SlugPersistenceInvariantException
 ```
 
-تستخدم الحزمة hierarchy المنشورة من `maatify/exceptions ^1.0`. لا تُحوّل كل SQLSTATE `23xxx` إلى conflict؛ التحويل الخاص بالـduplicate محصور في MySQL `1062` مع constraint context. transaction catch يعيد الـThrowable الأصلي بعد rollback.
+The package uses the published hierarchy from `maatify/exceptions ^1.0`. It does not convert every SQLSTATE `23xxx` into a conflict; duplicate conversion is limited to MySQL `1062` with constraint context. Transaction catches rethrow the original throwable after rollback.
 
-## 13. Evidence وRelease state
+## 13. Evidence and Release State
 
-توجد أدلة نجاح تاريخية محددة في GitHub Actions run #9 على SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b`، وتشمل لذلك الـSHA فقط:
+Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` provides evidence for that SHA only, including:
 
-- Composer validation وplatform checks وproduction autoload.
-- PHPStan `level: max` وPHPUnit والـstyle/whitespace gates.
-- Unit وIntegration وSystem/Concurrency/Transaction evidence مع بيئة MySQL الحقيقية.
-- Consumer Verification Harness من Composer root مستقل مرتين من clean states.
+- Composer validation, platform checks, and production autoload;
+- PHPStan `level: max`, PHPUnit, and style or whitespace gates;
+- Unit, Integration, System, Concurrency, and Transaction evidence with real MySQL; and
+- two clean-state Consumer Verification Harness runs from an independent Composer root.
 
-هذه الأدلة التاريخية لا تؤهل current remediation HEAD ولا تثبت نجاح أي HEAD لاحقة. بعد إغلاق `AF-001 → AF-015` ما زال `VG-001` و`Fresh Full Acceptance Review` مطلوبين قبل أي release-readiness claim أو integration acceptance.
+Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical results do not qualify any later HEAD.
 
-## 14. Supporting documents
+The current post-upgrade final verification is `VG-003 — Post-Upgrade Full Applicable Verification: PENDING`. It must run on the final remediation HEAD and be followed by the required Fresh Full Acceptance Review. `Direct Lead Review: PENDING` for that final post-upgrade state.
 
-- [`docs/SLUG_LIBRARY_RC1_BLUEPRINT.md`](docs/SLUG_LIBRARY_RC1_BLUEPRINT.md) — supporting/historical تفاصيل معمارية وعقود تصميم مقفلة؛ ليست current-state owner.
-- [`docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md`](docs/SLUG_LIBRARY_RC1_IMPLEMENTATION_PLAN.md) — supporting/historical Work Units وdependency graph وverification gates؛ ليست current runtime owner.
-- [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) — طريقة الاستخدام والتكامل للمستهلك.
-- [`examples/`](examples/) — أمثلة المستهلك القابلة للتشغيل.
-- [`CHANGELOG.md`](CHANGELOG.md) — تاريخ التغييرات التوثيقية وحالة النشر.
-- [`SECURITY.md`](SECURITY.md) — حالة الدعم ومسار البلاغات الأمنية.
+The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `3de026f86f68c548c8eef1570a6aac0e3949f20a`. That manifest is the authoritative resolver record for the applicable Standard versions.
+
+## 14. Supporting Documents
+
+- [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) — consumer usage and integration.
+- [`examples/`](examples/) — runnable consumer examples.
+- [`CHANGELOG.md`](CHANGELOG.md) — documentation change history and publication state.
+- [`SECURITY.md`](SECURITY.md) — support state and security reporting.
