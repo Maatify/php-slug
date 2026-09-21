@@ -15,7 +15,7 @@ Any contribution must strictly respect these boundaries. Architectural changes s
 ## Types of Contributions
 
 1. **Bug Fixes:** Please provide a reproducible test case.
-2. **Feature Changes:** Architectural changes and large additions should be discussed before implementation to ensure alignment with the package's design blueprint.
+2. **Feature Changes:** Architectural changes and large additions should be discussed before implementation to ensure alignment with the current canonical package contract and applicable architecture and Standards, without creating or duplicating a competing authority.
 3. **Documentation:** Typo fixes and conceptual clarifications are welcome.
 4. **Security Vulnerabilities:** Do not use GitHub Issues or PRs. Refer to [SECURITY.md](SECURITY.md) to report security flaws privately via `support@maatify.dev`.
 
