@@ -146,7 +146,7 @@ Each canonicalization operation is idempotent within its scope. `hello!!!` is re
 
 ### 5.3 Profiles, Safety, and Length
 
-`unicode-v1` uses NFC and ICU `Any-Lower`, preserves Arabic, and permits canonical code points from `L/M/Nd` plus the ASCII hyphen. `ascii-v1` uses NFC followed by ICU `Any-Latin; Latin-ASCII` and ASCII lowercase. Locked examples are the Unicode-escaped Arabic input `\\u{0622}\\u{064a}\\u{0641}\\u{0648}\\u{0646}\\u{0020}\\u{0661}\\u{0667}\\u{0020}\\u{0628}\\u{0631}\\u{0648}` → the corresponding hyphenated Arabic output, and `Über Café` → `uber-cafe`.
+`unicode-v1` uses NFC and ICU `Any-Lower`, preserves Arabic, and permits canonical code points from `L/M/Nd` plus the ASCII hyphen. `ascii-v1` uses NFC followed by ICU `Any-Latin; Latin-ASCII` and ASCII lowercase. Locked examples are `آيفون ١٧ برو` → `آيفون-١٧-برو` and `Über Café` → `uber-cafe`.
 
 Before any lossy transformation, invalid UTF-8, NUL, `Cc`, `Cs`, `Cf`, `/`, `\\`, and an empty result are rejected. Mixed scripts are allowed in `unicode-v1` when the remaining rules are satisfied.
 
