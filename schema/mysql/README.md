@@ -2,8 +2,9 @@
 
 `001_slug_rc1.sql` is the single package-owned schema for RC1. The Host owns
 the injected `PDO` connection and is responsible for selecting a
-MySQL-compatible server that satisfies the capability contract in Blueprint
-§11. The package does not create a connection, inspect a product/version
+MySQL-compatible server that satisfies the capability contract in the
+[Package Reference](../../SLUG_PACKAGE_REFERENCE.md#4-runtime-and-platform-contract-for-rc1).
+The package does not create a connection, inspect a product/version
 string, or choose a vendor-specific schema variant.
 
 The schema uses direct PDO-compatible InnoDB semantics, `utf8mb4_bin` for

@@ -2,32 +2,32 @@
 
 > **Publication state:** Development / Unpublished
 >
-> `SLUG_PACKAGE_REFERENCE.md` هو العقد التقني المعياري. يشرح هذا الدليل طريقة الاستخدام ولا ينشئ عقدًا بديلًا.
+> [`SLUG_PACKAGE_REFERENCE.md`](../../SLUG_PACKAGE_REFERENCE.md) is the normative technical contract. This guide explains usage and does not create a competing contract.
 
-## Fit / When to use
+## Fit / When to Use
 
-استخدم `maatify/php-slug` عندما تحتاج الحزمة إلى توليد Slug أو canonicalization أو امتلاك scoped مستمر مع resolution وHistory. المسار stateless مناسب للنصوص التي لا تحتاج إلى Persistence، والمسار persisted مناسب عندما تملك الحزمة lifecycle والـclaims الخاصة بها.
+Use `maatify/php-slug` when the package needs slug generation, canonicalization, or persistent scoped ownership with resolution and history. The stateless path is suitable for text that does not require persistence; the persisted path is suitable when the package owns the slug lifecycle and claims.
 
 ## Requirements
 
 - PHP `^8.4`.
-- `ext-intl`, `ext-mbstring`, `ext-pdo`, و`ext-pdo_mysql`.
-- المسار stateless يحتاج إلى production Composer autoload فقط.
-- المسار persisted يحتاج إلى `PDO` MySQL-compatible وschema الحزمة. يستخدم التحقق المحلي MySQL disposable عبر `compose.integration.yml`.
+- `ext-intl`, `ext-mbstring`, `ext-pdo`, and `ext-pdo_mysql`.
+- The stateless path requires only the production Composer autoload.
+- The persisted path requires a MySQL-compatible `PDO` connection and the package schema. Local verification uses disposable MySQL through `compose.integration.yml`.
 
-## Publication state
+## Publication State
 
-الحزمة **Development / Unpublished**. لا توجد حاليًا قناة توزيع عامة أو أمر تثبيت public صالح؛ إعداد التطوير موثق في [`CONTRIBUTING.md`](../../CONTRIBUTING.md). لا تُعرض `composer require maatify/php-slug` على أنها طريقة استهلاك حالية.
+The package is **Development / Unpublished**. There is currently no public distribution channel or valid public installation command; development setup is documented in [`CONTRIBUTING.md`](../../CONTRIBUTING.md). Do not present `composer require maatify/php-slug` as a current consumer installation method.
 
-## Non-goals / Host boundaries
+## Non-goals / Host Boundaries
 
-الحزمة لا تملك Host entity persistence أو entity existence أو authentication أو authorization أو routing أو URL construction أو HTTP أو SEO أو Framework integration. يملك Host اتصال `PDO` وتهيئته، ويمرر `ReservedSlugPolicyInterface` و`ClockInterface`، ويحدد هوية الكيان واحتياجات التطبيق.
+The package does not own Host entity persistence, entity existence, authentication, authorization, routing, URL construction, HTTP, SEO, or framework integration. The Host owns and configures the `PDO` connection, passes `ReservedSlugPolicyInterface` and `ClockInterface`, and defines application-specific entity identity and needs.
 
-لا يتعامل المستهلك مع جداول الحزمة أو repositories أو SQL كـPublic API. ارجع إلى [Package Reference](../../SLUG_PACKAGE_REFERENCE.md) للعقد الكامل وحدود الملكية.
+Consumers must not use package tables, repositories, or SQL as a Public API. See the [Package Reference](../../SLUG_PACKAGE_REFERENCE.md) for the complete contract and ownership boundaries.
 
-## Construction paths
+## Construction Paths
 
-### Stateless canonicalization
+### Stateless Canonicalization
 
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -38,9 +38,9 @@ $result = $text->generateFromSource(
 );
 ```
 
-هذا المسار لا ينشئ اتصالًا أو يقرأ إعدادات Host. المثال التنفيذي هو [`examples/canonicalization.php`](../../examples/canonicalization.php).
+This path does not create a connection or read Host configuration. The runnable example is [`examples/canonicalization.php`](../../examples/canonicalization.php).
 
-### Persisted lifecycle
+### Persisted Lifecycle
 
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -52,24 +52,24 @@ $engine = SlugEngineFactory::create(
 );
 ```
 
-ينشئ Host الـ`PDO` ويطبق schema الحزمة ضمن بيئته. المثال التنفيذي [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) يوضح التهيئة والـcleanup عبر بيئة Integration canonical.
+The Host creates the `PDO` connection and applies the package schema in its environment. [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) demonstrates construction and cleanup through the canonical Integration environment.
 
-## Capability map
+## Capability Map
 
 | Capability | Public API | Walkthrough | Example |
 |---|---|---|---|
 | Canonicalization / generation | `SlugTextServiceInterface` — `generateFromSource`, `canonicalizeClaim`, `canonicalizeLookup` | [Canonicalization walkthrough](#canonicalization-walkthrough) | [`examples/canonicalization.php`](../../examples/canonicalization.php) |
-| Lifecycle ownership / mutation | `SlugEngine` و`SlugLifecycleServiceInterface` — `assignExact` ومسار lifecycle الم persisted | [Persisted lifecycle walkthrough](#persisted-lifecycle-walkthrough) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
+| Lifecycle ownership / mutation | `SlugEngine` and `SlugLifecycleServiceInterface` — `assignExact` and the persisted lifecycle path | [Persisted lifecycle walkthrough](#persisted-lifecycle-walkthrough) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
 | Consumer reads | `checkAvailability`, `getCurrent`, `resolve` | [Consumer reads / resolution](#consumer-reads--resolution) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
-| Management / Operational Read | `SlugManagementQueryInterface` — `getBinding`, `getCurrent`, `listAliases`, `getHistory`, `inspectRegistry`, `inspectScope`, `searchBindings`, `searchRegistry` | [Management operational reads](#management-operational-reads) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) عبر `getBinding` |
+| Management / Operational Read | `SlugManagementQueryInterface` — `getBinding`, `getCurrent`, `listAliases`, `getHistory`, `inspectRegistry`, `inspectScope`, `searchBindings`, `searchRegistry` | [Management operational reads](#management-operational-reads) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) through `getBinding` |
 
-هذا map يوجه القارئ إلى الاستخدام؛ لا يكرر inventory الكامل الموجود في Package Reference.
+This map directs readers to usage; it does not repeat the complete inventory in the Package Reference.
 
-## Canonicalization walkthrough
+## Canonicalization Walkthrough
 
 **Input**
 
-النص `Hello, World!` و`SlugProfileKey('ascii-v1')`.
+The text `Hello, World!` and `SlugProfileKey('ascii-v1')`.
 
 **Public Call**
 
@@ -77,19 +77,19 @@ $engine = SlugEngineFactory::create(
 
 **Result**
 
-يعاد `GeneratedSlugDTO` بقيمة `hello-world`. يتحقق المثال من النتيجة ويفشل بـ`RuntimeException` إذا اختلفت.
+A `GeneratedSlugDTO` with the value `hello-world` is returned. The example checks the result and fails with `RuntimeException` if it differs.
 
 **Boundary**
 
-لا توجد Persistence أو transaction في هذا المسار؛ لا يحتاج المثال إلى Docker أو Database. قواعد Profile والـcanonicalization المعيارية في [Package Reference §5](../../SLUG_PACKAGE_REFERENCE.md#5-الهوية-والنص).
+There is no persistence or transaction on this path; the example does not require Docker or a database. Profile and canonicalization rules are defined in [Package Reference §5](../../SLUG_PACKAGE_REFERENCE.md#5-identity-and-text).
 
-## Persisted lifecycle walkthrough
+## Persisted Lifecycle Walkthrough
 
-### Lifecycle ownership / mutation
+### Lifecycle Ownership / Mutation
 
 **Input**
 
-`SlugScope(namespace: 'example', localeKey: null, contextKey: null)`، و`SlugProfileKey('ascii-v1')`، وهوية `article/example-1`، وcandidate `hello-world`، و`AuditContextDTO` صالحة.
+`SlugScope(namespace: 'example', localeKey: null, contextKey: null)`, `SlugProfileKey('ascii-v1')`, the entity identity `article/example-1`, the candidate `hello-world`, and a valid `AuditContextDTO`.
 
 **Public Call**
 
@@ -97,78 +97,79 @@ $engine = SlugEngineFactory::create(
 
 **Result**
 
-يعاد `SlugMutationResultDTO` وتكون قيمة current slug هي `hello-world`.
+A `SlugMutationResultDTO` is returned and the current slug is `hello-world`.
 
 **Boundary**
 
-يمر الاستدعاء عبر `SlugEngine` ثم lifecycle service ثم Persistence المملوكة للحزمة. لا يعيد Host تنفيذ claim أو uniqueness أو History.
+The call passes through `SlugEngine`, the lifecycle service, and package-owned persistence. The Host does not reimplement claiming, uniqueness, or history.
 
-### Consumer reads / resolution
+### Consumer Reads / Resolution
 
 **Input**
 
-نفس `ScopeProfileRequestDTO` وsegment `hello-world` بعد نجاح assignment.
+The same `ScopeProfileRequestDTO` and the segment `hello-world` after a successful assignment.
 
 **Public Call**
 
-`SlugEngine::resolve(new ResolutionCriteria(...))`، ويمكن استخدام `checkAvailability` و`getCurrent` للاستعلامين الآخرين.
+`SlugEngine::resolve(new ResolutionCriteria(...))`; `checkAvailability` and `getCurrent` can be used for the other two reads.
 
 **Result**
 
-يعاد `SlugResolutionDTO` يطابق current claim ويشير إلى `article/example-1`.
+A `SlugResolutionDTO` is returned, matching the current claim and pointing to `article/example-1`.
 
 **Boundary**
 
-هذه reads لا تمنح claim؛ `checkAvailability` advisory، بينما claim الفعلية يحسمها مسار mutation والـunique Registry constraint.
+These reads do not claim ownership. `checkAvailability` is advisory; the actual claim is decided by the mutation path and the unique Registry constraint.
 
-## Management operational reads
+## Management Operational Reads
 
 **Input**
 
-هوية Binding نفسها بعد assignment.
+The Binding identity after assignment.
 
 **Public Call**
 
 `SlugEngine::getBinding(new BindingCriteria($bindingIdentity))`.
 
-وتستخدم بقية management operations criteria العامة الخاصة بها عند الحاجة: `getCurrent` و`listAliases` و`getHistory` و`inspectRegistry` و`inspectScope` و`searchBindings` و`searchRegistry`.
+Use the other management operations with their respective criteria when needed: `getCurrent`, `listAliases`, `getHistory`, `inspectRegistry`, `inspectScope`, `searchBindings`, and `searchRegistry`.
 
 **Result**
 
-يعاد `BindingDTO` من `getBinding`، وتظهر current slug كـ`hello-world` في المثال persisted.
+`getBinding` returns a `BindingDTO`, and the persisted example shows the current slug as `hello-world`.
 
 **Boundary**
 
-هذه operational reads موجهة إلى Host أو أدوات الإدارة ولا تعيد تعريف public lifecycle contract. pagination تعتمد الأنواع المشتركة التي يحددها Package Reference.
+These operational reads are intended for the Host or management tooling and do not redefine the public lifecycle contract. Pagination uses the shared types defined by the Package Reference.
 
-## Transactions / concurrency boundary
+## Transactions / Concurrency Boundary
 
-عندما لا يملك Host outer transaction، تملك الحزمة transaction الخاصة بالعملية وتنفذ commit أو rollback وفق العقد. عندما يمرر Host outer transaction، تشارك الحزمة فيه وتستخدم savepoint عند capability المطلوبة ولا تتولى commit أو rollback للـouter transaction.
+When the Host has no outer transaction, the package owns the operation transaction and commits or rolls it back according to the contract. When the Host supplies an outer transaction, the package participates in it and uses a savepoint where the capability is required and supported; it does not commit or roll back the outer transaction.
 
-في exact-claim race تكون unique Registry constraint هي authority النهائية، ويعاد conflict semantic وفق الاستثناء العام المناسب. تستخدم lifecycle mutations revision/CAS وidempotency عند توفير idempotency key. لا تغيّر الحزمة timezone العام؛ يستخدم المثال Clock في UTC.
+In an exact-claim race, the unique Registry constraint is the final authority and the conflict is mapped to the appropriate semantic exception. Lifecycle mutations use revision/CAS and idempotency when an idempotency key is supplied. The package does not change the global timezone; the example uses a UTC Clock.
 
-الـCompose lifecycle canonical هو نفسه المستخدم في Integration وSystem وConsumer Harness وpersisted example؛ لا توجد دورة خدمة ثانية للمثال.
+The canonical Compose lifecycle is shared by Integration, System, Consumer Harness, and the persisted example; there is no second service lifecycle for the example.
 
-## Errors / exceptions
+## Errors / Exceptions
 
-تستخدم الحزمة `SlugExceptionInterface` وfamilies domain العامة مع concrete exceptions مثل `SlugAlreadyClaimedException` و`SlugRevisionConflictException` و`SlugReservedException` و`SlugTransactionParticipationException`. يجب أن يترك Host هذه النتائج للعقد المناسب بدل فحص SQL أو التقاط `Throwable` لتكوين contract جديدة. راجع [Package Reference §12](../../SLUG_PACKAGE_REFERENCE.md#12-exception-contract).
+The package uses `SlugExceptionInterface` and the domain exception families, with concrete exceptions such as `SlugAlreadyClaimedException`, `SlugRevisionConflictException`, `SlugReservedException`, and `SlugTransactionParticipationException`. The Host must pass these results through the appropriate contract rather than inspecting SQL or catching `Throwable` to create a new contract. See [Package Reference §12](../../SLUG_PACKAGE_REFERENCE.md#12-exception-contract).
 
-## Examples navigation
+## Examples Navigation
 
 - [`examples/canonicalization.php`](../../examples/canonicalization.php) — stateless generation.
-- [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) — assignment وresolution وmanagement read على MySQL disposable.
+- [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) — assignment, resolution, and management reads on disposable MySQL.
 
-تشغيل المثالين محليًا ضمن gate واحدة:
+Run both examples locally through one gate:
 
 ```bash
 bash tools/ci/run-gate.sh examples-smoke
 ```
 
-يشغل الـgate stateless example ثم persisted example عبر Compose lifecycle canonical. المثال persisted لا يعمل كـstandalone process خارج هذه البيئة لأنه يتطلب `SLUG_TEST_DB_*`.
+The gate runs the stateless example and then the persisted example through the canonical Compose lifecycle. The persisted example does not run as a standalone process outside this environment because it requires `SLUG_TEST_DB_*`.
 
-## Further documentation
+## Further Documentation
 
-- [Package Reference](../../SLUG_PACKAGE_REFERENCE.md) — المصدر المعياري للعقد وPublic API.
-- [CONTRIBUTING.md](../../CONTRIBUTING.md) — إعداد التطوير والـquality gates.
-- [CHANGELOG.md](../../CHANGELOG.md) — تاريخ التغييرات وحالة النشر.
-- [SECURITY.md](../../SECURITY.md) — سياسة الأمان وحدودها.
+- [Package Reference](../../SLUG_PACKAGE_REFERENCE.md) — the normative contract and Public API.
+- [CONTRIBUTING.md](../../CONTRIBUTING.md) — development setup and quality gates.
+- [CHANGELOG.md](../../CHANGELOG.md) — change history and publication state.
+- [SECURITY.md](../../SECURITY.md) — security policy and boundaries.
+- [`USAGE_GUIDE_AR.md`](USAGE_GUIDE_AR.md) — non-canonical Arabic translation of this guide.
