@@ -251,6 +251,33 @@ $closure = function (
 PHP],
     'reject anonymous closure parameter split' => [false, "<?php\n\$closure = function (\$first,\n    \$second,\n) {};\n"],
     'reject anonymous closure parameters on one line' => [false, "<?php\n\$closure = function (\n    \$first, \$second\n) {};\n"],
+    'closure use list exact indentation pass' => [true, <<<'PHP'
+<?php
+$closure = function () use (
+    $first,
+    $second,
+) {};
+PHP],
+    'reject closure use first variable inline' => [false, "<?php\n\$closure = function () use (\$first,\n    \$second,\n) {};\n"],
+    'reject closure use variables on one line' => [false, "<?php\n\$closure = function () use (\n    \$first, \$second,\n) {};\n"],
+    'reject closure use under-indentation' => [false, "<?php\n\$closure = function () use (\n  \$first,\n    \$second,\n) {};\n"],
+    'reject closure use over-indentation' => [false, "<?php\n\$closure = function () use (\n      \$first,\n    \$second,\n) {};\n"],
+    'reject closure use inconsistent indentation' => [false, "<?php\n\$closure = function () use (\n    \$first,\n      \$second,\n) {};\n"],
+    'anonymous class constructor arguments pass' => [true, <<<'PHP'
+<?php
+$instance = new class (
+    $first,
+    $second,
+) {};
+PHP],
+    'reject anonymous constructor first argument inline' => [false, "<?php\n\$instance = new class (\$first,\n    \$second,\n) {};\n"],
+    'reject anonymous constructor arguments on one line' => [false, "<?php\n\$instance = new class (\n    \$first, \$second,\n) {};\n"],
+    'reject anonymous constructor under-indentation' => [false, "<?php\n\$instance = new class (\n  \$first,\n    \$second,\n) {};\n"],
+    'reject anonymous constructor over-indentation' => [false, "<?php\n\$instance = new class (\n      \$first,\n    \$second,\n) {};\n"],
+    'reject anonymous constructor inconsistent indentation' => [false, "<?php\n\$instance = new class (\n    \$first,\n      \$second,\n) {};\n"],
+    'reject named function closing parenthesis placement' => [false, "<?php\nfunction build(\n    \$first,\n    \$second): void {}\n"],
+    'reject closure closing parenthesis placement' => [false, "<?php\n\$closure = function (\n    \$first,\n    \$second) {};\n"],
+    'reject closure use closing parenthesis placement' => [false, "<?php\n\$closure = function () use (\n    \$first,\n    \$second) {};\n"],
     'parenthesized expression is not an argument list' => [true, "<?php\n\$value = (\$first\n    + \$second);\n"],
     'reject assignment array bracket' => [false, "<?php\n\$value =\n[\n    1,\n];\n"],
     'reject return array bracket' => [false, "<?php\nreturn\n[\n    1,\n];\n"],
@@ -271,9 +298,48 @@ function values(): iterable
 }
 PHP],
     'reject unpacked argument array bracket' => [false, "<?php\nconsume(...\n[\n    1,\n]);\n"],
+    'reject conditional throw expression as case termination' => [false, <<<'PHP'
+<?php
+switch ($value) {
+    case 1:
+        $value = $condition ? throw $exception : 1;
+}
+PHP],
+    'reject coalescing exit expression as case termination' => [false, <<<'PHP'
+<?php
+switch ($value) {
+    case 1:
+        $value = foo() ?? exit();
+}
+PHP],
     'array access is not a literal' => [true, "<?php\n\$value = \$items[\n    \$key\n];\n"],
     'attribute syntax is not an array literal' => [true, "<?php\n#[Example]\nclass Sample {}\n"],
     'destructuring syntax is not an array literal' => [true, "<?php\n[\n    \$first,\n    \$second,\n] = \$values;\n"],
+    'foreach destructuring is not an array literal' => [true, <<<'PHP'
+<?php
+foreach ($rows as
+[
+    $first,
+    $second,
+]) {
+}
+PHP],
+    'nested destructuring is not an array literal' => [true, <<<'PHP'
+<?php
+[$first, [$second, $third]] = $values;
+PHP],
+    'nested foreach destructuring is not an array literal' => [true, <<<'PHP'
+<?php
+foreach ($rows as
+[
+    $first,
+    [
+        $second,
+        $third,
+    ],
+]) {
+}
+PHP],
 ];
 
 foreach ($cases as $name => [$expectedPass, $source]) {

@@ -286,7 +286,7 @@ final class PerCs31Verifier
                 return false;
             }
 
-            if (in_array($token[0], [T_BREAK, T_CONTINUE, T_RETURN, T_THROW, T_GOTO, T_EXIT], true) && !$this->statementIsNestedControl($statement)) {
+            if (in_array($token[0], [T_BREAK, T_CONTINUE, T_RETURN, T_THROW, T_GOTO, T_EXIT], true) && $statement === []) {
                 $pendingTerminator = true;
             }
 
@@ -294,18 +294,6 @@ final class PerCs31Verifier
         }
 
         return $terminated;
-    }
-
-    /** @param list<array{0:int,1:string,2:int}> $statement */
-    private function statementIsNestedControl(array $statement): bool
-    {
-        foreach ($statement as $token) {
-            if (in_array($token[0], [T_IF, T_ELSE, T_ELSEIF, T_FOR, T_FOREACH, T_WHILE, T_SWITCH, T_MATCH, T_TRY, T_CATCH, T_FINALLY], true)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -453,7 +441,59 @@ final class PerCs31Verifier
             }
         }
 
-        return !$this->isExpressionOperand($tokens[$previous]);
+        return !$this->isDestructuringOpening($tokens, $index, $previous) && !$this->isExpressionOperand($tokens[$previous]);
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function isDestructuringOpening(array $tokens, int $index, int $previous): bool
+    {
+        $token = $tokens[$previous];
+
+        if (is_array($token) && $token[0] === T_AS) {
+            return true;
+        }
+
+        $close = $this->matchingToken($tokens, $index, '[', ']');
+
+        if ($close !== null) {
+            $after = $this->nextMeaningful($tokens, $close);
+
+            if ($after !== null && $tokens[$after] === '=') {
+                return true;
+            }
+        }
+
+        if ($token !== ',') {
+            return false;
+        }
+
+        $enclosing = $this->enclosingSquareOpening($tokens, $index);
+
+        return $enclosing !== null && $this->isDestructuringOpening(
+            $tokens,
+            $enclosing,
+            $this->previousMeaningful($tokens, $enclosing) ?? $enclosing,
+        );
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function enclosingSquareOpening(array $tokens, int $index): ?int
+    {
+        $depth = 0;
+
+        for ($cursor = $index - 1; $cursor >= 0; $cursor--) {
+            if ($tokens[$cursor] === ']') {
+                $depth++;
+            } elseif ($tokens[$cursor] === '[') {
+                if ($depth === 0) {
+                    return $cursor;
+                }
+
+                $depth--;
+            }
+        }
+
+        return null;
     }
 
     /** @param array{0:int,1:string,2:int}|string $token */
@@ -493,7 +533,7 @@ final class PerCs31Verifier
 
             $previous = $this->previousMeaningful($tokens, $index);
 
-            if ($previous === null || !$this->isArgumentListOpening($tokens, $index, $previous)) {
+            if ($previous === null || ($listKind = $this->argumentListKind($tokens, $index, $previous)) === null) {
                 continue;
             }
 
@@ -558,27 +598,104 @@ final class PerCs31Verifier
                     $this->error($file, $this->tokenLine($tokens, $starts[$offset]), 'multiline argument list items MUST be indented once relative to the opening construct');
                 }
             }
+
+            if ($listKind !== 'call' && $this->tokenLine($tokens, $close) <= $this->tokenLine($tokens, $starts[count($starts) - 1])) {
+                $this->error($file, $this->tokenLine($tokens, $close), 'multiline declaration and closure lists MUST close on their own line after the final item');
+            }
         }
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function isArgumentListOpening(array $tokens, int $index, int $previous): bool
+    private function argumentListKind(array $tokens, int $index, int $previous): ?string
     {
         $token = $tokens[$previous];
 
         if (!is_array($token)) {
-            return in_array($token, [')', ']'], true);
+            return in_array($token, [')', ']'], true) ? 'call' : null;
         }
 
         if (in_array($token[0], [T_IF, T_SWITCH, T_WHILE, T_FOR, T_FOREACH, T_CATCH, T_MATCH], true)) {
-            return false;
+            return null;
         }
 
-        if (in_array($token[0], [T_FUNCTION, T_FN, T_VARIABLE, T_STRING], true)) {
+        if ($token[0] === T_USE && $this->isClosureUseList($tokens, $previous)) {
+            return 'closure-use';
+        }
+
+        if ($token[0] === T_CLASS) {
+            $beforeClass = $this->previousMeaningful($tokens, $previous);
+
+            return $beforeClass !== null && is_array($tokens[$beforeClass]) && $tokens[$beforeClass][0] === T_NEW
+                ? 'anonymous-constructor'
+                : null;
+        }
+
+        if ($token[0] === T_FUNCTION || $token[0] === T_FN) {
+            return 'declaration';
+        }
+
+        if (in_array($token[0], [T_VARIABLE, T_STRING], true)) {
+            return $this->isNamedDeclaration($tokens, $previous) ? 'declaration' : 'call';
+        }
+
+        if (defined('T_NAME_QUALIFIED') && in_array($token[0], [T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE], true)) {
+            return 'call';
+        }
+
+        return null;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function isNamedDeclaration(array $tokens, int $nameIndex): bool
+    {
+        $before = $this->previousMeaningful($tokens, $nameIndex);
+
+        if ($before !== null && is_array($tokens[$before]) && $tokens[$before][0] === T_FUNCTION) {
             return true;
         }
 
-        return defined('T_NAME_QUALIFIED') && in_array($token[0], [T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE], true);
+        return $before !== null && $tokens[$before] === '&' && ($before = $this->previousMeaningful($tokens, $before)) !== null
+            && is_array($tokens[$before]) && $tokens[$before][0] === T_FUNCTION;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function isClosureUseList(array $tokens, int $useIndex): bool
+    {
+        $close = $this->previousMeaningful($tokens, $useIndex);
+
+        if ($close === null || $tokens[$close] !== ')') {
+            return false;
+        }
+
+        $open = $this->openingParenthesis($tokens, $close);
+
+        if ($open === null) {
+            return false;
+        }
+
+        $before = $this->previousMeaningful($tokens, $open);
+
+        return $before !== null && is_array($tokens[$before]) && $tokens[$before][0] === T_FUNCTION;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function openingParenthesis(array $tokens, int $close): ?int
+    {
+        $depth = 0;
+
+        for ($cursor = $close; $cursor >= 0; $cursor--) {
+            if ($tokens[$cursor] === ')') {
+                $depth++;
+            } elseif ($tokens[$cursor] === '(') {
+                $depth--;
+
+                if ($depth === 0) {
+                    return $cursor;
+                }
+            }
+        }
+
+        return null;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
