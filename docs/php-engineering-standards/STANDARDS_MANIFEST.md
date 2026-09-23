@@ -4,15 +4,15 @@
 
 - **Upstream Repository:** `Maatify/php-engineering-standards`
 - **Old Adoption Commit:** `3de026f86f68c548c8eef1570a6aac0e3949f20a`
-- **Adoption Commit:** `593e8d1e921d6d5fa2765e9671d3d4acc49c2fc8`
-- **Adoption Date:** `2026-09-22`
+- **Adoption Commit:** `7dd9d1d02b53013da0906c729dab4f667afeefb4`
+**Adoption Date:** `2026-09-23`
 - **Overall Resolution Status:** `VALID`
 - **Resolution Status Priority:** `INVALID > OWNER DECISION REQUIRED > VALID`
 - **Exception State:** `NONE`
 - **Repository:** `Maatify/php-slug`
 - **Composer Package:** `maatify/php-slug`
 - **Namespace:** `Maatify\\Slug\\`
-- **Resolution Input:** exact upstream commit only; upstream `main` was verified at the expected SHA before resolution.
+**Resolution Input:** exact upstream commit `7dd9d1d02b53013da0906c729dab4f667afeefb4` only; upstream `main` was verified at that exact SHA before resolution.
 
 This Manifest records the completed Selective Pinned Adoption Upgrade. It is a local resolver record, not an engineering Standard and not evidence of test, CI, release, or publication success.
 
@@ -92,13 +92,13 @@ No Candidate Standard was deterministically excluded. The deduplicated Final Res
 
 - Existing frozen Profile baseline: `composer-package@2.0.1` and `repository-governance@2.0.1`, adopted at `3de026f86f68c548c8eef1570a6aac0e3949f20a`.
 - New Profile versions are `3.0.0` for both activations; they are new major composition versions and are not presented as the old frozen versions.
-- The unchanged-version Standards `std-testing@1.1.1` and `std-github-phase-stack-workflow@3.0.1` match their previous local artifacts byte-for-byte.
+The unchanged-version Standard `std-testing@1.1.1` matches its previous local artifact byte-for-byte; `std-ai-collaboration-workflow` and `std-github-phase-stack-workflow` were re-read and updated to `8.0.0` and `4.0.0` from the exact target.
 - All other changed Standard versions carry the target metadata from the exact target commit; no known frozen-version/content mismatch was found.
 - **Baseline validation:** `PASS`.
 
 ## Pinned Adoption Control Set
 
-All files below are pinned from the same exact upstream Adoption Commit `593e8d1e921d6d5fa2765e9671d3d4acc49c2fc8`:
+All files below are pinned from the same exact upstream Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`:
 
 - `docs/php-engineering-standards/standards/STANDARDS_ADOPTION_STANDARD_AR.md` — `std-standards-adoption@4.0.0`
 - `docs/php-engineering-standards/standards/profiles/COMPOSER_PACKAGE_PROFILE.md` — `composer-package Profile@3.0.0`
@@ -118,8 +118,8 @@ No unused or non-inherited Profile manifests are copied.
 | `std-documentation-lifecycle` | `2.0.0` | `3.0.0` | `docs/php-engineering-standards/standards/governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md` | Applicable to package and repository-governance documentation |
 | `std-php-source-documentation` | `—` | `1.0.0` | `docs/php-engineering-standards/standards/php/PHP_SOURCE_DOCUMENTATION_STANDARD.md` | Applicable to repository-owned manually maintained PHP source |
 | `std-php-coding-style` | `—` | `1.0.1` | `docs/php-engineering-standards/standards/php/PHP_CODING_STYLE_STANDARD.md` | Applicable to repository-owned manually maintained PHP source |
-| `std-ai-collaboration-workflow` | `7.0.1` | `7.1.0` | `docs/php-engineering-standards/standards/ai/AI_COLLABORATION_WORKFLOW_AR.md` | Applicable to repository governance at `/` |
-| `std-github-phase-stack-workflow` | `3.0.1` | `3.0.1` | `docs/php-engineering-standards/standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | Applicable to the active Phase Stack workflow |
+| `std-ai-collaboration-workflow` | `7.0.1` | `8.0.0` | `docs/php-engineering-standards/standards/ai/AI_COLLABORATION_WORKFLOW_AR.md` | Applicable to repository governance at `/` |
+| `std-github-phase-stack-workflow` | `3.0.1` | `4.0.0` | `docs/php-engineering-standards/standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | Applicable to the active Phase Stack workflow |
 | `std-decision-governance` | `—` | `1.0.0` | `docs/php-engineering-standards/standards/governance/DECISION_GOVERNANCE_STANDARD_AR.md` | Applicable to durable engineering decision governance at `/` |
 
 ## Explicit Additional Standards
@@ -132,7 +132,7 @@ No unused or non-inherited Profile manifests are copied.
 
 ## Exact Pinned Provenance
 
-- Every upstream-pinned file in the Control Set and Final Set was copied from `Maatify/php-engineering-standards@593e8d1e921d6d5fa2765e9671d3d4acc49c2fc8`.
+Every upstream-pinned file in the Control Set and Final Set was copied from `Maatify/php-engineering-standards@7dd9d1d02b53013da0906c729dab4f667afeefb4`.
 - No floating `main` reference is used.
 - No full upstream `standards/` snapshot, unused Profile, draft, decision, module Standard, project Standard, HTTP Standard, or versioning policy was copied.
 - `AGENTS.md` was not copied from upstream.
