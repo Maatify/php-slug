@@ -82,6 +82,7 @@ style() {
         exit 1
     fi
     vendor/bin/php-cs-fixer fix --dry-run --diff --allow-risky=yes --sequential
+    php tools/ci/test-per-cs31.php
     php tools/ci/verify-per-cs31.php
 }
 

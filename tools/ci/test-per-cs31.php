@@ -66,6 +66,7 @@ switch ($value) {
         break;
 }
 PHP],
+    'clone SHOULD is non-failing' => [true, '<?php $copy = clone $object;'],
     'reject wrapped case body' => [false, <<<'PHP'
 <?php
 switch ($value) {
@@ -109,10 +110,41 @@ switch ($value) {
         echo 'still reaches case end';
 }
 PHP],
+    'reject termination followed by statement' => [false, <<<'PHP'
+<?php
+switch ($value) {
+    case 1:
+        break;
+        echo 'unreachable but structurally present';
+}
+PHP],
+    'reject nested loop break as case termination' => [false, <<<'PHP'
+<?php
+switch ($value) {
+    case 1:
+        while ($running) {
+            break;
+        }
+}
+PHP],
+    'direct final return pass' => [true, <<<'PHP'
+<?php
+switch ($value) {
+    case 1:
+        return;
+}
+PHP],
     'anonymous class attributes pass' => [true, <<<'PHP'
 <?php
 $value = new
     #[Example]
+    class {};
+PHP],
+    'multiple anonymous class attributes pass' => [true, <<<'PHP'
+<?php
+$value = new
+    #[First]
+    #[Second]
     class {};
 PHP],
     'reject attribute on new line' => [false, <<<'PHP'
@@ -128,7 +160,20 @@ PHP],
 <?php
 $value = new
   #[Example]
+class {};
+PHP],
+    'reject inconsistent multiple attribute indentation' => [false, <<<'PHP'
+<?php
+$value = new
+    #[First]
+  #[Second]
     class {};
+PHP],
+    'reject class indentation different from attributes' => [false, <<<'PHP'
+<?php
+$value = new
+    #[First]
+        class {};
 PHP],
     'enum private and public constants pass' => [true, <<<'PHP'
 <?php
@@ -153,12 +198,22 @@ enum Sample {
     }
 }
 PHP],
+    'single multiline array argument pass' => [true, "<?php\nconsume([\n    1,\n]);\n"],
+    'single multiline closure argument pass' => [true, "<?php\nconsume(function (): void {\n});\n"],
+    'reject split scalar argument list first inline' => [false, "<?php\nconsume(\$first,\n    \$second);\n"],
+    'reject split scalar arguments on one line' => [false, "<?php\nconsume(\n    \$first, \$second\n);\n"],
+    'reject split scalar arguments after nested value' => [false, "<?php\nconsume([\n    1,\n], \$second, \$third\n);\n"],
     'reject assignment array bracket' => [false, "<?php\n\$value =\n[\n    1,\n];\n"],
     'reject return array bracket' => [false, "<?php\nreturn\n[\n    1,\n];\n"],
     'reject argument array bracket' => [false, "<?php\nconsume(\n[\n    1,\n]\n);\n"],
     'reject nested array bracket' => [false, "<?php\n\$value = [\n[\n    1,\n],\n];\n"],
     'reject arrow array bracket' => [false, "<?php\n\$value = fn(): array =>\n[\n    1,\n];\n"],
     'reject conditional array bracket' => [false, "<?php\n\$value = \$condition ?\n[\n    1,\n] : [];\n"],
+    'reject cast expression array bracket' => [false, "<?php\n\$value = (array)\n[\n    1,\n];\n"],
+    'reject unary expression array bracket' => [false, "<?php\n\$value = !\n[\n    1,\n];\n"],
+    'array access is not a literal' => [true, "<?php\n\$value = \$items[\n    \$key\n];\n"],
+    'attribute syntax is not an array literal' => [true, "<?php\n#[Example]\nclass Sample {}\n"],
+    'destructuring syntax is not an array literal' => [true, "<?php\n[\n    \$first,\n    \$second,\n] = \$values;\n"],
 ];
 
 foreach ($cases as $name => [$expectedPass, $source]) {

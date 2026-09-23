@@ -89,27 +89,16 @@ final class PerCs31Verifier
 
         $this->verifyCloneParentheses($file, $tokens);
         $this->verifySwitches($file, $tokens);
-        $this->verifyPipeOperator($file, $tokens);
         $this->verifyAnonymousClassAttributes($file, $source, $tokens);
         $this->verifyEnumConstantVisibility($file, $tokens);
         $this->verifyArrayOpeningBracket($file, $tokens);
+        $this->verifyMethodArgumentLayout($file, $tokens);
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function verifyCloneParentheses(string $file, array $tokens): void
     {
-        // SHOULD only: report evidence, but do not make this a repository MUST.
-        foreach ($tokens as $index => $token) {
-            if (!is_array($token) || $token[0] !== T_CLONE) {
-                continue;
-            }
-
-            $next = $this->nextMeaningful($tokens, $index);
-
-            if ($next !== null && $tokens[$next] !== '(') {
-                $this->errors[] = sprintf('%s:%d: clone() SHOULD use parentheses under PER-CS 3.1', $this->relative($file), $token[2]);
-            }
-        }
+        // SHOULD only: intentionally non-failing; no repository-local MUST.
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -243,6 +232,7 @@ final class PerCs31Verifier
         $parentheses = 0;
         $brackets = 0;
         $statement = [];
+        $terminated = false;
 
         for ($index = $start; $index < $end; $index++) {
             $token = $tokens[$index];
@@ -269,10 +259,14 @@ final class PerCs31Verifier
 
             if ($braceDepth === 0 && $parentheses === 0 && $brackets === 0 && is_array($token)) {
                 if (in_array($token[0], [T_BREAK, T_CONTINUE, T_RETURN, T_THROW, T_GOTO, T_EXIT], true) && !$this->statementIsNestedControl($statement)) {
-                    return true;
+                    $terminated = true;
+                    continue;
                 }
 
                 if (!in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                    if ($terminated) {
+                        return false;
+                    }
                     $statement[] = $token;
                 }
             }
@@ -282,7 +276,7 @@ final class PerCs31Verifier
             }
         }
 
-        return false;
+        return $terminated;
     }
 
     /** @param list<array{0:int,1:string,2:int}> $statement */
@@ -295,16 +289,6 @@ final class PerCs31Verifier
         }
 
         return false;
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function verifyPipeOperator(string $file, array $tokens): void
-    {
-        foreach ($tokens as $index => $token) {
-            if ($token === '|' && ($tokens[$index + 1] ?? null) === '>') {
-                $this->error($file, $this->tokenLine($tokens, $index), 'the |> operator is not applicable while this package supports PHP ^8.4');
-            }
-        }
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -330,9 +314,10 @@ final class PerCs31Verifier
             do {
                 $attributeToken = $tokens[$cursor];
                 $attributeLine = $attributeToken[2];
-                $attributeIndent ??= $this->lineIndent($source, $attributeLine);
+                $currentIndent = $this->lineIndent($source, $attributeLine);
+                $attributeIndent ??= $currentIndent;
 
-                if ($attributeLine <= $newLine || $attributeIndent <= $newIndent) {
+                if ($attributeLine <= $newLine || $currentIndent !== $newIndent + 4 || $currentIndent !== $attributeIndent) {
                     $this->error($file, $attributeLine, 'anonymous-class attributes MUST start on a more-indented line after new');
                 }
 
@@ -425,7 +410,7 @@ final class PerCs31Verifier
 
             $previous = $this->previousMeaningful($tokens, $index);
 
-            if ($previous === null || !$this->isArrayLiteralOpening($tokens[$previous])) {
+            if ($previous === null || !$this->isArrayLiteralOpening($tokens, $index, $previous)) {
                 continue;
             }
 
@@ -438,14 +423,152 @@ final class PerCs31Verifier
         }
     }
 
-    /** @param array{0:int,1:string,2:int}|string $token */
-    private function isArrayLiteralOpening(array|string $token): bool
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function isArrayLiteralOpening(array $tokens, int $index, int $previous): bool
     {
-        if (in_array($token, ['=', '=>', ',', '(', '[', '?', ':', '.', '|', '&', '+', '-', '*', '/', '%'], true)) {
+        $close = $this->matchingToken($tokens, $index, '[', ']');
+
+        if ($close !== null) {
+            $after = $this->nextMeaningful($tokens, $close);
+
+            if ($after !== null && $tokens[$after] === '=') {
+                return false;
+            }
+        }
+
+        $token = $tokens[$previous];
+
+        if (in_array($token, ['=', '=>', ',', '(', '[', '?', ':', '.', '|', '&', '+', '-', '*', '/', '%', '!', '~'], true)) {
             return true;
         }
 
-        return is_array($token) && in_array($token[0], [T_RETURN, T_YIELD, T_PRINT, T_ECHO, T_DOUBLE_ARROW, T_BOOLEAN_OR, T_BOOLEAN_AND, T_LOGICAL_OR, T_LOGICAL_AND, T_COALESCE], true);
+        return is_array($token) && in_array($token[0], [T_ARRAY, T_ARRAY_CAST, T_RETURN, T_YIELD, T_PRINT, T_ECHO, T_DOUBLE_ARROW, T_BOOLEAN_OR, T_BOOLEAN_AND, T_LOGICAL_OR, T_LOGICAL_AND, T_COALESCE], true);
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function verifyMethodArgumentLayout(string $file, array $tokens): void
+    {
+        $ignored = [T_IF, T_SWITCH, T_WHILE, T_FOR, T_FOREACH, T_CATCH, T_FUNCTION, T_MATCH];
+
+        foreach ($tokens as $index => $token) {
+            if ($token !== '(') {
+                continue;
+            }
+
+            $previous = $this->previousMeaningful($tokens, $index);
+
+            if ($previous === null || (is_array($tokens[$previous]) && in_array($tokens[$previous][0], $ignored, true))) {
+                continue;
+            }
+
+            $close = $this->matchingToken($tokens, $index, '(', ')');
+
+            if ($close === null || !$this->hasTopLevelNewline($tokens, $index, $close)) {
+                continue;
+            }
+
+            $starts = [];
+            $depth = 0;
+            $segmentStart = $this->nextMeaningful($tokens, $index);
+
+            for ($cursor = $index + 1; $cursor < $close; $cursor++) {
+                $current = $tokens[$cursor];
+
+                if ($current === '(' || $current === '[') {
+                    $depth++;
+                } elseif ($current === ')' || $current === ']') {
+                    $depth--;
+                } elseif ($current === ',' && $depth === 0) {
+                    if ($segmentStart !== null) {
+                        $starts[] = $segmentStart;
+                    }
+                    $segmentStart = $this->nextMeaningful($tokens, $cursor);
+                }
+            }
+
+            if ($segmentStart !== null) {
+                $starts[] = $segmentStart;
+            }
+
+            if ($starts === []) {
+                continue;
+            }
+
+            $openLine = $this->tokenLine($tokens, $index);
+            $firstEnd = $this->argumentEnd($tokens, $starts[0], $close);
+
+            if ($this->tokenLine($tokens, $starts[0]) <= $openLine && !$this->argumentHasMultilineNestedValue($tokens, $starts[0], $firstEnd)) {
+                $this->error($file, $openLine, 'multiline argument lists MUST start their first argument on the next line');
+            }
+
+            for ($offset = 1; $offset < count($starts); $offset++) {
+                $argumentEnd = $this->argumentEnd($tokens, $starts[$offset], $close);
+                $sameLine = $this->tokenLine($tokens, $starts[$offset]) === $this->tokenLine($tokens, $starts[$offset - 1]);
+
+                if ($sameLine && !$this->argumentHasMultilineNestedValue($tokens, $starts[$offset], $argumentEnd)) {
+                    $this->error($file, $this->tokenLine($tokens, $starts[$offset]), 'multiline argument lists MUST have one argument per line');
+                }
+            }
+        }
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function hasTopLevelNewline(array $tokens, int $start, int $end): bool
+    {
+        $depth = 0;
+
+        for ($index = $start + 1; $index < $end; $index++) {
+            $token = $tokens[$index];
+
+            if ($token === '(' || $token === '[' || $token === '{') {
+                $depth++;
+            } elseif ($token === ')' || $token === ']' || $token === '}') {
+                $depth--;
+            } elseif ($depth === 0 && is_array($token) && str_contains($token[1], "\n")) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function argumentEnd(array $tokens, int $start, int $close): int
+    {
+        $depth = 0;
+
+        for ($index = $start; $index < $close; $index++) {
+            $token = $tokens[$index];
+
+            if ($token === '(' || $token === '[' || $token === '{') {
+                $depth++;
+            } elseif ($token === ')' || $token === ']' || $token === '}') {
+                $depth--;
+            } elseif ($token === ',' && $depth === 0) {
+                return $index;
+            }
+        }
+
+        return $close;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function argumentHasMultilineNestedValue(array $tokens, int $start, int $end): bool
+    {
+        for ($index = $start; $index < $end; $index++) {
+            if (!in_array($tokens[$index], ['(', '[', '{'], true)) {
+                continue;
+            }
+
+            $closing = $tokens[$index] === '(' ? ')' : ($tokens[$index] === '[' ? ']' : '}');
+            $match = $this->matchingToken($tokens, $index, $tokens[$index], $closing);
+
+            if ($match !== null && $this->tokenLine($tokens, $match) > $this->tokenLine($tokens, $index)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
