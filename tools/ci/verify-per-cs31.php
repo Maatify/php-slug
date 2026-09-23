@@ -233,6 +233,7 @@ final class PerCs31Verifier
         $brackets = 0;
         $statement = [];
         $terminated = false;
+        $pendingTerminator = false;
 
         for ($index = $start; $index < $end; $index++) {
             $token = $tokens[$index];
@@ -257,23 +258,39 @@ final class PerCs31Verifier
                 $brackets--;
             }
 
-            if ($braceDepth === 0 && $parentheses === 0 && $brackets === 0 && is_array($token)) {
-                if (in_array($token[0], [T_BREAK, T_CONTINUE, T_RETURN, T_THROW, T_GOTO, T_EXIT], true) && !$this->statementIsNestedControl($statement)) {
+            if ($braceDepth !== 0) {
+                continue;
+            }
+
+            if ($pendingTerminator) {
+                if ($parentheses === 0 && $brackets === 0 && $token === ';') {
                     $terminated = true;
-                    continue;
+                    $pendingTerminator = false;
+                    $statement = [];
                 }
 
-                if (!in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
-                    if ($terminated) {
-                        return false;
-                    }
-                    $statement[] = $token;
-                }
+                continue;
             }
 
-            if ($braceDepth === 0 && $parentheses === 0 && $brackets === 0 && $token === ';') {
+            if ($parentheses === 0 && $brackets === 0 && $token === ';') {
                 $statement = [];
+
+                continue;
             }
+
+            if ($parentheses !== 0 || $brackets !== 0 || !is_array($token) || in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                continue;
+            }
+
+            if ($terminated) {
+                return false;
+            }
+
+            if (in_array($token[0], [T_BREAK, T_CONTINUE, T_RETURN, T_THROW, T_GOTO, T_EXIT], true) && !$this->statementIsNestedControl($statement)) {
+                $pendingTerminator = true;
+            }
+
+            $statement[] = $token;
         }
 
         return $terminated;
@@ -436,20 +453,39 @@ final class PerCs31Verifier
             }
         }
 
-        $token = $tokens[$previous];
+        return !$this->isExpressionOperand($tokens[$previous]);
+    }
 
-        if (in_array($token, ['=', '=>', ',', '(', '[', '?', ':', '.', '|', '&', '+', '-', '*', '/', '%', '!', '~'], true)) {
+    /** @param array{0:int,1:string,2:int}|string $token */
+    private function isExpressionOperand(array|string $token): bool
+    {
+        if (in_array($token, [')', ']', '}'], true)) {
             return true;
         }
 
-        return is_array($token) && in_array($token[0], [T_ARRAY, T_ARRAY_CAST, T_RETURN, T_YIELD, T_PRINT, T_ECHO, T_DOUBLE_ARROW, T_BOOLEAN_OR, T_BOOLEAN_AND, T_LOGICAL_OR, T_LOGICAL_AND, T_COALESCE], true);
+        if (!is_array($token)) {
+            return false;
+        }
+
+        return in_array($token[0], [
+            T_VARIABLE,
+            T_STRING,
+            T_STRING_VARNAME,
+            T_CONSTANT_ENCAPSED_STRING,
+            T_LNUMBER,
+            T_DNUMBER,
+            T_CLASS_C,
+            T_METHOD_C,
+            T_LINE,
+            T_FILE,
+            T_DIR,
+            T_NS_C,
+        ], true);
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function verifyMethodArgumentLayout(string $file, array $tokens): void
     {
-        $ignored = [T_IF, T_SWITCH, T_WHILE, T_FOR, T_FOREACH, T_CATCH, T_FUNCTION, T_MATCH];
-
         foreach ($tokens as $index => $token) {
             if ($token !== '(') {
                 continue;
@@ -457,7 +493,7 @@ final class PerCs31Verifier
 
             $previous = $this->previousMeaningful($tokens, $index);
 
-            if ($previous === null || (is_array($tokens[$previous]) && in_array($tokens[$previous][0], $ignored, true))) {
+            if ($previous === null || !$this->isArgumentListOpening($tokens, $index, $previous)) {
                 continue;
             }
 
@@ -483,6 +519,10 @@ final class PerCs31Verifier
                         $starts[] = $segmentStart;
                     }
                     $segmentStart = $this->nextMeaningful($tokens, $cursor);
+
+                    if ($segmentStart === $close) {
+                        $segmentStart = null;
+                    }
                 }
             }
 
@@ -495,10 +535,15 @@ final class PerCs31Verifier
             }
 
             $openLine = $this->tokenLine($tokens, $index);
+            $openIndent = $this->lineIndentFromTokens($tokens, $index);
             $firstEnd = $this->argumentEnd($tokens, $starts[0], $close);
 
             if ($this->tokenLine($tokens, $starts[0]) <= $openLine && !$this->argumentHasMultilineNestedValue($tokens, $starts[0], $firstEnd)) {
                 $this->error($file, $openLine, 'multiline argument lists MUST start their first argument on the next line');
+            }
+
+            if ($this->tokenLine($tokens, $starts[0]) > $openLine && $this->lineIndentFromTokens($tokens, $starts[0]) !== $openIndent + 4) {
+                $this->error($file, $this->tokenLine($tokens, $starts[0]), 'multiline argument list items MUST be indented once relative to the opening construct');
             }
 
             for ($offset = 1; $offset < count($starts); $offset++) {
@@ -508,8 +553,32 @@ final class PerCs31Verifier
                 if ($sameLine && !$this->argumentHasMultilineNestedValue($tokens, $starts[$offset], $argumentEnd)) {
                     $this->error($file, $this->tokenLine($tokens, $starts[$offset]), 'multiline argument lists MUST have one argument per line');
                 }
+
+                if (!$sameLine && $this->lineIndentFromTokens($tokens, $starts[$offset]) !== $openIndent + 4) {
+                    $this->error($file, $this->tokenLine($tokens, $starts[$offset]), 'multiline argument list items MUST be indented once relative to the opening construct');
+                }
             }
         }
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function isArgumentListOpening(array $tokens, int $index, int $previous): bool
+    {
+        $token = $tokens[$previous];
+
+        if (!is_array($token)) {
+            return in_array($token, [')', ']'], true);
+        }
+
+        if (in_array($token[0], [T_IF, T_SWITCH, T_WHILE, T_FOR, T_FOREACH, T_CATCH, T_MATCH], true)) {
+            return false;
+        }
+
+        if (in_array($token[0], [T_FUNCTION, T_FN, T_VARIABLE, T_STRING], true)) {
+            return true;
+        }
+
+        return defined('T_NAME_QUALIFIED') && in_array($token[0], [T_NAME_QUALIFIED, T_NAME_FULLY_QUALIFIED, T_NAME_RELATIVE], true);
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -654,6 +723,20 @@ final class PerCs31Verifier
         }
 
         return $line;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function lineIndentFromTokens(array $tokens, int $index): int
+    {
+        $text = '';
+
+        foreach (array_slice($tokens, 0, $index) as $token) {
+            $text .= is_array($token) ? $token[1] : $token;
+        }
+
+        $line = substr($text, strrpos($text, "\n") + 1);
+
+        return strlen($line) - strlen(ltrim($line, " \t"));
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */

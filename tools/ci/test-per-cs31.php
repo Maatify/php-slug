@@ -134,6 +134,17 @@ switch ($value) {
         return;
 }
 PHP],
+    'direct return value pass' => [true, "<?php\nswitch (\$value) { case 1: return \$value; }\n"],
+    'direct return call pass' => [true, "<?php\nswitch (\$value) { case 1: return foo(); }\n"],
+    'direct throw variable pass' => [true, "<?php\nswitch (\$value) { case 1: throw \$exception; }\n"],
+    'direct throw expression pass' => [true, "<?php\nswitch (\$value) { case 1: throw new RuntimeException(); }\n"],
+    'direct break pass' => [true, "<?php\nswitch (\$value) { case 1: break; }\n"],
+    'direct break level pass' => [true, "<?php\nswitch (\$value) { case 1: break 2; }\n"],
+    'direct continue pass' => [true, "<?php\nswitch (\$value) { case 1: continue; }\n"],
+    'direct continue level pass' => [true, "<?php\nswitch (\$value) { case 1: continue 2; }\n"],
+    'direct goto pass' => [true, "<?php\nswitch (\$value) { case 1: goto label; }\n"],
+    'direct exit pass' => [true, "<?php\nswitch (\$value) { case 1: exit; }\n"],
+    'direct exit call pass' => [true, "<?php\nswitch (\$value) { case 1: exit(1); }\n"],
     'anonymous class attributes pass' => [true, <<<'PHP'
 <?php
 $value = new
@@ -203,6 +214,44 @@ PHP],
     'reject split scalar argument list first inline' => [false, "<?php\nconsume(\$first,\n    \$second);\n"],
     'reject split scalar arguments on one line' => [false, "<?php\nconsume(\n    \$first, \$second\n);\n"],
     'reject split scalar arguments after nested value' => [false, "<?php\nconsume([\n    1,\n], \$second, \$third\n);\n"],
+    'split call exact indentation pass' => [true, "<?php\nconsume(\n    \$first,\n    \$second,\n);\n"],
+    'reject split call under-indentation' => [false, "<?php\nconsume(\n  \$first,\n    \$second,\n);\n"],
+    'reject split call over-indentation' => [false, "<?php\nconsume(\n      \$first,\n    \$second,\n);\n"],
+    'reject split call inconsistent indentation' => [false, "<?php\nconsume(\n    \$first,\n      \$second,\n);\n"],
+    'split named function parameters exact indentation pass' => [true, <<<'PHP'
+<?php
+function build(
+    $first,
+    $second,
+): void {}
+PHP],
+    'reject named function parameter indentation' => [false, <<<'PHP'
+<?php
+function build(
+  $first,
+    $second,
+): void {}
+PHP],
+    'split named method parameters exact indentation pass' => [true, <<<'PHP'
+<?php
+final class Builder
+{
+    public function build(
+        $first,
+        $second,
+    ): void {}
+}
+PHP],
+    'split anonymous closure parameters pass' => [true, <<<'PHP'
+<?php
+$closure = function (
+    $first,
+    $second,
+) {};
+PHP],
+    'reject anonymous closure parameter split' => [false, "<?php\n\$closure = function (\$first,\n    \$second,\n) {};\n"],
+    'reject anonymous closure parameters on one line' => [false, "<?php\n\$closure = function (\n    \$first, \$second\n) {};\n"],
+    'parenthesized expression is not an argument list' => [true, "<?php\n\$value = (\$first\n    + \$second);\n"],
     'reject assignment array bracket' => [false, "<?php\n\$value =\n[\n    1,\n];\n"],
     'reject return array bracket' => [false, "<?php\nreturn\n[\n    1,\n];\n"],
     'reject argument array bracket' => [false, "<?php\nconsume(\n[\n    1,\n]\n);\n"],
@@ -211,6 +260,17 @@ PHP],
     'reject conditional array bracket' => [false, "<?php\n\$value = \$condition ?\n[\n    1,\n] : [];\n"],
     'reject cast expression array bracket' => [false, "<?php\n\$value = (array)\n[\n    1,\n];\n"],
     'reject unary expression array bracket' => [false, "<?php\n\$value = !\n[\n    1,\n];\n"],
+    'reject yield from array bracket' => [false, <<<'PHP'
+<?php
+function values(): iterable
+{
+    yield from
+    [
+        1,
+    ];
+}
+PHP],
+    'reject unpacked argument array bracket' => [false, "<?php\nconsume(...\n[\n    1,\n]);\n"],
     'array access is not a literal' => [true, "<?php\n\$value = \$items[\n    \$key\n];\n"],
     'attribute syntax is not an array literal' => [true, "<?php\n#[Example]\nclass Sample {}\n"],
     'destructuring syntax is not an array literal' => [true, "<?php\n[\n    \$first,\n    \$second,\n] = \$values;\n"],
