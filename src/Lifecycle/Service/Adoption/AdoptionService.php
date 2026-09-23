@@ -67,7 +67,13 @@ final readonly class AdoptionService
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
-    /** Adopts a claim as current while preserving the supplied historical occurrence time. */
+    /**
+     * Adopts an external claim as current. The Binding must be absent with a
+     * null expected revision, or RELEASED with a matching current revision;
+     * either path establishes current ownership. The optional original
+     * occurrence time is normalized into adoption history, and the mutation is
+     * transactional and idempotently replayable.
+     */
     public function adoptCurrent(AdoptCurrentCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -83,7 +89,13 @@ final readonly class AdoptionService
         );
     }
 
-    /** Adopts a claim as historical without making it current. */
+    /**
+     * Adopts an external claim as historical without promoting it to current.
+     * An existing ACTIVE or INACTIVE current-bearing Binding and its matching
+     * current revision are required; the current pointer remains unchanged.
+     * The optional original occurrence time is normalized, and the mutation is
+     * transactional and idempotently replayable.
+     */
     public function adoptHistorical(AdoptHistoricalCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -99,7 +111,13 @@ final readonly class AdoptionService
         );
     }
 
-    /** Adopts a claim as an alias without promoting it to current. */
+    /**
+     * Adopts an external claim as an alias without promoting it to current.
+     * An existing ACTIVE or INACTIVE current-bearing Binding and its matching
+     * current revision are required; the optional original occurrence time is
+     * normalized, and the mutation is transactional and idempotently
+     * replayable.
+     */
     public function adoptAlias(AdoptAliasCommand $command): AdoptionResultDTO
     {
         return $this->adopt(

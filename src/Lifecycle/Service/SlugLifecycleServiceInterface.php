@@ -33,24 +33,29 @@ use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
  *
  * Implementations mutate the binding, current/alias/history ownership, and
  * operation replay records in one transaction. Commands carry the expected
- * revision used for optimistic CAS; assignment accepts null only when the
- * binding has no prior state. Replayed idempotency keys return the stored
- * result, while canonicalization, reservation, ownership, state, and revision
- * precondition failures are surfaced as domain exceptions.
+ * revision used for optimistic CAS; assignment accepts either a null
+ * revision for an absent binding or a matching revision for a RELEASED
+ * binding. Replayed idempotency keys return the stored result, while
+ * canonicalization, reservation, ownership, state, and revision precondition
+ * failures are surfaced as domain exceptions.
  */
 interface SlugLifecycleServiceInterface
 {
     /**
-     * Assigns an exact canonical claim, creating the binding when the expected
-     * revision is null; rejects non-canonical, reserved, occupied, or retained
-     * same-binding claims and records the assignment in history.
+     * Assigns an exact canonical claim. The binding must be absent with a null
+     * expected revision, or RELEASED with a matching current revision; the
+     * successful assignment establishes current ownership and history.
+     * Canonicalization, reservation, occupancy, same-binding retention, and
+     * idempotent replay rules are enforced transactionally.
      */
     public function assignExact(AssignExactCommand $command): SlugMutationResultDTO;
 
     /**
-     * Generates candidates from source text and assigns the first available
-     * claim atomically, preserving the same null-revision creation rule and
-     * reporting allocation exhaustion or reservation/ownership conflicts.
+     * Generates ordered candidates from source text and assigns the first
+     * available claim atomically. The binding must be absent with a null
+     * expected revision, or RELEASED with a matching current revision;
+     * allocation exhaustion, reservation, occupancy, ownership, and replay
+     * rules are enforced.
      */
     public function assignGenerated(AssignGeneratedCommand $command): SlugMutationResultDTO;
 
@@ -103,10 +108,16 @@ interface SlugLifecycleServiceInterface
     public function releaseAllOwnership(ReleaseAllOwnershipCommand $command): SlugMutationResultDTO;
 
     /**
-     * Executes a transactional MOVE or PARALLEL transition with an exact or
-     * generated target claim intent. MOVE transfers source ownership and
-     * PARALLEL retains it; source revision, target occupancy, profile, and
-     * transition-state preconditions are enforced and replay is supported.
+     * Creates an independent target Binding and current claim in a distinct
+     * target Scope under one transaction. EXACT uses one canonical target
+     * candidate and GENERATED uses ordered candidates; the target Binding must
+     * be absent on first execution, with an idempotent replay able to return
+     * the stored result.
+     *
+     * MOVE marks the source Binding INACTIVE but retains its current claim and
+     * source Scope identity; PARALLEL leaves the source Binding unchanged.
+     * Source CAS, profile, occupancy, reservation, and transition-state rules
+     * are enforced.
      */
     public function transitionScope(TransitionScopeCommand $command): ScopeTransitionResultDTO;
 
@@ -120,48 +131,58 @@ interface SlugLifecycleServiceInterface
     public function atomicTransfer(AtomicTransferCommand $command): AtomicTransferResultDTO;
 
     /**
-     * Adds or restores an ACTIVE_ALIAS claim for an active binding without
-     * changing its current pointer; canonicalization, reservation, occupancy,
-     * revision, and replay rules are applied transactionally.
+     * Adds or restores an ACTIVE_ALIAS claim on a current-bearing Binding whose
+     * state is ACTIVE or INACTIVE, using its matching current revision without
+     * changing the current pointer. Canonicalization, reservation, occupancy,
+     * ownership, and replay rules are applied transactionally.
      */
     public function addAlias(AddAliasCommand $command): SlugMutationResultDTO;
 
     /**
-     * Changes an ACTIVE_ALIAS to RETIRED_ALIAS at the expected revision while
-     * preserving the claim's history and binding ownership record.
+     * Changes an ACTIVE_ALIAS to RETIRED_ALIAS on a current-bearing ACTIVE or
+     * INACTIVE Binding at its matching revision, preserving current ownership,
+     * claim history, and replay semantics.
      */
     public function retireAlias(RetireAliasCommand $command): SlugMutationResultDTO;
 
     /**
-     * Changes a RETIRED_ALIAS back to ACTIVE_ALIAS after CAS, retaining history
-     * and rejecting claims that are absent or in another role.
+     * Changes a RETIRED_ALIAS back to ACTIVE_ALIAS after matching CAS on a
+     * current-bearing ACTIVE or INACTIVE Binding, retaining history and
+     * rejecting absent or role-incompatible claims transactionally.
      */
     public function reactivateAlias(ReactivateAliasCommand $command): SlugMutationResultDTO;
 
     /**
-     * Promotes an ACTIVE_ALIAS to current, demoting the former current claim to
-     * historical ownership in the same transaction and preserving replay data.
+     * Promotes an ACTIVE_ALIAS to current on a current-bearing ACTIVE or
+     * INACTIVE Binding at its matching revision, demoting the former current
+     * claim to historical ownership; the transition is transactional and
+     * replayable.
      */
     public function promoteAliasToCurrent(PromoteAliasToCurrentCommand $command): SlugMutationResultDTO;
 
     /**
-     * Adopts an existing current external claim into package-owned lifecycle
-     * state; a null expected revision is valid only for a new binding, while an
-     * optional original occurrence time is normalized into adoption history.
+     * Adopts an external claim as current. The binding must be absent with a
+     * null expected revision, or RELEASED with a matching current revision;
+     * either path establishes current ownership. The optional original
+     * occurrence time is normalized into adoption history and replay is
+     * transactional.
      */
     public function adoptCurrent(AdoptCurrentCommand $command): AdoptionResultDTO;
 
     /**
-     * Adopts an existing historical canonical claim at the expected revision,
-     * preserving its historical role and optional original occurrence time;
-     * ownership and revision preconditions are atomic and replayable.
+     * Adopts an external claim as historical without promoting it to current.
+     * It requires an existing ACTIVE or INACTIVE current-bearing Binding and
+     * its matching current revision; the current pointer remains unchanged.
+     * The optional original occurrence time is normalized, with ownership,
+     * transaction, and replay semantics enforced.
      */
     public function adoptHistorical(AdoptHistoricalCommand $command): AdoptionResultDTO;
 
     /**
-     * Adopts an existing alias claim without promoting it to current, enforcing
-     * the expected revision, role, ownership, and optional historical timestamp
-     * preconditions in one replayable transaction.
+     * Adopts an external claim as an alias without promoting it to current. It
+     * requires an existing ACTIVE or INACTIVE current-bearing Binding and its
+     * matching current revision; the optional original occurrence time is
+     * normalized and role, ownership, transaction, and replay rules apply.
      */
     public function adoptAlias(AdoptAliasCommand $command): AdoptionResultDTO;
 

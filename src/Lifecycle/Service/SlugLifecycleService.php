@@ -102,9 +102,11 @@ final class SlugLifecycleService
     }
 
     /**
-     * Assigns an exact canonical claim, creating a binding only when the
-     * command's expected revision is null; the mutation records history and an
-     * idempotent operation result inside one transaction.
+     * Assigns an exact canonical claim. The binding must be absent with a null
+     * expected revision, or RELEASED with a matching current revision; the
+     * mutation establishes current ownership and records history. Canonical,
+     * reservation, occupancy, same-binding retention, and idempotent replay
+     * rules are enforced inside one transaction.
      */
     public function assignExact(AssignExactCommand $command): SlugMutationResultDTO
     {
@@ -409,8 +411,10 @@ final class SlugLifecycleService
     }
 
     /**
-     * Assigns the first available generated candidate, enforcing reservation,
-     * uniqueness, creation-revision, history, and replay semantics atomically.
+     * Assigns the first available generated candidate. The binding must be
+     * absent with a null expected revision, or RELEASED with a matching current
+     * revision; reservation, uniqueness, history, allocation, and replay
+     * semantics are enforced atomically.
      */
     public function assignGenerated(AssignGeneratedCommand $command): SlugMutationResultDTO
     {
@@ -556,25 +560,42 @@ final class SlugLifecycleService
         return $this->statusMutation($command->binding, $command->expectedRevision, $command->audit, OperationTypeEnum::REACTIVATE, BindingStatusEnum::INACTIVE, BindingStatusEnum::ACTIVE, HistoryEventTypeEnum::REACTIVATED, ChangeTypeEnum::REACTIVATED);
     }
 
-    /** Adds or restores an ACTIVE_ALIAS without changing the current pointer, transactionally. */
+    /**
+     * Adds or restores an ACTIVE_ALIAS on a current-bearing ACTIVE or INACTIVE
+     * Binding at its matching revision without changing the current pointer;
+     * canonicalization, reservation, occupancy, ownership, and replay rules
+     * are transactional.
+     */
     public function addAlias(AddAliasCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::ADD_ALIAS, 'add');
     }
 
-    /** Retires an ACTIVE_ALIAS while retaining its ownership record and history. */
+    /**
+     * Retires an ACTIVE_ALIAS on a current-bearing ACTIVE or INACTIVE Binding
+     * at its matching revision while retaining current ownership, history, and
+     * replay semantics.
+     */
     public function retireAlias(RetireAliasCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::RETIRE_ALIAS, 'retire');
     }
 
-    /** Reactivates a RETIRED_ALIAS after the expected revision and role checks. */
+    /**
+     * Reactivates a RETIRED_ALIAS on a current-bearing ACTIVE or INACTIVE
+     * Binding after matching revision and role checks, retaining history and
+     * replay semantics.
+     */
     public function reactivateAlias(ReactivateAliasCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::REACTIVATE_ALIAS, 'reactivate');
     }
 
-    /** Promotes an ACTIVE_ALIAS to current and demotes the former current claim to history. */
+    /**
+     * Promotes an ACTIVE_ALIAS to current on a current-bearing ACTIVE or
+     * INACTIVE Binding at its matching revision and demotes the former current
+     * claim to history; the mutation is transactional and replayable.
+     */
     public function promoteAliasToCurrent(PromoteAliasToCurrentCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::PROMOTE_ALIAS, 'promote');

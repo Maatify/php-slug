@@ -70,7 +70,18 @@ final readonly class ScopeTransitionService
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
-    /** Moves or duplicates a binding into the target scope under one transaction. */
+    /**
+     * Creates an independent target Binding and current claim in a distinct
+     * target Scope under one transaction. EXACT uses one canonical target
+     * candidate and GENERATED uses ordered candidates; the target Binding must
+     * be absent on first execution, with an idempotent replay able to return
+     * the stored result.
+     *
+     * MOVE marks the source Binding INACTIVE but retains its current claim and
+     * source Scope identity; PARALLEL leaves the source Binding unchanged.
+     * Source CAS, profile, occupancy, reservation, and transition-state rules
+     * are enforced.
+     */
     public function transitionScope(TransitionScopeCommand $command): ScopeTransitionResultDTO
     {
         $targetProfile = $this->profiles->get($command->targetScope->expectedProfileKey);
