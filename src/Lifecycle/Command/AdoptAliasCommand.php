@@ -8,7 +8,7 @@ use DateTimeImmutable;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 
-/** Requests adoption of an existing alias claim with optional historical timing. */
+/** Requests adoption of an existing alias claim without promotion, with optional historical timing. */
 final readonly class AdoptAliasCommand
 {
     /** Validates the candidate, revision, and optional UTC-normalizable occurrence time. */

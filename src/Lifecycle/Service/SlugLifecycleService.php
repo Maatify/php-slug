@@ -72,17 +72,18 @@ use Maatify\Slug\Lifecycle\Factory\OperationKeyFactory;
 use Maatify\Slug\Lifecycle\Mapper\OperationFingerprintMapper;
 
 /**
- * Concrete WU-05 lifecycle boundary.
+ * Core persisted service for binding, alias, ownership, and transfer mutations.
  *
- * This class intentionally implements only the WU-05 operations. The complete
- * SlugLifecycleServiceInterface/SlugEngine wiring remains a WU-06 concern
- * because transition and adoption are not implemented here.
+ * Each operation coordinates repository locks, optimistic revisions, history,
+ * operation reservations, and transaction boundaries. Scope transitions and
+ * claim adoption are composed by the aggregate lifecycle adapter because they
+ * use specialized mutation services.
  */
 final class SlugLifecycleService
 {
     private ReservationEvaluator $reservations;
 
-    /** Wires the WU-05 lifecycle state machine and its transactional persistence boundaries. */
+    /** Wires the core lifecycle state machine and its transactional persistence boundaries. */
     public function __construct(
         private readonly SlugProfileRegistryInterface $profiles,
         private readonly RegistryRepositoryInterface $registry,
@@ -100,7 +101,11 @@ final class SlugLifecycleService
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
-    /** Assigns an exact claim, enforcing canonicalization, reservation, uniqueness, and revision rules. */
+    /**
+     * Assigns an exact canonical claim, creating a binding only when the
+     * command's expected revision is null; the mutation records history and an
+     * idempotent operation result inside one transaction.
+     */
     public function assignExact(AssignExactCommand $command): SlugMutationResultDTO
     {
         $profile = $this->profiles->get($command->binding->scopeProfile->expectedProfileKey);
@@ -403,7 +408,10 @@ final class SlugLifecycleService
         });
     }
 
-    /** Assigns the first available generated candidate and records the resulting mutation. */
+    /**
+     * Assigns the first available generated candidate, enforcing reservation,
+     * uniqueness, creation-revision, history, and replay semantics atomically.
+     */
     public function assignGenerated(AssignGeneratedCommand $command): SlugMutationResultDTO
     {
         $profile = $this->profiles->get($command->binding->scopeProfile->expectedProfileKey);
@@ -489,19 +497,25 @@ final class SlugLifecycleService
         });
     }
 
-    /** Changes the current claim to an exact candidate at the expected revision. */
+    /**
+     * Changes the current claim to an exact canonical value after CAS; the old
+     * current becomes historical and the operation can replay its stored result.
+     */
     public function changeExact(ChangeExactCommand $command): SlugMutationResultDTO
     {
         return $this->change($command->binding, $command->slugCandidate, false, $command->expectedRevision, $command->audit, OperationTypeEnum::CHANGE_EXACT);
     }
 
-    /** Changes the current claim using the ordered generated candidate sequence. */
+    /**
+     * Changes the current claim using the ordered generated sequence, skipping
+     * unavailable candidates and failing when allocation is exhausted.
+     */
     public function changeGenerated(ChangeGeneratedCommand $command): SlugMutationResultDTO
     {
         return $this->change($command->binding, $command->sourceText, true, $command->expectedRevision, $command->audit, OperationTypeEnum::CHANGE_GENERATED);
     }
 
-    /** Restores an eligible historical claim as current. */
+    /** Restores an owned historical canonical claim as current, demoting the former current atomically. */
     public function restoreHistorical(RestoreHistoricalCommand $command): SlugMutationResultDTO
     {
         $profile = $this->profiles->get($command->binding->scopeProfile->expectedProfileKey);
@@ -530,43 +544,43 @@ final class SlugLifecycleService
         });
     }
 
-    /** Deactivates a binding while retaining its current claim and history. */
+    /** Changes ACTIVE to INACTIVE while retaining claims and history under CAS and replay rules. */
     public function deactivate(DeactivateBindingCommand $command): SlugMutationResultDTO
     {
         return $this->statusMutation($command->binding, $command->expectedRevision, $command->audit, OperationTypeEnum::DEACTIVATE, BindingStatusEnum::ACTIVE, BindingStatusEnum::INACTIVE, HistoryEventTypeEnum::DEACTIVATED, ChangeTypeEnum::DEACTIVATED);
     }
 
-    /** Reactivates an inactive binding without replacing its current claim. */
+    /** Changes INACTIVE to ACTIVE without replacing the current claim under CAS and replay rules. */
     public function reactivate(ReactivateBindingCommand $command): SlugMutationResultDTO
     {
         return $this->statusMutation($command->binding, $command->expectedRevision, $command->audit, OperationTypeEnum::REACTIVATE, BindingStatusEnum::INACTIVE, BindingStatusEnum::ACTIVE, HistoryEventTypeEnum::REACTIVATED, ChangeTypeEnum::REACTIVATED);
     }
 
-    /** Adds a non-current alias claim for a binding. */
+    /** Adds or restores an ACTIVE_ALIAS without changing the current pointer, transactionally. */
     public function addAlias(AddAliasCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::ADD_ALIAS, 'add');
     }
 
-    /** Retires an alias claim while retaining its history. */
+    /** Retires an ACTIVE_ALIAS while retaining its ownership record and history. */
     public function retireAlias(RetireAliasCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::RETIRE_ALIAS, 'retire');
     }
 
-    /** Reactivates an eligible alias claim. */
+    /** Reactivates a RETIRED_ALIAS after the expected revision and role checks. */
     public function reactivateAlias(ReactivateAliasCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::REACTIVATE_ALIAS, 'reactivate');
     }
 
-    /** Promotes an eligible alias claim to the binding's current claim. */
+    /** Promotes an ACTIVE_ALIAS to current and demotes the former current claim to history. */
     public function promoteAliasToCurrent(PromoteAliasToCurrentCommand $command): SlugMutationResultDTO
     {
         return $this->aliasMutation($command->binding, $command->slugCandidate, $command->expectedRevision, $command->audit, OperationTypeEnum::PROMOTE_ALIAS, 'promote');
     }
 
-    /** Releases one claim owned by the binding at the expected revision. */
+    /** Deletes one non-current claim after CAS while retaining its lifecycle event. */
     public function releaseClaim(ReleaseClaimCommand $command): SlugMutationResultDTO
     {
         $profile = $this->profiles->get($command->binding->scopeProfile->expectedProfileKey);
@@ -596,7 +610,7 @@ final class SlugLifecycleService
         });
     }
 
-    /** Releases all claims owned by the binding while retaining lifecycle history. */
+    /** Moves an ACTIVE or INACTIVE binding to RELEASED and deletes all live claims atomically. */
     public function releaseAllOwnership(ReleaseAllOwnershipCommand $command): SlugMutationResultDTO
     {
         $fingerprint = $this->fingerprint(OperationTypeEnum::RELEASE_ALL, $command->binding, null, null, $command->expectedRevision, null, null);
@@ -625,7 +639,7 @@ final class SlugLifecycleService
         });
     }
 
-    /** Permanently purges an eligible released binding and its package-owned records. */
+    /** Permanently deletes a RELEASED, zero-live-claim binding after capability and CAS checks. */
     public function purgeBinding(PurgeBindingCommand $command): void
     {
         $this->capabilities->assertInstalledSchemaSupported();
@@ -641,7 +655,11 @@ final class SlugLifecycleService
         });
     }
 
-    /** Transfers a claim between bindings atomically, including a current-claim replacement when required. */
+    /**
+     * Transfers one claim atomically between distinct bindings in one scope;
+     * current transfers require a released target and exact/generated source
+     * replacement, while non-current transfers forbid replacement.
+     */
     public function atomicTransfer(AtomicTransferCommand $command): AtomicTransferResultDTO
     {
         $sourceProfile = $this->profiles->get($command->source->scopeProfile->expectedProfileKey);

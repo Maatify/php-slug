@@ -54,18 +54,23 @@ if ($isolation === 'READ COMMITTED') {
 }
 $profiles = new SlugProfileRegistry();
 $profiles->register(new TestSlugProfile());
+/** Fixed UTC clock makes concurrent lifecycle history deterministic. */
 $clock = new class implements ClockInterface {
+    /** Returns the timestamp shared by both race participants. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC for the lifecycle persistence contract. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');
     }
 };
+/** The worker's reservation policy is permissive so database contention is observable. */
 $policy = new class implements ReservedSlugPolicyInterface {
+    /** Never reserves a candidate in this race scenario. */
     public function isReserved(SlugScope $scope, Slug $slug): bool
     {
         return false;

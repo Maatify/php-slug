@@ -15,15 +15,19 @@ use Maatify\Slug\Canonicalization\ValueObject\Slug;
 use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
 use Maatify\Slug\Canonicalization\Contract\SlugProfileInterface;
 
+/** Deterministic ASCII profile used by allocation tests without production profile policy. */
 final class TestSlugProfile implements SlugProfileInterface
 {
+    /** Uses the supplied key so fixtures can model more than one registered profile. */
     public function __construct(private SlugProfileKey $profileKey = new SlugProfileKey('ascii-v1')) {}
 
+    /** Returns the profile key used by generated and canonicalized fixture DTOs. */
     public function key(): SlugProfileKey
     {
         return $this->profileKey;
     }
 
+    /** Normalizes non-alphanumeric runs to hyphens, lowercases, trims, and bounds output length. */
     public function generateFromSource(string $source): GeneratedSlugDTO
     {
         $value = preg_replace('/[^a-z0-9]+/i', '-', strtolower($source));
@@ -39,6 +43,7 @@ final class TestSlugProfile implements SlugProfileInterface
         return new GeneratedSlugDTO($this->profileKey, $source, Slug::fromProfile($this, $value));
     }
 
+    /** Lowercases an ASCII claim candidate and returns the profile-owned slug value. */
     public function canonicalizeClaim(string $candidate): CanonicalSlugDTO
     {
         $value = strtolower($candidate);
@@ -47,6 +52,7 @@ final class TestSlugProfile implements SlugProfileInterface
         return new CanonicalSlugDTO($this->profileKey, $candidate, Slug::fromProfile($this, $value));
     }
 
+    /** Classifies a lookup as canonical, non-canonical, or invalid under the test normalizer. */
     public function canonicalizeLookup(string $decodedSegment): LookupCanonicalizationDTO
     {
         try {
@@ -65,6 +71,7 @@ final class TestSlugProfile implements SlugProfileInterface
         );
     }
 
+    /** Enforces the ASCII constraint used by the fixture profile. */
     public function assertCanonicalSlug(string $candidate): void
     {
         CanonicalSlugRules::assertAscii($candidate);

@@ -10,7 +10,10 @@ use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
 
-/** Requests a MOVE or PARALLEL transition from one scope to another. */
+/**
+ * Requests an atomic MOVE or PARALLEL transition with an exact or generated
+ * target claim intent and a source optimistic-CAS revision.
+ */
 final readonly class TransitionScopeCommand
 {
     /** Validates the source revision; mode and claim intent remain explicit command inputs. */

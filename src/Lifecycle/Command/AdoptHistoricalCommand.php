@@ -8,7 +8,10 @@ use DateTimeImmutable;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 
-/** Requests adoption of an existing historical claim at an expected binding revision. */
+/**
+ * Requests adoption of an existing historical canonical claim without making
+ * it current, at the supplied binding revision and optional original time.
+ */
 final readonly class AdoptHistoricalCommand
 {
     /** Validates the candidate, revision, and optional historical timing. */

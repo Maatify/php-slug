@@ -114,97 +114,97 @@ final class SlugEngine implements SlugTextServiceInterface, SlugProfileRegistryI
         return $this->scopes->ensureScope($request);
     }
 
-    /** Assigns an exact canonical claim to a binding and records its lifecycle event. */
+    /** Delegates exact assignment without changing canonicalization, CAS, transaction, or replay semantics. */
     public function assignExact(AssignExactCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->assignExact($command);
     }
-    /** Generates and assigns the first available slug for a binding. */
+    /** Delegates generated assignment without changing candidate, reservation, CAS, or replay semantics. */
     public function assignGenerated(AssignGeneratedCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->assignGenerated($command);
     }
-    /** Changes a binding's current claim to the requested exact slug. */
+    /** Delegates exact change without changing history ownership, CAS, transaction, or replay semantics. */
     public function changeExact(ChangeExactCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->changeExact($command);
     }
-    /** Changes a binding's current claim using generated candidates. */
+    /** Delegates generated change without changing candidate ordering, CAS, or transaction semantics. */
     public function changeGenerated(ChangeGeneratedCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->changeGenerated($command);
     }
-    /** Restores a historical claim as the binding's current claim. */
+    /** Delegates historical restoration without changing role, CAS, transaction, or replay semantics. */
     public function restoreHistorical(RestoreHistoricalCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->restoreHistorical($command);
     }
-    /** Deactivates a binding while retaining its current claim and history. */
+    /** Delegates deactivation without changing retained ownership, state preconditions, or CAS semantics. */
     public function deactivate(DeactivateBindingCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->deactivate($command);
     }
-    /** Reactivates an inactive binding without changing its current claim. */
+    /** Delegates reactivation without changing current ownership, state preconditions, or CAS semantics. */
     public function reactivate(ReactivateBindingCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->reactivate($command);
     }
-    /** Releases a selected claim according to its expected revision. */
+    /** Delegates non-current claim release without changing history retention or CAS semantics. */
     public function releaseClaim(ReleaseClaimCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->releaseClaim($command);
     }
-    /** Releases all owned claims for a binding while preserving lifecycle history. */
+    /** Delegates release-all without changing destructive ownership semantics, history, or replay behavior. */
     public function releaseAllOwnership(ReleaseAllOwnershipCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->releaseAllOwnership($command);
     }
-    /** Moves or parallel-copies scope ownership according to the transition command. */
+    /** Delegates MOVE/PARALLEL transition without changing claim intent, atomicity, CAS, or replay semantics. */
     public function transitionScope(TransitionScopeCommand $command): ScopeTransitionResultDTO
     {
         return $this->lifecycle->transitionScope($command);
     }
-    /** Transfers ownership between bindings as one atomic lifecycle operation. */
+    /** Delegates atomic transfer without changing source/target CAS or replacement constraints. */
     public function atomicTransfer(AtomicTransferCommand $command): AtomicTransferResultDTO
     {
         return $this->lifecycle->atomicTransfer($command);
     }
-    /** Adds an alias claim without making it the current claim. */
+    /** Delegates alias creation without changing role, reservation, CAS, or replay semantics. */
     public function addAlias(AddAliasCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->addAlias($command);
     }
-    /** Retires an alias claim while retaining its historical record. */
+    /** Delegates alias retirement without changing role preconditions, history, or CAS semantics. */
     public function retireAlias(RetireAliasCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->retireAlias($command);
     }
-    /** Reactivates an eligible alias claim for resolution. */
+    /** Delegates alias reactivation without changing role preconditions, history, or CAS semantics. */
     public function reactivateAlias(ReactivateAliasCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->reactivateAlias($command);
     }
-    /** Promotes an alias to the binding's current claim. */
+    /** Delegates alias promotion without changing current/history ownership, CAS, or replay semantics. */
     public function promoteAliasToCurrent(PromoteAliasToCurrentCommand $command): SlugMutationResultDTO
     {
         return $this->lifecycle->promoteAliasToCurrent($command);
     }
-    /** Adopts an existing current claim into the package-owned lifecycle. */
+    /** Delegates current-claim adoption without changing absent-revision, timestamp, or replay semantics. */
     public function adoptCurrent(AdoptCurrentCommand $command): AdoptionResultDTO
     {
         return $this->lifecycle->adoptCurrent($command);
     }
-    /** Adopts an existing historical claim with its historical timestamp. */
+    /** Delegates historical adoption without changing role, timestamp, CAS, or replay semantics. */
     public function adoptHistorical(AdoptHistoricalCommand $command): AdoptionResultDTO
     {
         return $this->lifecycle->adoptHistorical($command);
     }
-    /** Adopts an existing alias claim without promoting it to current. */
+    /** Delegates alias adoption without changing role, timestamp, CAS, or replay semantics. */
     public function adoptAlias(AdoptAliasCommand $command): AdoptionResultDTO
     {
         return $this->lifecycle->adoptAlias($command);
     }
-    /** Permanently purges an eligible binding and its package-owned records. */
+    /** Delegates destructive purge without changing RELEASED/zero-claims or CAS preconditions. */
     public function purgeBinding(PurgeBindingCommand $command): void
     {
         $this->lifecycle->purgeBinding($command);
