@@ -15,15 +15,16 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Shared real-MySQL integration harness for package schema tests.
+ *
+ * The setup lifecycle validates the integration environment, enforces the
+ * `_test` database safety boundary, and recreates and verifies the package
+ * schema before each test; teardown removes the package schema afterward.
+ */
 abstract class MySqlIntegrationTestCase extends TestCase
 {
-    /**
-     * Shared real-MySQL harness for integration tests that exercise the package schema.
-     *
-     * Each test receives a deterministic connection and a freshly installed schema;
-     * teardown removes only tables from a database whose name is explicitly suffixed
-     * with `_test`.
-     */
+    /** The real-MySQL connection used by the current integration test. */
     protected PDO $pdo;
 
     /** Fails clearly when MySQL support or the configured isolated test database is unavailable. */
@@ -92,7 +93,6 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $capabilities->assertInstalledSchemaSupported();
     }
 
-    /** @return array<string, string> */
     /** @return array{SLUG_TEST_DB_HOST: string, SLUG_TEST_DB_PORT: string, SLUG_TEST_DB_NAME: string, SLUG_TEST_DB_USER: string, SLUG_TEST_DB_PASSWORD: string} */
     private function testConfiguration(): array
     {
