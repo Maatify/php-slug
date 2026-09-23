@@ -12,8 +12,10 @@ use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 
+/** Read result describing lookup canonicality, match role, owner, and current state. */
 final readonly class SlugResolutionDTO implements JsonSerializable
 {
+    /** Enforces the non-negative revision invariant when a binding was matched. */
     public function __construct(
         public ScopeProfileRequestDTO $scopeProfile,
         public string $requestedSegment,
@@ -33,7 +35,11 @@ final readonly class SlugResolutionDTO implements JsonSerializable
         }
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Returns the resolution shape, including nulls for unmatched or invalid dimensions.
+     *
+     * @return array<string, mixed>
+     */
     public function jsonSerialize(): array
     {
         return [

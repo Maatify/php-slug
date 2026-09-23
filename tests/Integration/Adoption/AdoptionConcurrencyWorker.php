@@ -49,12 +49,15 @@ $pdo->exec('SET NAMES utf8mb4 COLLATE utf8mb4_bin');
 $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
 $profiles = new SlugProfileRegistry();
 $profiles->register(new TestSlugProfile());
+/** Fixed UTC clock keeps adoption replay and conflict history deterministic. */
 $clock = new class implements ClockInterface {
+    /** Returns the stable occurrence timestamp used by both workers. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC for persisted adoption history. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');

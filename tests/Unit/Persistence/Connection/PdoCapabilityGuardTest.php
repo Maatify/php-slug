@@ -40,45 +40,57 @@ final class PdoCapabilityGuardTest extends TestCase
     }
 }
 
+/** PDO double that fails only the rollback-to-savepoint cleanup operation. */
 final class CapabilityProbeRollbackFailurePdo extends PDO
 {
+    /** Keeps the PDO parent unconstructed because the probe methods are fully controlled. */
     public function __construct() {}
 
+    /** Reports an active probe transaction so cleanup reaches the injected failure. */
     public function inTransaction(): bool
     {
         return true;
     }
 
+    /** Returns false for rollback-to-savepoint and succeeds for unrelated probe SQL. */
     public function exec(string $statement): int|false
     {
         return str_starts_with($statement, 'ROLLBACK TO SAVEPOINT') ? false : 1;
     }
 }
 
+/** PDO double that fails only release of the capability probe savepoint. */
 final class CapabilityProbeReleaseFailurePdo extends PDO
 {
+    /** Keeps the PDO parent unconstructed because the probe methods are fully controlled. */
     public function __construct() {}
 
+    /** Reports an active probe transaction so cleanup reaches the injected failure. */
     public function inTransaction(): bool
     {
         return true;
     }
 
+    /** Returns false for savepoint release and succeeds for unrelated probe SQL. */
     public function exec(string $statement): int|false
     {
         return str_starts_with($statement, 'RELEASE SAVEPOINT') ? false : 1;
     }
 }
 
+/** PDO double that fails the rollback used when the capability probe owns the transaction. */
 final class CapabilityProbeTransactionRollbackFailurePdo extends PDO
 {
+    /** Keeps the PDO parent unconstructed because only the cleanup boundary is under test. */
     public function __construct() {}
 
+    /** Reports an active transaction so the guard attempts the injected rollback. */
     public function inTransaction(): bool
     {
         return true;
     }
 
+    /** Returns false to prove the guard converts owned-transaction cleanup failure. */
     public function rollBack(): bool
     {
         return false;

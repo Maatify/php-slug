@@ -9,8 +9,10 @@ use JsonSerializable;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 
+/** Immutable read model for one canonical, historical, or alias registry claim. */
 final readonly class RegistryClaimDTO implements JsonSerializable
 {
+    /** Stores the claim identity, canonical slug, role, and persistence timestamps. */
     public function __construct(
         public int $id,
         public BindingIdentityDTO $binding,

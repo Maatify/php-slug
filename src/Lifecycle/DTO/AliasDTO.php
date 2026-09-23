@@ -6,8 +6,10 @@ namespace Maatify\Slug\Lifecycle\DTO;
 
 use JsonSerializable;
 
+/** Immutable read model for an alias claim and its resolution state. */
 final readonly class AliasDTO implements JsonSerializable
 {
+    /** Enforces a non-negative binding revision for the alias snapshot. */
     public function __construct(
         public RegistryClaimDTO $claim,
         public bool $resolvableAsAlias,

@@ -14,13 +14,16 @@ use Maatify\Slug\Canonicalization\Mapper\LookupCanonicalizationMapper;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
 
+/** Built-in profile that preserves Unicode letters while producing canonical slugs. */
 final class UnicodeSlugProfile extends AbstractBuiltinSlugProfile
 {
+    /** Initializes the profile with the stable `unicode-v1` key. */
     public function __construct()
     {
         parent::__construct(new SlugProfileKey('unicode-v1'));
     }
 
+    /** Generates an NFC-normalized, lowercase, separator-normalized Unicode slug. */
     public function generateFromSource(string $source): GeneratedSlugDTO
     {
         $this->assertSafe($source, 'source');
@@ -38,12 +41,14 @@ final class UnicodeSlugProfile extends AbstractBuiltinSlugProfile
         return new GeneratedSlugDTO($this->profileKey, $source, Slug::fromProfile($this, $value));
     }
 
+    /** Canonicalizes a claim without changing the profile's Unicode slug alphabet. */
     public function canonicalizeClaim(string $candidate): CanonicalSlugDTO
     {
         $canonical = $this->canonicalizeExact($candidate, 'candidate');
         return new CanonicalSlugDTO($this->profileKey, $candidate, Slug::fromProfile($this, $canonical));
     }
 
+    /** Classifies lookup input while preserving invalid input as an invalid result. */
     public function canonicalizeLookup(string $decodedSegment): LookupCanonicalizationDTO
     {
         return LookupCanonicalizationMapper::map(
@@ -65,12 +70,14 @@ final class UnicodeSlugProfile extends AbstractBuiltinSlugProfile
         );
     }
 
+    /** Rejects any value that is not already a canonical Unicode slug. */
     public function assertCanonicalSlug(string $candidate): void
     {
         $this->assertCanonicalRepresentation($candidate, 'canonical slug');
         CanonicalSlugRules::assertUnicode($candidate);
     }
 
+    /** Applies NFC and lowercase conversion before enforcing Unicode slug syntax. */
     private function canonicalizeExact(string $value, string $field): string
     {
         $this->assertSafe($value, $field);

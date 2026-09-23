@@ -8,8 +8,14 @@ use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\TransferReplacementIntentDTO;
 
+/**
+ * Requests an atomic same-scope transfer between distinct bindings.
+ * Current-source transfers require a replacement intent and a released target;
+ * non-current transfers must omit replacement and target an active/inactive binding.
+ */
 final readonly class AtomicTransferCommand
 {
+    /** Validates revisions, same-scope identity, and distinct source/target bindings. */
     public function __construct(
         public BindingIdentityDTO $source,
         public BindingIdentityDTO $target,

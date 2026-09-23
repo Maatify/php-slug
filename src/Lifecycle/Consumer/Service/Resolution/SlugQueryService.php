@@ -20,9 +20,10 @@ use Maatify\Slug\Lifecycle\Repository\CapabilityGuardInterface;
 use Maatify\Slug\Lifecycle\Repository\Registry\RegistryRepositoryInterface;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 
-/** Public read-only resolution boundary for WU-06. */
+/** Read-only resolution service combining profile canonicalization with registry state. */
 final readonly class SlugQueryService implements SlugQueryServiceInterface
 {
+    /** Injects profile, registry, availability, and schema capability boundaries. */
     public function __construct(
         private SlugProfileRegistryInterface $profiles,
         private RegistryRepositoryInterface $registry,
@@ -30,11 +31,13 @@ final readonly class SlugQueryService implements SlugQueryServiceInterface
         private CapabilityGuardInterface $capabilities,
     ) {}
 
+    /** Returns advisory availability without reserving or mutating a slug. */
     public function checkAvailability(AvailabilityCriteria $criteria): SlugAvailabilityDTO
     {
         return $this->availability->check($criteria);
     }
 
+    /** Returns the current claim for a binding, or null when no current claim exists. */
     public function getCurrent(CurrentSlugCriteria $criteria): ?CurrentSlugDTO
     {
         $this->capabilities->assertInstalledSchemaSupported();
@@ -46,6 +49,7 @@ final readonly class SlugQueryService implements SlugQueryServiceInterface
         return new CurrentSlugDTO($binding, $binding->currentClaim, $binding->state->revision);
     }
 
+    /** Resolves lookup input to a current, alias, historical, or unmatched result. */
     public function resolve(ResolutionCriteria $criteria): SlugResolutionDTO
     {
         $profile = $this->profiles->get($criteria->scopeProfile->expectedProfileKey);
@@ -103,6 +107,7 @@ final readonly class SlugQueryService implements SlugQueryServiceInterface
         );
     }
 
+    /** Builds the stable unmatched result while preserving lookup canonicality. */
     private function none(ResolutionCriteria $criteria, InputFormCanonicalityEnum $canonicality, \Maatify\Slug\Canonicalization\ValueObject\Slug $canonicalSlug): SlugResolutionDTO
     {
         return new SlugResolutionDTO(

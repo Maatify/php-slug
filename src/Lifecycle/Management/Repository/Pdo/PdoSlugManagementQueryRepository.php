@@ -41,6 +41,7 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
 {
     private PdoPaginator $paginator;
 
+    /** Injects PDO and profile lookup used to hydrate paginated management rows. */
     public function __construct(
         private PDO $pdo,
         private SlugProfileRegistryInterface $profiles,
@@ -48,7 +49,11 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         $this->paginator = new PdoPaginator();
     }
 
-    /** @return PageResult<AliasDTO> */
+    /**
+     * Returns a page of active and retired aliases for one binding.
+     *
+     * @return PageResult<AliasDTO>
+     */
     public function listAliases(int $bindingId, PageRequest $request): PageResult
     {
         $predicate = 'r.binding_id = :binding_id AND r.claim_role IN (\'ACTIVE_ALIAS\', \'RETIRED_ALIAS\')';
@@ -64,7 +69,11 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $this->paginator->paginate($this->pdo, $descriptor, $request, self::aliasConfig(), fn(array $row): AliasDTO => $this->aliasFromRow($row));
     }
 
-    /** @return PageResult<HistoryEventDTO> */
+    /**
+     * Returns a page of history events, optionally filtered by event type.
+     *
+     * @return PageResult<HistoryEventDTO>
+     */
     public function getHistory(int $bindingId, ?HistoryEventTypeEnum $eventType, PageRequest $request): PageResult
     {
         $predicate = 'h.binding_id = :binding_id';
@@ -86,7 +95,11 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $this->paginator->paginate($this->pdo, $descriptor, $request, self::historyConfig(), fn(array $row): HistoryEventDTO => $this->historyFromRow($row));
     }
 
-    /** @return PageResult<RegistryClaimDTO> */
+    /**
+     * Returns a page of claims within a scope, optionally narrowed by binding and role.
+     *
+     * @return PageResult<RegistryClaimDTO>
+     */
     public function inspectRegistry(int $scopeId, ?int $bindingId, ?RegistryRoleEnum $role, PageRequest $request): PageResult
     {
         [$predicate, $params] = $this->registryPredicate($scopeId, $bindingId, $role);
@@ -102,7 +115,11 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $this->paginator->paginate($this->pdo, $descriptor, $request, self::registryConfig(), fn(array $row): RegistryClaimDTO => $this->claimFromRow($row));
     }
 
-    /** @return PageResult<BindingDTO> */
+    /**
+     * Returns a page of bindings matching entity and lifecycle filters.
+     *
+     * @return PageResult<BindingDTO>
+     */
     public function searchBindings(int $scopeId, BindingSearchCriteria $criteria): PageResult
     {
         $predicate = 'b.scope_id = :scope_id';
@@ -131,7 +148,11 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $this->paginator->paginate($this->pdo, $descriptor, $criteria->pageRequest, self::bindingConfig(), fn(array $row): BindingDTO => $this->bindingFromRow($row));
     }
 
-    /** @return PageResult<RegistryClaimDTO> */
+    /**
+     * Returns a page of registry claims matching slug, role, and binding filters.
+     *
+     * @return PageResult<RegistryClaimDTO>
+     */
     public function searchRegistry(int $scopeId, RegistrySearchCriteria $criteria): PageResult
     {
         $predicate = 'r.scope_id = :scope_id';
@@ -160,6 +181,7 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $this->paginator->paginate($this->pdo, $descriptor, $criteria->pageRequest, self::registryConfig(), fn(array $row): RegistryClaimDTO => $this->claimFromRow($row));
     }
 
+    /** Returns the shared claim query projection and joins. */
     private function claimSelectSql(): string
     {
         return 'SELECT r.id, r.scope_id, r.binding_id, r.slug, r.claim_role, r.claimed_at, r.updated_at, '
@@ -169,6 +191,7 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
             . 'INNER JOIN maa_slug_bindings b ON b.id = r.binding_id';
     }
 
+    /** Returns the binding query projection, including its current claim. */
     private function bindingSelectSql(): string
     {
         return 'SELECT b.id, b.scope_id, b.entity_type, b.entity_key, b.current_registry_id, b.status, '
@@ -180,6 +203,7 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
             . 'LEFT JOIN maa_slug_registry cr ON cr.id = b.current_registry_id';
     }
 
+    /** Returns the history query projection and scope join. */
     private function historySelectSql(): string
     {
         return 'SELECT h.id, h.binding_id, h.sequence_no, h.event_type, h.scope_namespace_snapshot, '
@@ -363,6 +387,7 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $value === '' ? null : $value;
     }
 
+    /** Escapes LIKE metacharacters before applying a prefix wildcard. */
     private function likePrefix(string $prefix): string
     {
         return strtr($prefix, ['\\' => '\\\\', '%' => '\\%', '_' => '\\_']) . '%';
@@ -377,6 +402,7 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return PdoRowHydrator::nonNegativeInt($row, $field);
     }
 
+    /** Parses the repository's six-microsecond UTC timestamp representation. */
     private function date(string $value, string $field): DateTimeImmutable
     {
         if (preg_match('/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\z/', $value) !== 1) {
@@ -390,21 +416,25 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $date;
     }
 
+    /** Defines stable sorting and limits for alias pages. */
     private static function aliasConfig(): PaginationConfig
     {
         return new PaginationConfig(new SortWhitelist(['id' => 'r.id', 'slug' => 'r.slug', 'updated_at' => 'r.updated_at']), 'id', SortDirectionEnum::ASC, 'id', SortDirectionEnum::ASC, 25, 1, 100);
     }
 
+    /** Defines stable sorting and limits for history pages. */
     private static function historyConfig(): PaginationConfig
     {
         return new PaginationConfig(new SortWhitelist(['occurred_at' => 'h.occurred_at', 'id' => 'h.id']), 'occurred_at', SortDirectionEnum::ASC, 'id', SortDirectionEnum::ASC, 25, 1, 100);
     }
 
+    /** Defines stable sorting and limits for registry pages. */
     private static function registryConfig(): PaginationConfig
     {
         return new PaginationConfig(new SortWhitelist(['id' => 'r.id', 'slug' => 'r.slug', 'role' => 'r.claim_role', 'updated_at' => 'r.updated_at']), 'id', SortDirectionEnum::ASC, 'id', SortDirectionEnum::ASC, 25, 1, 100);
     }
 
+    /** Defines stable sorting and limits for binding pages. */
     private static function bindingConfig(): PaginationConfig
     {
         return new PaginationConfig(new SortWhitelist(['id' => 'b.id', 'entity_type' => 'b.entity_type', 'entity_key' => 'b.entity_key', 'updated_at' => 'b.updated_at']), 'id', SortDirectionEnum::ASC, 'id', SortDirectionEnum::ASC, 25, 1, 100);

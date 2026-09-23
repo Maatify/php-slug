@@ -7,8 +7,14 @@ namespace Maatify\Slug\Lifecycle\DTO;
 use JsonSerializable;
 use Maatify\Slug\Lifecycle\Enum\ClaimIntentModeEnum;
 
+/**
+ * Immutable replacement intent for a source current claim during atomic transfer.
+ * EXACT selects one canonical replacement; GENERATED supplies source text for
+ * the ordered replacement candidate sequence.
+ */
 final readonly class TransferReplacementIntentDTO implements JsonSerializable
 {
+    /** Requires a non-empty value for the selected exact or generated replacement mode. */
     public function __construct(
         public ClaimIntentModeEnum $mode,
         public string $value,

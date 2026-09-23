@@ -21,9 +21,10 @@ use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoRowHydrator;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
-/** Internal append-only History persistence used by WU-05 lifecycle components. */
+/** Internal append-only history persistence used by lifecycle components. */
 final readonly class PdoHistoryRepository implements HistoryRepositoryInterface
 {
+    /** Injects PDO and profile lookup used to persist and hydrate history events. */
     public function __construct(
         private PDO $pdo,
         private SlugProfileRegistryInterface $profiles,
@@ -34,6 +35,7 @@ final readonly class PdoHistoryRepository implements HistoryRepositoryInterface
 
     private PdoCapabilityGuard $capabilities;
 
+    /** Appends one event and returns the persisted event snapshot. */
     public function append(HistoryEventDraft $draft): HistoryEventDTO
     {
         if ($draft->bindingId < 0 || $draft->sequenceNo < 1) {
@@ -119,6 +121,7 @@ final readonly class PdoHistoryRepository implements HistoryRepositoryInterface
         return $stored;
     }
 
+    /** Finds one event by identifier, optionally with a row lock. */
     public function findById(int $id, bool $forUpdate = false): ?HistoryEventDTO
     {
         if ($id < 0) {
@@ -202,6 +205,7 @@ final readonly class PdoHistoryRepository implements HistoryRepositoryInterface
         }
     }
 
+    /** Converts a nullable persisted role token into its lifecycle enum. */
     private function role(mixed $value, string $field): ?RegistryRoleEnum
     {
         if ($value === null) {
@@ -218,11 +222,13 @@ final readonly class PdoHistoryRepository implements HistoryRepositoryInterface
         return $role;
     }
 
+    /** Normalizes history timestamps to the UTC storage timezone. */
     private function utc(DateTimeImmutable $date): DateTimeImmutable
     {
         return $date->setTimezone(new DateTimeZone('UTC'));
     }
 
+    /** Parses a six-microsecond UTC timestamp returned by the history table. */
     private function date(string $value, string $field): DateTimeImmutable
     {
         if (preg_match('/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\z/', $value) !== 1) {

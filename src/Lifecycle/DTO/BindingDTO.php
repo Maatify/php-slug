@@ -9,8 +9,10 @@ use JsonSerializable;
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Immutable binding snapshot with identity, lifecycle state, and current claim. */
 final readonly class BindingDTO implements JsonSerializable
 {
+    /** Enforces consistency between binding status, current claim, and current slug. */
     public function __construct(
         public int $id,
         public BindingIdentityDTO $identity,

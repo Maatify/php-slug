@@ -13,5 +13,6 @@ namespace Maatify\Slug\Lifecycle\Repository\Pdo\Transaction;
  */
 final readonly class PdoTransactionRollback
 {
+    /** Carries a callback result through the rollback control path. */
     public function __construct(public mixed $value) {}
 }

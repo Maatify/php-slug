@@ -12,9 +12,12 @@ use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 
+/** Immutable result of one binding or alias mutation and its persisted history. */
 final readonly class SlugMutationResultDTO implements JsonSerializable
 {
     /**
+     * Validates operation metadata, state consistency, and ordered history events.
+     *
      * @param list<RegistryClaimDTO> $affectedClaims
      * @param list<HistoryEventDTO> $historyEvents
      */
@@ -81,6 +84,7 @@ final readonly class SlugMutationResultDTO implements JsonSerializable
         }
     }
 
+    /** Returns the same result with the replay flag supplied by idempotency handling. */
     public function withReplayed(bool $replayed): self
     {
         return new self(

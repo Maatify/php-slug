@@ -9,9 +9,10 @@ use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 use Maatify\Slug\Lifecycle\Repository\Binding\BindingMaintenanceRepositoryInterface;
 use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
 
-/** Internal destructive Binding maintenance used only by purgeBinding. */
+/** Internal destructive binding maintenance used only by authorized purgeBinding. */
 final readonly class PdoBindingMaintenanceRepository implements BindingMaintenanceRepositoryInterface
 {
+    /** Injects the PDO connection used for package-owned cascading deletion. */
     public function __construct(
         private PDO $pdo,
         ?PdoCapabilityGuard $capabilities = null,
@@ -21,6 +22,7 @@ final readonly class PdoBindingMaintenanceRepository implements BindingMaintenan
 
     private PdoCapabilityGuard $capabilities;
 
+    /** Deletes the package-owned binding records in dependency-safe order. */
     public function purge(int $bindingId): void
     {
         if ($bindingId < 0) {

@@ -6,6 +6,7 @@ namespace Maatify\Slug\Lifecycle\Repository\Pdo\Support;
 
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 
+/** Hydrates validated PDO scalar rows into package persistence records and DTOs. */
 final class PdoRowHydrator
 {
     /** @return array<string, mixed>|null */

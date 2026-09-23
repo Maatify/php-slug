@@ -7,8 +7,10 @@ namespace Maatify\Slug\Lifecycle\DTO;
 use JsonSerializable;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Optional actor, reason, correlation, and idempotency metadata for mutations. */
 final readonly class AuditContextDTO implements JsonSerializable
 {
+    /** Validates bounded audit identifiers while allowing omitted optional metadata. */
     public function __construct(
         public ?string $actorKey = null,
         public ?string $reason = null,
@@ -29,6 +31,7 @@ final readonly class AuditContextDTO implements JsonSerializable
         }
     }
 
+    /** Validates identifier-like audit fields for safe persistence. */
     private static function assertAuditString(string $value, int $maxCodePoints, string $field): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {
@@ -45,6 +48,7 @@ final readonly class AuditContextDTO implements JsonSerializable
         }
     }
 
+    /** Validates free-form reason text without applying path or boundary-whitespace rules. */
     private static function assertReason(string $value, int $maxCodePoints = 500, string $field = 'reason'): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {

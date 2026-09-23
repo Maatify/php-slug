@@ -9,13 +9,16 @@ use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
 use Throwable;
 
+/** Installs the package-owned MySQL schema through an injected PDO connection. */
 final readonly class PdoSchemaInstaller
 {
+    /** Stores the connection used for schema installation. */
     public function __construct(
         private PDO $pdo,
         private ?PdoCapabilityGuard $capabilities = null,
     ) {}
 
+    /** Loads and executes the package's canonical schema file. */
     public function installPackageSchema(): void
     {
         ($this->capabilities ?? new PdoCapabilityGuard($this->pdo))->assertSupported();
@@ -28,6 +31,7 @@ final readonly class PdoSchemaInstaller
         $this->installSql($sql);
     }
 
+    /** Executes caller-supplied schema SQL without opening a separate connection. */
     public function installSql(string $sql): void
     {
         $statements = preg_split('/;\s*(?:\r?\n|\z)/', $sql);

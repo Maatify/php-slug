@@ -61,18 +61,23 @@ if ($isolation === 'READ COMMITTED') {
 }
 $profiles = new SlugProfileRegistry();
 $profiles->register(new TestSlugProfile());
+/** Fixed UTC clock makes transfer participant history comparable across processes. */
 $clock = new class implements ClockInterface {
+    /** Returns the deterministic timestamp used by transfer mutations. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC for persisted transfer history. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');
     }
 };
+/** The transfer race leaves reservation policy out of the contention under test. */
 $policy = new class implements ReservedSlugPolicyInterface {
+    /** Never reserves a candidate in this concurrency scenario. */
     public function isReserved(SlugScope $scope, Slug $slug): bool
     {
         return false;

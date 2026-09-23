@@ -15,20 +15,41 @@ use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingSearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
 
+/** Read-only repository boundary for paginated management projections. */
 interface ManagementQueryRepositoryInterface
 {
-    /** @return PageResult<AliasDTO> */
+    /**
+     * Returns aliases for one binding.
+     *
+     * @return PageResult<AliasDTO>
+     */
     public function listAliases(int $bindingId, PageRequest $request): PageResult;
 
-    /** @return PageResult<HistoryEventDTO> */
+    /**
+     * Returns history for one binding, optionally filtered by event type.
+     *
+     * @return PageResult<HistoryEventDTO>
+     */
     public function getHistory(int $bindingId, ?HistoryEventTypeEnum $eventType, PageRequest $request): PageResult;
 
-    /** @return PageResult<RegistryClaimDTO> */
+    /**
+     * Returns registry claims for a scope, optionally narrowed by binding and role.
+     *
+     * @return PageResult<RegistryClaimDTO>
+     */
     public function inspectRegistry(int $scopeId, ?int $bindingId, ?RegistryRoleEnum $role, PageRequest $request): PageResult;
 
-    /** @return PageResult<BindingDTO> */
+    /**
+     * Returns bindings matching the supplied scope and filters.
+     *
+     * @return PageResult<BindingDTO>
+     */
     public function searchBindings(int $scopeId, BindingSearchCriteria $criteria): PageResult;
 
-    /** @return PageResult<RegistryClaimDTO> */
+    /**
+     * Returns registry claims matching the supplied scope and filters.
+     *
+     * @return PageResult<RegistryClaimDTO>
+     */
     public function searchRegistry(int $scopeId, RegistrySearchCriteria $criteria): PageResult;
 }

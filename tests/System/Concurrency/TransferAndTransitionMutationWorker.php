@@ -57,12 +57,15 @@ $pdo->exec('SET NAMES utf8mb4 COLLATE utf8mb4_bin');
 $pdo->exec('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
 $profiles = new SlugProfileRegistry();
 $profiles->register(new TestSlugProfile());
+/** Fixed UTC clock removes timestamp variance from concurrent mutation outcomes. */
 $clock = new class implements ClockInterface {
+    /** Returns the deterministic timestamp used in generated history rows. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC for the persisted history timestamp contract. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');

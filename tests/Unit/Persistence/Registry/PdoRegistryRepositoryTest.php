@@ -46,24 +46,33 @@ final class PdoRegistryRepositoryTest extends TestCase
     }
 }
 
+/** PDO double that fails prepare so registry insert tests observe the original driver exception. */
 final class RegistryInsertFailurePdo extends PDO
 {
+    /** @param PDOException $failure Exception instance that must propagate unchanged. */
     public function __construct(private readonly PDOException $failure) {}
 
-    /** @param array<int, mixed> $options */
+    /**
+     * Throws the configured failure for every prepared registry statement.
+     *
+     * @param array<int, mixed> $options
+     */
     public function prepare(string $query, array $options = []): PDOStatement|false
     {
         throw $this->failure;
     }
 }
 
+/** Fixed UTC clock used by registry persistence tests for deterministic timestamps. */
 final class RegistryRepositoryTestClock implements ClockInterface
 {
+    /** Returns the stable microsecond timestamp used by fixture persistence. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC, matching the persistence contract used by the repository. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');
