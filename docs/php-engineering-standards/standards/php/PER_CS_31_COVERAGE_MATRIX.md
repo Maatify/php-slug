@@ -5,6 +5,12 @@ The repository-owned `style` gate is a composite verifier:
 1. PHP-CS-Fixer's explicit, non-floating `@PER-CS3x0` ruleset covers the PER-CS 3.0 baseline.
 2. `tools/ci/verify-per-cs31.php` covers applicable PER-CS 3.1 obligations that the 3.0 preset does not establish.
 
+The base preset's multiline-call wrapping is explicitly overridden because it
+would place a multiline array's opening bracket on its own line. The override
+resolves the PER-CS 3.0/3.1 layout difference; comma spacing and array element
+indentation remain covered by the base preset, while the supplemental verifier
+owns the PER-CS 3.1 opening-bracket obligation.
+
 The adopted normative baseline remains PHP-FIG PER Coding Style 3.1. `@PER-CS` and other floating selectors are intentionally not used.
 
 | PER-CS 3.1 delta | Applicable? | Base `@PER-CS3x0` | Supplemental verification | Evidence / rationale |

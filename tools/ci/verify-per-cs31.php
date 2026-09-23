@@ -244,10 +244,14 @@ final class PerCs31Verifier
                 continue;
             }
 
-            $previousLine = $this->tokenLine($tokens, $previous);
             $line = $this->tokenLine($tokens, $index);
+            $next = $this->nextMeaningful($tokens, $index);
 
-            if ($line > $previousLine && $this->lineOnlyContainsWhitespaceBefore($tokens, $index)) {
+            if (
+                $this->lineOnlyContainsWhitespaceBefore($tokens, $index)
+                && $next !== null
+                && $this->tokenLine($tokens, $next) > $line
+            ) {
                 $this->error($file, $line, 'a multi-line array opening bracket MUST NOT be on its own line');
             }
         }
