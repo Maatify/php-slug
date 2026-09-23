@@ -2,36 +2,38 @@
 
 declare(strict_types=1);
 
-/**
- * Supplemental checks for the PER Coding Style 3.1 obligations not established
- * by PHP-CS-Fixer's explicit @PER-CS3x0 ruleset.
- */
-
+/** Supplemental PER-CS 3.1 checks not established by @PER-CS3x0. */
 final class PerCs31Verifier
 {
     /** @var list<string> */
     private array $errors = [];
 
-    /** @var list<string> */
-    private array $files = [];
-
     public function run(string $root): int
     {
-        $this->files = $this->phpFiles($root);
+        $files = $this->phpFiles($root);
+        $errors = $this->verifyFiles($files);
 
-        foreach ($this->files as $file) {
-            $this->verifyFile($file);
-        }
-
-        if ($this->errors !== []) {
-            fwrite(STDERR, implode(PHP_EOL, $this->errors) . PHP_EOL);
+        if ($errors !== []) {
+            fwrite(STDERR, implode(PHP_EOL, $errors) . PHP_EOL);
 
             return 1;
         }
 
-        printf("PER-CS 3.1 supplemental verification passed (%d PHP files).%s", count($this->files), PHP_EOL);
+        printf("PER-CS 3.1 supplemental verification passed (%d PHP files).%s", count($files), PHP_EOL);
 
         return 0;
+    }
+
+    /** @param list<string> $files */
+    public function verifyFiles(array $files): array
+    {
+        $this->errors = [];
+
+        foreach ($files as $file) {
+            $this->verifyFile($file);
+        }
+
+        return $this->errors;
     }
 
     /** @return list<string> */
@@ -62,6 +64,12 @@ final class PerCs31Verifier
 
     private function verifyFile(string $file): void
     {
+        if (!is_readable($file)) {
+            $this->errors[] = $this->relative($file) . ': unable to read file';
+
+            return;
+        }
+
         $source = file_get_contents($file);
 
         if ($source === false) {
@@ -70,11 +78,19 @@ final class PerCs31Verifier
             return;
         }
 
-        $tokens = token_get_all($source, TOKEN_PARSE);
+        try {
+            /** @var list<array{0:int,1:string,2:int}|string> $tokens */
+            $tokens = token_get_all($source, TOKEN_PARSE);
+        } catch (Throwable $exception) {
+            $this->errors[] = $this->relative($file) . ': parse/tokenizer failure: ' . $exception->getMessage();
+
+            return;
+        }
+
         $this->verifyCloneParentheses($file, $tokens);
         $this->verifySwitches($file, $tokens);
         $this->verifyPipeOperator($file, $tokens);
-        $this->verifyAnonymousClassAttributes($file, $tokens);
+        $this->verifyAnonymousClassAttributes($file, $source, $tokens);
         $this->verifyEnumConstantVisibility($file, $tokens);
         $this->verifyArrayOpeningBracket($file, $tokens);
     }
@@ -82,6 +98,7 @@ final class PerCs31Verifier
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function verifyCloneParentheses(string $file, array $tokens): void
     {
+        // SHOULD only: report evidence, but do not make this a repository MUST.
         foreach ($tokens as $index => $token) {
             if (!is_array($token) || $token[0] !== T_CLONE) {
                 continue;
@@ -89,8 +106,8 @@ final class PerCs31Verifier
 
             $next = $this->nextMeaningful($tokens, $index);
 
-            if ($next === null || $tokens[$next] !== '(') {
-                $this->error($file, $token[2], 'clone() SHOULD use parentheses under PER-CS 3.1');
+            if ($next !== null && $tokens[$next] !== '(') {
+                $this->errors[] = sprintf('%s:%d: clone() SHOULD use parentheses under PER-CS 3.1', $this->relative($file), $token[2]);
             }
         }
     }
@@ -103,83 +120,195 @@ final class PerCs31Verifier
                 continue;
             }
 
-            $open = $this->nextToken($tokens, $index, '{');
+            $openParenthesis = $this->nextToken($tokens, $index, '(');
+            $closeParenthesis = $openParenthesis === null ? null : $this->matchingToken($tokens, $openParenthesis, '(', ')');
+            $openBrace = $closeParenthesis === null ? null : $this->nextToken($tokens, $closeParenthesis, '{');
+            $closeBrace = $openBrace === null ? null : $this->matchingToken($tokens, $openBrace, '{', '}');
 
-            if ($open === null) {
+            if ($openBrace === null || $closeBrace === null) {
+                $this->error($file, $token[2], 'switch body is not structurally closed');
+
                 continue;
             }
 
-            $depth = 1;
-            $cases = [];
-
-            for ($cursor = $open + 1, $count = count($tokens); $cursor < $count && $depth > 0; $cursor++) {
-                $current = $tokens[$cursor];
-
-                if ($current === '{') {
-                    $depth++;
-                } elseif ($current === '}') {
-                    $depth--;
-                }
-
-                if ($depth === 1 && is_array($current) && in_array($current[0], [T_CASE, T_DEFAULT], true)) {
-                    $cases[] = $cursor;
-                }
-            }
+            $cases = $this->directCaseTokens($tokens, $openBrace, $closeBrace);
 
             foreach ($cases as $caseOffset => $caseIndex) {
-                $nextCase = $cases[$caseOffset + 1] ?? ($cursor - 1);
+                $nextCase = $cases[$caseOffset + 1] ?? $closeBrace;
+                $colon = $this->caseColon($tokens, $caseIndex, $nextCase);
+
+                if ($colon === null) {
+                    $this->error($file, $this->tokenLine($tokens, $caseIndex), 'case header has no terminating colon');
+
+                    continue;
+                }
+
+                $bodyStart = $this->nextMeaningful($tokens, $colon) ?? $nextCase;
+
+                if ($bodyStart < $nextCase && $tokens[$bodyStart] === '{') {
+                    $this->error($file, $this->tokenLine($tokens, $caseIndex), 'case bodies MUST NOT be wrapped in braces');
+                }
+
                 $caseToken = $tokens[$caseIndex];
-                $bodyStart = $this->caseBodyStart($tokens, $caseIndex, $nextCase);
 
-                if ($bodyStart === null) {
+                if (is_array($caseToken) && $caseToken[0] === T_CASE && $this->tokenLine($tokens, $colon) > $caseToken[2]) {
+                    $this->verifyMultilineCaseHeader($file, $tokens, $caseIndex, $colon);
+                }
+
+                if ($this->significantTokens($tokens, $bodyStart, $nextCase) === []) {
                     continue;
                 }
 
-                if ($tokens[$bodyStart] === '{') {
-                    $this->error($file, $caseToken[2], 'case bodies MUST NOT be wrapped in braces');
-                }
-
-                if ($caseToken[0] === T_CASE && $this->caseHeaderIsMultiline($tokens, $caseIndex, $bodyStart)) {
-                    $header = $this->significantText($tokens, $caseIndex, $bodyStart);
-
-                    if (!str_contains($header, 'case (') || !str_ends_with(trim($header), '):')) {
-                        $this->error($file, $caseToken[2], 'multi-line case conditions MUST use the PER-CS 3.1 parenthesized layout');
+                if (!$this->hasDirectCaseTermination($tokens, $bodyStart, $nextCase)) {
+                    if ($nextCase < $closeBrace && $this->hasFallThroughComment($tokens, $bodyStart, $nextCase)) {
+                        continue;
                     }
-                }
 
-                $bodyEnd = $this->caseBodyEnd($tokens, $bodyStart, $nextCase);
-                $body = $this->significantTokens($tokens, $bodyStart, $bodyEnd);
-
-                if ($body === []) {
-                    continue;
-                }
-
-                if (!$this->hasTerminatingStatement($body)) {
-                    if ($nextCase < $cursor - 1 && !$this->hasFallThroughComment($tokens, $bodyStart, $bodyEnd)) {
-                        $this->error($file, $caseToken[2], 'non-empty fall-through case MUST have an intentional fall-through comment');
-                    } else {
-                        $this->error($file, $caseToken[2], 'every non-empty case MUST have a terminating statement');
-                    }
+                    $message = $nextCase < $closeBrace
+                        ? 'non-empty fall-through case MUST have an intentional fall-through comment'
+                        : 'every non-empty case MUST have a terminating statement';
+                    $this->error($file, $this->tokenLine($tokens, $caseIndex), $message);
                 }
             }
         }
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function directCaseTokens(array $tokens, int $openBrace, int $closeBrace): array
+    {
+        $cases = [];
+        $depth = 0;
+
+        for ($index = $openBrace + 1; $index < $closeBrace; $index++) {
+            $token = $tokens[$index];
+
+            if ($token === '{') {
+                $depth++;
+            } elseif ($token === '}') {
+                $depth--;
+            } elseif ($depth === 0 && is_array($token) && in_array($token[0], [T_CASE, T_DEFAULT], true)) {
+                $cases[] = $index;
+            }
+        }
+
+        return $cases;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function caseColon(array $tokens, int $caseIndex, int $limit): ?int
+    {
+        $parentheses = 0;
+        $brackets = 0;
+
+        for ($index = $caseIndex + 1; $index < $limit; $index++) {
+            $token = $tokens[$index];
+
+            if ($token === '(') {
+                $parentheses++;
+            } elseif ($token === ')') {
+                $parentheses--;
+            } elseif ($token === '[') {
+                $brackets++;
+            } elseif ($token === ']') {
+                $brackets--;
+            } elseif ($token === ':' && $parentheses === 0 && $brackets === 0) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function verifyMultilineCaseHeader(string $file, array $tokens, int $caseIndex, int $colon): void
+    {
+        $first = $this->nextMeaningful($tokens, $caseIndex);
+        $last = $this->previousMeaningful($tokens, $colon);
+
+        if ($first === null || $last === null || $tokens[$first] !== '(' || $tokens[$last] !== ')') {
+            $this->error($file, $this->tokenLine($tokens, $caseIndex), 'multi-line case conditions MUST use the PER-CS 3.1 parenthesized layout');
+
+            return;
+        }
+
+        if ($this->tokenLine($tokens, $first) !== $this->tokenLine($tokens, $caseIndex) || $this->tokenLine($tokens, $last) !== $this->tokenLine($tokens, $colon)) {
+            $this->error($file, $this->tokenLine($tokens, $caseIndex), 'multi-line case parentheses have invalid line placement');
+        }
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function hasDirectCaseTermination(array $tokens, int $start, int $end): bool
+    {
+        $braceDepth = 0;
+        $parentheses = 0;
+        $brackets = 0;
+        $statement = [];
+
+        for ($index = $start; $index < $end; $index++) {
+            $token = $tokens[$index];
+
+            if ($token === '{') {
+                $braceDepth++;
+                $statement = [];
+                continue;
+            }
+            if ($token === '}') {
+                $braceDepth--;
+                $statement = [];
+                continue;
+            }
+            if ($token === '(') {
+                $parentheses++;
+            } elseif ($token === ')') {
+                $parentheses--;
+            } elseif ($token === '[') {
+                $brackets++;
+            } elseif ($token === ']') {
+                $brackets--;
+            }
+
+            if ($braceDepth === 0 && $parentheses === 0 && $brackets === 0 && is_array($token)) {
+                if (in_array($token[0], [T_BREAK, T_CONTINUE, T_RETURN, T_THROW, T_GOTO, T_EXIT], true) && !$this->statementIsNestedControl($statement)) {
+                    return true;
+                }
+
+                if (!in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                    $statement[] = $token;
+                }
+            }
+
+            if ($braceDepth === 0 && $parentheses === 0 && $brackets === 0 && $token === ';') {
+                $statement = [];
+            }
+        }
+
+        return false;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}> $statement */
+    private function statementIsNestedControl(array $statement): bool
+    {
+        foreach ($statement as $token) {
+            if (in_array($token[0], [T_IF, T_ELSE, T_ELSEIF, T_FOR, T_FOREACH, T_WHILE, T_SWITCH, T_MATCH, T_TRY, T_CATCH, T_FINALLY], true)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function verifyPipeOperator(string $file, array $tokens): void
     {
         foreach ($tokens as $index => $token) {
-            if ($token !== '|' || ($tokens[$index + 1] ?? null) !== '>') {
-                continue;
+            if ($token === '|' && ($tokens[$index + 1] ?? null) === '>') {
+                $this->error($file, $this->tokenLine($tokens, $index), 'the |> operator is not applicable while this package supports PHP ^8.4');
             }
-
-            $line = is_array($token) ? $token[2] : $this->lineBefore($tokens, $index);
-            $this->error($file, $line, 'the |> operator is not applicable while this package supports PHP ^8.4');
         }
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function verifyAnonymousClassAttributes(string $file, array $tokens): void
+    private function verifyAnonymousClassAttributes(string $file, string $source, array $tokens): void
     {
         foreach ($tokens as $index => $token) {
             if (!is_array($token) || $token[0] !== T_NEW) {
@@ -192,35 +321,91 @@ final class PerCs31Verifier
                 continue;
             }
 
-            $class = $this->nextMeaningfulAfterAttribute($tokens, $attribute);
+            $newLine = $token[2];
+            $newIndent = $this->lineIndent($source, $newLine);
+            $lastAttributeLine = $newLine;
+            $attributeIndent = null;
+            $cursor = $attribute;
 
-            if ($class === null || !is_array($tokens[$class]) || $tokens[$class][0] !== T_CLASS) {
-                $this->error($file, $token[2], 'anonymous-class attributes MUST be followed by the class declaration on a new, equally indented line');
+            do {
+                $attributeToken = $tokens[$cursor];
+                $attributeLine = $attributeToken[2];
+                $attributeIndent ??= $this->lineIndent($source, $attributeLine);
+
+                if ($attributeLine <= $newLine || $attributeIndent <= $newIndent) {
+                    $this->error($file, $attributeLine, 'anonymous-class attributes MUST start on a more-indented line after new');
+                }
+
+                $end = $this->attributeEnd($tokens, $cursor);
+
+                if ($end === null) {
+                    $this->error($file, $attributeLine, 'anonymous-class attribute block is not structurally closed');
+
+                    continue 2;
+                }
+
+                $lastAttributeLine = $this->tokenLine($tokens, $end);
+                $cursor = $this->nextMeaningful($tokens, $end);
+            } while ($cursor !== null && is_array($tokens[$cursor]) && $tokens[$cursor][0] === T_ATTRIBUTE);
+
+            if ($cursor === null || !is_array($tokens[$cursor]) || $tokens[$cursor][0] !== T_CLASS) {
+                $this->error($file, $lastAttributeLine, 'anonymous-class attributes MUST be followed by class');
+
                 continue;
             }
 
-            if ($tokens[$attribute][2] <= $token[2] || $tokens[$class][2] <= $tokens[$attribute][2]) {
-                $this->error($file, $token[2], 'anonymous-class attributes MUST start after new and precede class on new lines');
+            $classLine = $tokens[$cursor][2];
+
+            if ($classLine <= $lastAttributeLine || $this->lineIndent($source, $classLine) !== $attributeIndent) {
+                $this->error($file, $classLine, 'anonymous class MUST start on a new line with attribute indentation');
             }
         }
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function attributeEnd(array $tokens, int $attribute): ?int
+    {
+        $depth = 1;
+
+        for ($index = $attribute + 1, $count = count($tokens); $index < $count; $index++) {
+            if ($tokens[$index] === '[') {
+                $depth++;
+            } elseif ($tokens[$index] === ']') {
+                $depth--;
+            }
+
+            if ($depth === 0) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function verifyEnumConstantVisibility(string $file, array $tokens): void
     {
-        $enumPending = false;
-        $braceScopes = [];
+        $pendingEnum = false;
+        $scopes = [];
 
         foreach ($tokens as $index => $token) {
             if (is_array($token) && $token[0] === T_ENUM) {
-                $enumPending = true;
+                $pendingEnum = true;
+                continue;
             }
+
             if ($token === '{') {
-                $braceScopes[] = $enumPending;
-                $enumPending = false;
-            } elseif ($token === '}') {
-                array_pop($braceScopes);
-            } elseif (is_array($token) && $token[0] === T_PROTECTED && in_array(true, $braceScopes, true)) {
+                $scopes[] = $pendingEnum ? 'enum' : 'other';
+                $pendingEnum = false;
+                continue;
+            }
+
+            if ($token === '}') {
+                array_pop($scopes);
+                continue;
+            }
+
+            if (is_array($token) && $token[0] === T_PROTECTED && end($scopes) === 'enum') {
                 $next = $this->nextMeaningful($tokens, $index);
 
                 if ($next !== null && is_array($tokens[$next]) && $tokens[$next][0] === T_CONST) {
@@ -240,27 +425,45 @@ final class PerCs31Verifier
 
             $previous = $this->previousMeaningful($tokens, $index);
 
-            if ($previous === null || !$this->isArrayOpeningContext($tokens[$previous])) {
+            if ($previous === null || !$this->isArrayLiteralOpening($tokens[$previous])) {
                 continue;
             }
 
             $line = $this->tokenLine($tokens, $index);
             $next = $this->nextMeaningful($tokens, $index);
 
-            if (
-                $this->lineOnlyContainsWhitespaceBefore($tokens, $index)
-                && $next !== null
-                && $this->tokenLine($tokens, $next) > $line
-            ) {
+            if ($next !== null && $this->tokenLine($tokens, $next) > $line && $this->lineOnlyContainsWhitespaceBefore($tokens, $index)) {
                 $this->error($file, $line, 'a multi-line array opening bracket MUST NOT be on its own line');
             }
         }
+    }
+
+    /** @param array{0:int,1:string,2:int}|string $token */
+    private function isArrayLiteralOpening(array|string $token): bool
+    {
+        if (in_array($token, ['=', '=>', ',', '(', '[', '?', ':', '.', '|', '&', '+', '-', '*', '/', '%'], true)) {
+            return true;
+        }
+
+        return is_array($token) && in_array($token[0], [T_RETURN, T_YIELD, T_PRINT, T_ECHO, T_DOUBLE_ARROW, T_BOOLEAN_OR, T_BOOLEAN_AND, T_LOGICAL_OR, T_LOGICAL_AND, T_COALESCE], true);
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function nextMeaningful(array $tokens, int $index): ?int
     {
         for ($index++; isset($tokens[$index]); $index++) {
+            if (!is_array($tokens[$index]) || !in_array($tokens[$index][0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function previousMeaningful(array $tokens, int $index): ?int
+    {
+        for ($index--; $index >= 0; $index--) {
             if (!is_array($tokens[$index]) || !in_array($tokens[$index][0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
                 return $index;
             }
@@ -278,48 +481,23 @@ final class PerCs31Verifier
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function previousMeaningful(array $tokens, int $index): ?int
+    private function matchingToken(array $tokens, int $open, string $opening, string $closing): ?int
     {
-        for ($index--; $index >= 0; $index--) {
-            if (!is_array($tokens[$index]) || !in_array($tokens[$index][0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true)) {
-                return $index;
+        $depth = 0;
+
+        for ($index = $open, $count = count($tokens); $index < $count; $index++) {
+            if ($tokens[$index] === $opening) {
+                $depth++;
+            } elseif ($tokens[$index] === $closing) {
+                $depth--;
+
+                if ($depth === 0) {
+                    return $index;
+                }
             }
         }
 
         return null;
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function caseBodyStart(array $tokens, int $caseIndex, int $nextCase): ?int
-    {
-        for ($index = $caseIndex + 1; $index < $nextCase; $index++) {
-            if ($tokens[$index] === ':') {
-                return $this->nextMeaningful($tokens, $index);
-            }
-        }
-
-        return null;
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function caseBodyEnd(array $tokens, int $bodyStart, int $nextCase): int
-    {
-        for ($index = $bodyStart; $index < $nextCase; $index++) {
-            if ($tokens[$index] === '}') {
-                return $index;
-            }
-        }
-
-        return $nextCase;
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function caseHeaderIsMultiline(array $tokens, int $caseIndex, int $bodyStart): bool
-    {
-        $case = $tokens[$caseIndex];
-        $body = $tokens[$bodyStart];
-
-        return is_array($case) && is_array($body) && $body[2] > $case[2];
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -329,27 +507,6 @@ final class PerCs31Verifier
             array_slice($tokens, $start, $end - $start),
             static fn(array|string $token): bool => !is_array($token) || !in_array($token[0], [T_WHITESPACE, T_COMMENT, T_DOC_COMMENT], true),
         ));
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function significantText(array $tokens, int $start, int $end): string
-    {
-        return implode('', array_map(
-            static fn(array|string $token): string => is_array($token) ? $token[1] : $token,
-            $this->significantTokens($tokens, $start, $end),
-        ));
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function hasTerminatingStatement(array $tokens): bool
-    {
-        foreach (array_reverse($tokens) as $token) {
-            if (is_array($token) && in_array($token[0], [T_BREAK, T_CONTINUE, T_RETURN, T_THROW, T_GOTO, T_EXIT], true)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -365,76 +522,34 @@ final class PerCs31Verifier
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function nextMeaningfulAfterAttribute(array $tokens, int $attribute): ?int
-    {
-        $depth = 0;
-
-        for ($index = $attribute; isset($tokens[$index]); $index++) {
-            if ($tokens[$index] === '[') {
-                $depth++;
-            } elseif ($tokens[$index] === ']') {
-                $depth--;
-            }
-
-            if ($index > $attribute && $depth === 0) {
-                return $this->nextMeaningful($tokens, $index);
-            }
-        }
-
-        return null;
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
-    private function lineBefore(array $tokens, int $index): int
-    {
-        for ($cursor = $index - 1; $cursor >= 0; $cursor--) {
-            if (is_array($tokens[$cursor])) {
-                return $tokens[$cursor][2] + substr_count($tokens[$cursor][1], "\n");
-            }
-        }
-
-        return 1;
-    }
-
-    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function tokenLine(array $tokens, int $index): int
     {
         $line = 1;
 
-        foreach (array_slice($tokens, 0, $index + 1) as $token) {
-            if (is_array($token)) {
-                $line += substr_count($token[1], "\n");
-            } else {
-                $line += substr_count($token, "\n");
-            }
+        foreach (array_slice($tokens, 0, $index) as $token) {
+            $line += substr_count(is_array($token) ? $token[1] : $token, "\n");
         }
 
-        return $line - (is_array($tokens[$index]) ? substr_count($tokens[$index][1], "\n") : substr_count((string) $tokens[$index], "\n"));
+        return $line;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function lineOnlyContainsWhitespaceBefore(array $tokens, int $index): bool
     {
-        $line = $this->lineBefore($tokens, $index);
         $text = '';
 
         foreach (array_slice($tokens, 0, $index) as $token) {
             $text .= is_array($token) ? $token[1] : $token;
         }
 
-        $lineText = substr($text, strrpos($text, "\n") + 1);
-
-        return trim($lineText) === '' && $line > 1;
+        return trim(substr($text, strrpos($text, "\n") + 1)) === '';
     }
 
-    /** @param array{0:int,1:string,2:int}|string $token */
-    private function isArrayOpeningContext(array|string $token): bool
+    private function lineIndent(string $source, int $line): int
     {
-        return $token === '='
-            || $token === '=>'
-            || $token === ','
-            || $token === '('
-            || (is_array($token) && $token[0] === T_RETURN);
+        $lines = explode("\n", $source);
+
+        return isset($lines[$line - 1]) ? strlen($lines[$line - 1]) - strlen(ltrim($lines[$line - 1], " \t")) : 0;
     }
 
     private function error(string $file, int $line, string $message): void
@@ -448,4 +563,6 @@ final class PerCs31Verifier
     }
 }
 
-exit((new PerCs31Verifier())->run(dirname(__DIR__, 2)));
+if (realpath($_SERVER['SCRIPT_FILENAME'] ?? '') === __FILE__) {
+    exit((new PerCs31Verifier())->run(dirname(__DIR__, 2)));
+}

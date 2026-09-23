@@ -180,7 +180,7 @@ Gates:
   test-system      System suite through the canonical Compose lifecycle
   syntax           PHP syntax for src/, tests/, tools/, examples/, and PHP tool configuration
   phpstan          PHPStan max using phpstan.neon
-  style            PHP CS Fixer dry-run
+  style            Composite PER-CS 3.1 verification (PHP CS Fixer + supplemental verifier)
   audit            Composer security and abandoned-package audit
   schema           Verify the package-owned schema path exists
   workflow-lint    actionlint for every .github/workflows/*.yml|*.yaml
