@@ -46,11 +46,12 @@ use Maatify\Slug\Lifecycle\Service\Reserved\ReservationEvaluator;
 use Maatify\Slug\Lifecycle\Factory\OperationKeyFactory;
 use Maatify\Slug\Lifecycle\Mapper\OperationFingerprintMapper;
 
-/** Persisted current, historical, and alias adoption for WU-06. */
+/** Persists adoption of pre-existing current, historical, and alias claims. */
 final readonly class AdoptionService
 {
     private ReservationEvaluator $reservations;
 
+    /** Wires registry, history, operation, transaction, and host-policy boundaries. */
     public function __construct(
         private SlugProfileRegistryInterface $profiles,
         private RegistryRepositoryInterface $registry,
@@ -66,6 +67,7 @@ final readonly class AdoptionService
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
+    /** Adopts a claim as current while preserving the supplied historical occurrence time. */
     public function adoptCurrent(AdoptCurrentCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -81,6 +83,7 @@ final readonly class AdoptionService
         );
     }
 
+    /** Adopts a claim as historical without making it current. */
     public function adoptHistorical(AdoptHistoricalCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -96,6 +99,7 @@ final readonly class AdoptionService
         );
     }
 
+    /** Adopts a claim as an alias without promoting it to current. */
     public function adoptAlias(AdoptAliasCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -111,6 +115,7 @@ final readonly class AdoptionService
         );
     }
 
+    /** Executes the shared adoption transaction for the requested target role. */
     private function adopt(
         OperationTypeEnum $operation,
         HistoryEventTypeEnum $eventType,
@@ -225,6 +230,7 @@ final readonly class AdoptionService
         });
     }
 
+    /** Enforces role-specific binding state and revision rules before adoption. */
     private function assertState(?RegistryBindingRecord $record, ?BindingDTO $before, ?int $expectedRevision, bool $currentAdoption): void
     {
         if ($currentAdoption) {
@@ -260,6 +266,7 @@ final readonly class AdoptionService
         }
     }
 
+    /** Loads the binding required to complete and verify an adoption mutation. */
     private function requiredBinding(BindingIdentityDTO $identity, bool $forUpdate): BindingDTO
     {
         $binding = $this->registry->binding($identity, false);
@@ -282,6 +289,7 @@ final readonly class AdoptionService
         return null;
     }
 
+    /** Reserves an adoption operation when the caller supplied an idempotency key. */
     private function reserve(OperationTypeEnum $operation, string $fingerprint, int $bindingId, AuditContextDTO $audit): ?OperationReservation
     {
         if ($audit->idempotencyKey === null) {
@@ -300,6 +308,7 @@ final readonly class AdoptionService
         );
     }
 
+    /** Builds the canonical request fingerprint used by adoption idempotency. */
     private function fingerprint(OperationTypeEnum $operation, BindingIdentityDTO $identity, Slug $slug, ?int $expectedRevision, ?DateTimeImmutable $originalOccurredAt): string
     {
         $payload = [

@@ -8,8 +8,10 @@ use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\TransferReplacementIntentDTO;
 
+/** Requests an atomic transfer of one slug between distinct bindings in one scope. */
 final readonly class AtomicTransferCommand
 {
+    /** Validates revisions, same-scope identity, and distinct source/target bindings. */
     public function __construct(
         public BindingIdentityDTO $source,
         public BindingIdentityDTO $target,

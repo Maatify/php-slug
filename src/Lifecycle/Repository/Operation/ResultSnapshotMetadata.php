@@ -7,8 +7,10 @@ namespace Maatify\Slug\Lifecycle\Repository\Operation;
 use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 
+/** Immutable metadata required to commit a versioned operation result snapshot. */
 final readonly class ResultSnapshotMetadata
 {
+    /** Validates the supported result discriminator, schema version, key, and payload. */
     public function __construct(
         public string $resultType,
         public int $resultSchemaVersion,

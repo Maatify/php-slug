@@ -48,11 +48,12 @@ use Maatify\Slug\Lifecycle\Service\Reserved\ReservationEvaluator;
 use Maatify\Slug\Lifecycle\Factory\OperationKeyFactory;
 use Maatify\Slug\Lifecycle\Mapper\OperationFingerprintMapper;
 
-/** Persisted MOVE/PARALLEL scope transition implementation for WU-06. */
+/** Persists MOVE and PARALLEL transitions between distinct slug scopes. */
 final readonly class ScopeTransitionService
 {
     private ReservationEvaluator $reservations;
 
+    /** Wires profile, persistence, transaction, reservation, and candidate boundaries. */
     public function __construct(
         private SlugProfileRegistryInterface $profiles,
         private RegistryRepositoryInterface $registry,
@@ -69,6 +70,7 @@ final readonly class ScopeTransitionService
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
+    /** Moves or duplicates a binding into the target scope under one transaction. */
     public function transitionScope(TransitionScopeCommand $command): ScopeTransitionResultDTO
     {
         $targetProfile = $this->profiles->get($command->targetScope->expectedProfileKey);
@@ -339,6 +341,7 @@ final readonly class ScopeTransitionService
         return null;
     }
 
+    /** Loads the binding required to complete a scope transition. */
     private function requiredBinding(BindingIdentityDTO $identity, bool $forUpdate): BindingDTO
     {
         $binding = $this->registry->binding($identity, $forUpdate);
@@ -348,6 +351,7 @@ final readonly class ScopeTransitionService
         return $binding;
     }
 
+    /** Enforces optimistic-concurrency revision matching for the source binding. */
     private function assertRevision(BindingDTO $binding, int $expectedRevision): void
     {
         if ($binding->state->revision !== $expectedRevision) {
@@ -355,6 +359,7 @@ final readonly class ScopeTransitionService
         }
     }
 
+    /** Creates the source history draft linking a transition to its target. */
     private function claimEvent(
         HistoryEventTypeEnum $type,
         BindingIdentityDTO $identity,
@@ -413,6 +418,7 @@ final readonly class ScopeTransitionService
         return $events;
     }
 
+    /** Returns the operation key associated with an optional transition reservation. */
     private function operationKey(?OperationReservation $reservation): ?string
     {
         return $reservation === null ? null : $reservation->operation->operationKey;
@@ -451,6 +457,7 @@ final readonly class ScopeTransitionService
         return $this->operations->reserve($key, OperationTypeEnum::TRANSITION_SCOPE, $fingerprint, 'transition', 1, $participants);
     }
 
+    /** Builds the canonical request fingerprint for a scope transition. */
     private function fingerprint(TransitionScopeCommand $command, ?Slug $exactCandidate): string
     {
         $intentValue = $command->targetClaimIntent->mode === ClaimIntentModeEnum::EXACT
@@ -494,6 +501,7 @@ final readonly class ScopeTransitionService
         return ['entity_type' => $identity->entity->entityType, 'entity_key' => $identity->entity->entityKey];
     }
 
+    /** Compares scope dimensions without comparing profile configuration. */
     private function sameScope(ScopeProfileRequestDTO $left, ScopeProfileRequestDTO $right): bool
     {
         return $left->scope->namespace === $right->scope->namespace
@@ -501,6 +509,7 @@ final readonly class ScopeTransitionService
             && $left->scope->contextKey === $right->scope->contextKey;
     }
 
+    /** Builds the stable lock key for a scope identity. */
     private function scopeKey(ScopeProfileRequestDTO $request): string
     {
         return $request->scope->namespace . "\0" . ($request->scope->localeKey ?? '') . "\0" . ($request->scope->contextKey ?? '');

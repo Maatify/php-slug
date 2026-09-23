@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Lifecycle\Consumer\Enum;
 
+/** Registry role matched by a consumer lookup. */
 enum MatchKindEnum: string
 {
     case CURRENT = 'CURRENT';

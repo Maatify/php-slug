@@ -6,8 +6,10 @@ namespace Maatify\Slug\Lifecycle\Repository\Pdo\Support;
 
 use PDOException;
 
+/** Classifies PDO duplicate-key errors without changing the original exception. */
 final class PdoDuplicateClassifier
 {
+    /** Reports whether the exception represents a duplicate-key condition. */
     public static function matches(PDOException $exception, string $constraint): bool
     {
         $errorInfo = $exception->errorInfo;

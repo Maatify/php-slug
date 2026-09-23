@@ -8,9 +8,14 @@ use Maatify\Slug\Canonicalization\Service\CanonicalSlugRules;
 use Maatify\Slug\Lifecycle\Exception\SlugAllocationExhaustedException;
 use Maatify\Slug\Canonicalization\Service\SlugInputValidator;
 
+/** Generates bounded numeric suffix candidates for generated slug allocation. */
 final class SuffixCandidateGenerator
 {
-    /** @return list<string> */
+    /**
+     * Returns the base and bounded `-2` through `-1000` candidates.
+     *
+     * @return list<string>
+     */
     public static function prepare(string $base): array
     {
         CanonicalSlugRules::assertUnicode($base, 'base');

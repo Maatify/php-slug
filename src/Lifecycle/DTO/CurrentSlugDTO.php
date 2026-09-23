@@ -9,8 +9,10 @@ use Maatify\Slug\Exception\SlugInvalidArgumentException;
 use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 
+/** Immutable read model pairing a binding with its current registry claim. */
 final readonly class CurrentSlugDTO implements JsonSerializable
 {
+    /** Enforces that the returned claim matches the binding's current slug and revision. */
     public function __construct(
         public BindingDTO $binding,
         public RegistryClaimDTO $claim,

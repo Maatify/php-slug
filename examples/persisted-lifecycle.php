@@ -20,21 +20,26 @@ use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
+/** Example policy that leaves all slugs available. */
 final class ExampleReservedSlugPolicy implements ReservedSlugPolicyInterface
 {
+    /** Returns false so the example can demonstrate a successful claim. */
     public function isReserved(SlugScope $scope, Slug $slug): bool
     {
         return false;
     }
 }
 
+/** Deterministic UTC clock used to make example persistence timestamps repeatable. */
 final class ExampleUtcClock implements ClockInterface
 {
+    /** Returns the fixed instant used by this example. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns the timezone associated with the deterministic clock. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');
@@ -127,6 +132,7 @@ function connectToDatabase(array $configuration): PDO
     return $pdo;
 }
 
+/** Installs the six package-owned schema statements used by the example. */
 function installPackageSchema(PDO $pdo, string $schemaFile): void
 {
     $sql = file_get_contents($schemaFile);
@@ -152,6 +158,7 @@ function installPackageSchema(PDO $pdo, string $schemaFile): void
     }
 }
 
+/** Removes package-owned tables in dependency-safe reverse order. */
 function dropPackageSchema(PDO $pdo): void
 {
     foreach (['maa_slug_history', 'maa_slug_registry', 'maa_slug_operation_bindings', 'maa_slug_operations', 'maa_slug_bindings', 'maa_slug_scopes'] as $table) {
@@ -159,6 +166,7 @@ function dropPackageSchema(PDO $pdo): void
     }
 }
 
+/** Fails the example immediately when an expected observable result is absent. */
 function expect(bool $condition, string $message): void
 {
     if (! $condition) {

@@ -12,9 +12,14 @@ use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
 
+/** Immutable result of an atomic ownership transfer across two bindings. */
 final readonly class AtomicTransferResultDTO implements JsonSerializable
 {
-    /** @param list<HistoryEventDTO> $historyEvents */
+    /**
+     * Validates transfer metadata, participant history ordering, and replacement invariants.
+     *
+     * @param list<HistoryEventDTO> $historyEvents
+     */
     public function __construct(
         public OperationTypeEnum $operationType,
         public ?string $operationKey,
@@ -92,6 +97,7 @@ final readonly class AtomicTransferResultDTO implements JsonSerializable
         }
     }
 
+    /** Returns the same transfer result with replay metadata applied to all nested results. */
     public function withReplayed(bool $replayed): self
     {
         return new self(
@@ -161,6 +167,7 @@ final readonly class AtomicTransferResultDTO implements JsonSerializable
         }
     }
 
+    /** Ensures a current-transfer replacement reflects the final source state. */
     private static function assertFinalReplacement(
         BindingStateResultDTO $sourceResult,
         SlugMutationResultDTO $replacement,
@@ -225,6 +232,7 @@ final readonly class AtomicTransferResultDTO implements JsonSerializable
         return true;
     }
 
+    /** Compares serialized DTO representations without depending on object identity. */
     private static function sameJson(mixed $left, mixed $right): bool
     {
         try {

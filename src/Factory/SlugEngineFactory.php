@@ -32,9 +32,15 @@ use Maatify\Slug\Lifecycle\Service\SlugScopeRegistryService;
 use Maatify\Slug\Lifecycle\Factory\OperationKeyFactory;
 use Maatify\Slug\Lifecycle\Mapper\OperationFingerprintMapper;
 
-/** Explicit construction boundary for the stateful SlugEngine. */
+/**
+ * Explicit construction boundary for the stateful SlugEngine.
+ *
+ * The factory wires PDO repositories, lifecycle services, read services, and
+ * injected host policy/clock collaborators into one aggregate facade.
+ */
 final class SlugEngineFactory
 {
+    /** Builds a fully wired engine over the supplied PDO connection and host collaborators. */
     public static function create(PDO $pdo, SlugProfileRegistryInterface $profiles, ReservedSlugPolicyInterface $reservedPolicy, ClockInterface $clock): SlugEngine
     {
         $capabilities = new PdoCapabilityGuard($pdo);

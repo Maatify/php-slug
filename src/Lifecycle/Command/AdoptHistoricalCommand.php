@@ -8,8 +8,10 @@ use DateTimeImmutable;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 
+/** Requests adoption of an existing historical claim at an expected binding revision. */
 final readonly class AdoptHistoricalCommand
 {
+    /** Validates the candidate, revision, and optional historical timing. */
     public function __construct(
         public BindingIdentityDTO $binding,
         public string $slugCandidate,

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Lifecycle\Enum;
 
+/** Durable history event categories exposed by lifecycle reads. */
 enum HistoryEventTypeEnum: string
 {
     case ASSIGNED = 'ASSIGNED';

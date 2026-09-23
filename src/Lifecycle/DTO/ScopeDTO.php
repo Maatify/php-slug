@@ -9,8 +9,10 @@ use JsonSerializable;
 use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
+/** Immutable persisted scope/profile association used by package-owned storage. */
 final readonly class ScopeDTO implements JsonSerializable
 {
+    /** Enforces a non-negative persisted scope identifier. */
     public function __construct(
         public int $id,
         public SlugScope $scope,

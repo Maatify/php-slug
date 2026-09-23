@@ -31,12 +31,14 @@ use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 use Throwable;
 
+/** PDO scope persistence adapter for scope and binding read models. */
 final readonly class PdoScopeRepository implements ScopePersistenceInterface
 {
     private PdoCapabilityGuard $capabilities;
 
     private PdoTransactionCoordinator $transactions;
 
+    /** Injects PDO and the profile, clock, capability, and transaction boundaries. */
     public function __construct(
         private PDO $pdo,
         private SlugProfileRegistryInterface $profiles,
@@ -48,6 +50,7 @@ final readonly class PdoScopeRepository implements ScopePersistenceInterface
         $this->transactions = $transactions ?? new PdoTransactionCoordinator($pdo);
     }
 
+    /** Ensures and returns a scope/profile association. */
     public function ensureScope(ScopeProfileRequestDTO $request): ScopeDTO
     {
         $this->profiles->get($request->expectedProfileKey);
@@ -56,6 +59,7 @@ final readonly class PdoScopeRepository implements ScopePersistenceInterface
         return $this->transactions->run(fn(): ScopeDTO => $this->ensureScopeInsideTransaction($request));
     }
 
+    /** Ensures an empty binding placeholder and returns its public snapshot. */
     public function ensureBindingPlaceholder(ScopeProfileRequestDTO $request, EntityReference $entity): BindingDTO
     {
         $this->profiles->get($request->expectedProfileKey);
@@ -103,6 +107,7 @@ final readonly class PdoScopeRepository implements ScopePersistenceInterface
         });
     }
 
+    /** Finds a binding by scope/profile and entity identity, optionally under lock. */
     public function findBinding(ScopeProfileRequestDTO $request, EntityReference $entity, bool $forUpdate = false): ?BindingDTO
     {
         $this->profiles->get($request->expectedProfileKey);
@@ -115,6 +120,7 @@ final readonly class PdoScopeRepository implements ScopePersistenceInterface
         return $row === null ? null : $this->hydrateBinding($row, $request->expectedProfileKey, $forUpdate);
     }
 
+    /** Finds a binding by identifier, optionally under lock. */
     public function findBindingById(int $bindingId, bool $forUpdate = false): ?BindingDTO
     {
         if ($bindingId < 0) {
@@ -186,6 +192,7 @@ final readonly class PdoScopeRepository implements ScopePersistenceInterface
         return $row;
     }
 
+    /** Ensures a scope exists inside the caller transaction and returns its identity. */
     private function ensureScopeInsideTransaction(ScopeProfileRequestDTO $request): ScopeDTO
     {
         return $this->scopeFromRow($this->ensureScopeRow($request));
@@ -394,11 +401,13 @@ final readonly class PdoScopeRepository implements ScopePersistenceInterface
         }
     }
 
+    /** Formats the injected clock value for scope persistence. */
     private function timestamp(): string
     {
         return $this->clock->now()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     }
 
+    /** Parses a six-microsecond UTC timestamp from a scope row. */
     private function date(mixed $value, string $field): DateTimeImmutable
     {
         if (! is_string($value) || preg_match('/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\z/', $value) !== 1) {
@@ -413,6 +422,7 @@ final readonly class PdoScopeRepository implements ScopePersistenceInterface
         return $date;
     }
 
+    /** Converts PDO integer representations while rejecting negatives and overflow. */
     private function nonNegativeInt(mixed $value, string $field): int
     {
         if (is_int($value)) {

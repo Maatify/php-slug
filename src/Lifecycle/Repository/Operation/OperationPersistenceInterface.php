@@ -12,6 +12,7 @@ use Maatify\Slug\Lifecycle\DTO\ScopeTransitionResultDTO;
 use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 
+/** Coordinates durable idempotency reservations and committed result snapshots. */
 interface OperationPersistenceInterface
 {
     /**
@@ -29,11 +30,15 @@ interface OperationPersistenceInterface
         array $participants,
     ): OperationReservation;
 
+    /** Returns a participant's existing operation, optionally with a row lock. */
     public function findByParticipant(int $bindingId, string $idempotencyKey, bool $forUpdate = false): ?OperationRecord;
 
+    /** Commits the final immutable result snapshot within the caller's transaction. */
     public function commitSnapshot(int $operationId, ResultSnapshotMetadata $metadata, SlugProfileRegistryInterface $profiles): void;
 
     /**
+     * Decodes a committed snapshot into its typed replay result.
+     *
      * @return SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO
      */
     public function decodeCommitted(int $operationId, SlugProfileRegistryInterface $profiles): SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO;

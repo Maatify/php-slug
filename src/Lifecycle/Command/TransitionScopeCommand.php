@@ -10,8 +10,10 @@ use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
 
+/** Requests a MOVE or PARALLEL transition from one scope to another. */
 final readonly class TransitionScopeCommand
 {
+    /** Validates the source revision; mode and claim intent remain explicit command inputs. */
     public function __construct(
         public BindingIdentityDTO $source,
         public ScopeProfileRequestDTO $targetScope,

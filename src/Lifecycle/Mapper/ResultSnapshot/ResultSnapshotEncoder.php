@@ -13,8 +13,10 @@ use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
 use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 
+/** Encodes typed lifecycle results into the versioned persisted snapshot shape. */
 final class ResultSnapshotEncoder
 {
+    /** Serializes a supported result with its operation-specific replay evidence. */
     public static function encode(
         SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO $result,
     ): string {
@@ -79,6 +81,7 @@ final class ResultSnapshotEncoder
         ];
     }
 
+    /** Ensures encoded result history is consistent with its operation key. */
     private static function assertResultOperationKeys(
         SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO $result,
     ): void {
