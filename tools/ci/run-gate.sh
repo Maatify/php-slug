@@ -12,8 +12,15 @@ require_command() {
     fi
 }
 
+composer_policy() {
+    require_command php
+    php tools/ci/verify-composer-policy.php
+    php tools/ci/test-composer-policy.php
+}
+
 latest_dependencies() {
     require_command composer
+    composer_policy
     composer validate --strict
     composer update --no-interaction --prefer-dist --no-progress
     composer dump-autoload --optimize --strict-psr
@@ -22,6 +29,7 @@ latest_dependencies() {
 
 lowest_dependencies() {
     require_command composer
+    composer_policy
     composer validate --strict
     composer update --prefer-lowest --prefer-stable --no-interaction --prefer-dist --no-progress
     composer dump-autoload --optimize --strict-psr
@@ -88,6 +96,7 @@ style() {
 
 audit() {
     require_command composer
+    composer_policy
     composer audit --no-interaction --abandoned=fail
 }
 
@@ -158,6 +167,7 @@ test() {
 consumer() {
     require_command php
     require_command composer
+    composer_policy
     bash tools/ci/run-integration.sh consumer
 }
 
