@@ -17,7 +17,7 @@
 
 الحزمة في حالة **Development / Unpublished**. لا يوجد إصدار Stable أو SemVer Release Candidate منشور حاليًا عبر قناة توزيع عامة، ولذلك لا يوجد أمر تثبيت صالح من Registry عامة.
 
-المرجع الحالي للعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). حالة التحقق منفصلة: اكتمل VG-001 ومراجعة Fresh Full Acceptance Review المرتبطة به على SHA تاريخية، بينما ما زال VG-003 — PENDING مفتوحًا للـHEAD النهائي بعد الترقية.
+المرجع الحالي للعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). أدلة التحقق مرتبطة بالـSHA التي شُغّلت عليها؛ وترد الأدلة التاريخية أدناه، بينما تُحفظ حالة التكامل والتحقق النشطة في سجل GitHub PR وCI بدل تكرارها في ملف README هذا الموجّه للمستهلك.
 
 ## الميزات الأساسية
 
@@ -94,9 +94,9 @@ $slug = $text->generateFromSource(
 
 ## حالة الجودة
 
-يوفر GitHub Actions run #9 على SHA 7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b دليلًا لذلك الـSHA فقط. نجح التحقق التاريخي VG-001 على SHA ff72d2e00a48eb5fbd55d81dea753a7f106187ef عبر Actions run 35444700308، ثم نجحت Direct Lead Fresh Full Acceptance Review قبل integration. لا تؤهل هذه الأدلة HEAD الحالية بعد الترقية.
+يوفر GitHub Actions run #9 على SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` دليلًا لذلك الـSHA فقط. نجح التحقق التاريخي `VG-001` على SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` عبر Actions run `35444700308`، ثم نجحت Direct Lead Fresh Full Acceptance Review قبل integration. تخص هذه الحقائق التاريخية الـSHAs المذكورة فقط ولا تؤهل أي commits لاحقة.
 
-ما زال VG-003 — Post-Upgrade Full Applicable Verification في حالة **PENDING** للـHEAD النهائي بعد remediation، ثم تلزم Fresh Full Acceptance Review. لا يوجد ادعاء release-readiness حالي.
+أدلة التحقق مرتبطة بالـSHA ولا تؤهل commits لاحقة. تُحفظ حالة التكامل والتحقق الحالية في GitHub PR وCI history ولا يتم تكرارها هنا. لا يوجد ادعاء حالي بجاهزية الإصدار.
 
 ## التطوير والاختبار
 
