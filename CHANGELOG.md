@@ -7,9 +7,6 @@ The format follows Keep a Changelog conventions and Semantic Versioning.
 
 ### Changed
 
-- Removed exact ICU 74 and Unicode 15.1 host coupling for built-in profiles; runtime compatibility now uses capability and observable-behavior probes.
-- Preserved the `ascii-v1` and `unicode-v1` algorithms and removed runtime compatibility skips from verification.
-
 ## [1.0.0-rc.1] - 2026-09-24
 
 ### Added
@@ -27,6 +24,8 @@ The format follows Keep a Changelog conventions and Semantic Versioning.
 
 ### Changed
 
+- Removed exact ICU 74 and Unicode 15.1 host coupling for built-in profiles; runtime compatibility now uses capability and observable-behavior probes.
+- Preserved the `ascii-v1` and `unicode-v1` algorithms and removed runtime compatibility skips from verification.
 - **Release Lifecycle:** `v1.0.0-rc.1` is the first SemVer Release Candidate. It is Pre-Stable and does not create a Stable support line.
 - **Publication Truth:** A CHANGELOG entry alone is not publication proof; Published state is determined by external Composer resolvability of the matching version through the approved distribution source.
 
