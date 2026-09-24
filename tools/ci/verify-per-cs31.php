@@ -186,22 +186,22 @@ final class PerCs31Verifier
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function caseColon(array $tokens, int $caseIndex, int $limit): ?int
     {
-        $parentheses = 0;
-        $brackets = 0;
+        $nesting = [];
+        $ternaries = 0;
 
         for ($index = $caseIndex + 1; $index < $limit; $index++) {
             $token = $tokens[$index];
 
-            if ($token === '(') {
-                $parentheses++;
-            } elseif ($token === ')') {
-                $parentheses--;
-            } elseif ($token === '[') {
-                $brackets++;
-            } elseif ($token === ']') {
-                $brackets--;
-            } elseif ($token === ':' && $parentheses === 0 && $brackets === 0) {
-                return $index;
+            if ($token === '?' && $nesting === []) {
+                $ternaries++;
+            } elseif ($token === ':' && $nesting === []) {
+                if ($ternaries > 0) {
+                    $ternaries--;
+                } else {
+                    return $index;
+                }
+            } else {
+                $this->updateListNesting($token, $nesting);
             }
         }
 
@@ -463,17 +463,39 @@ final class PerCs31Verifier
             }
         }
 
-        if ($token !== ',') {
+        if ($token !== ',' && !(is_array($token) && $token[0] === T_DOUBLE_ARROW)) {
             return false;
         }
 
         $enclosing = $this->enclosingSquareOpening($tokens, $index);
 
-        return $enclosing !== null && $this->isDestructuringOpening(
+        if ($enclosing !== null && $this->isDestructuringOpening(
             $tokens,
             $enclosing,
             $this->previousMeaningful($tokens, $enclosing) ?? $enclosing,
-        );
+        )) {
+            return true;
+        }
+
+        return is_array($token) && $token[0] === T_DOUBLE_ARROW && $this->hasForeachAsBefore($tokens, $previous);
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function hasForeachAsBefore(array $tokens, int $index): bool
+    {
+        for ($cursor = $index - 1; $cursor >= 0; $cursor--) {
+            $token = $tokens[$cursor];
+
+            if (is_array($token) && $token[0] === T_AS) {
+                return true;
+            }
+
+            if (in_array($token, [';', '{', '}'], true)) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -544,17 +566,13 @@ final class PerCs31Verifier
             }
 
             $starts = [];
-            $depth = 0;
+            $nesting = [];
             $segmentStart = $this->nextMeaningful($tokens, $index);
 
             for ($cursor = $index + 1; $cursor < $close; $cursor++) {
                 $current = $tokens[$cursor];
 
-                if ($current === '(' || $current === '[') {
-                    $depth++;
-                } elseif ($current === ')' || $current === ']') {
-                    $depth--;
-                } elseif ($current === ',' && $depth === 0) {
+                if ($current === ',' && $nesting === []) {
                     if ($segmentStart !== null) {
                         $starts[] = $segmentStart;
                     }
@@ -563,6 +581,8 @@ final class PerCs31Verifier
                     if ($segmentStart === $close) {
                         $segmentStart = null;
                     }
+                } else {
+                    $this->updateListNesting($current, $nesting);
                 }
             }
 
@@ -611,7 +631,23 @@ final class PerCs31Verifier
         $token = $tokens[$previous];
 
         if (!is_array($token)) {
+            if ($token === '&') {
+                $beforeReference = $this->previousMeaningful($tokens, $previous);
+
+                return $beforeReference !== null && is_array($tokens[$beforeReference]) && in_array($tokens[$beforeReference][0], [T_FUNCTION, T_FN], true)
+                    ? 'declaration'
+                    : null;
+            }
+
             return in_array($token, [')', ']'], true) ? 'call' : null;
+        }
+
+        if ($this->isReferenceToken($token)) {
+            $beforeReference = $this->previousMeaningful($tokens, $previous);
+
+            return $beforeReference !== null && is_array($tokens[$beforeReference]) && in_array($tokens[$beforeReference][0], [T_FUNCTION, T_FN], true)
+                ? 'declaration'
+                : null;
         }
 
         if (in_array($token[0], [T_IF, T_SWITCH, T_WHILE, T_FOR, T_FOREACH, T_CATCH, T_MATCH], true)) {
@@ -623,7 +659,7 @@ final class PerCs31Verifier
         }
 
         if ($token[0] === T_CLASS) {
-            $beforeClass = $this->previousMeaningful($tokens, $previous);
+            $beforeClass = $this->previousMeaningfulAnonymousClassPrefix($tokens, $previous);
 
             return $beforeClass !== null && is_array($tokens[$beforeClass]) && $tokens[$beforeClass][0] === T_NEW
                 ? 'anonymous-constructor'
@@ -675,7 +711,40 @@ final class PerCs31Verifier
 
         $before = $this->previousMeaningful($tokens, $open);
 
+        if ($before !== null && $this->isReferenceToken($tokens[$before])) {
+            $before = $this->previousMeaningful($tokens, $before);
+        }
+
         return $before !== null && is_array($tokens[$before]) && $tokens[$before][0] === T_FUNCTION;
+    }
+
+    /** @param array{0:int,1:string,2:int}|string $token */
+    private function isReferenceToken(array|string $token): bool
+    {
+        if ($token === '&') {
+            return true;
+        }
+
+        return is_array($token) && (
+            (defined('T_AMPERSAND_FOLLOWED_BY_VAR_OR_VARARG') && $token[0] === T_AMPERSAND_FOLLOWED_BY_VAR_OR_VARARG)
+            || (defined('T_AMPERSAND_NOT_FOLLOWED_BY_VAR_OR_VARARG') && $token[0] === T_AMPERSAND_NOT_FOLLOWED_BY_VAR_OR_VARARG)
+        );
+    }
+
+    /** @param list<array{0:int,1:string,2:int}|string> $tokens */
+    private function previousMeaningfulAnonymousClassPrefix(array $tokens, int $classIndex): ?int
+    {
+        $cursor = $this->previousMeaningful($tokens, $classIndex);
+
+        while ($cursor !== null && $tokens[$cursor] === ']') {
+            do {
+                $cursor--;
+            } while ($cursor >= 0 && (!is_array($tokens[$cursor]) || $tokens[$cursor][0] !== T_ATTRIBUTE));
+
+            $cursor = $cursor >= 0 ? $this->previousMeaningful($tokens, $cursor) : null;
+        }
+
+        return $cursor;
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
@@ -701,18 +770,16 @@ final class PerCs31Verifier
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function hasTopLevelNewline(array $tokens, int $start, int $end): bool
     {
-        $depth = 0;
+        $nesting = [];
 
         for ($index = $start + 1; $index < $end; $index++) {
             $token = $tokens[$index];
 
-            if ($token === '(' || $token === '[' || $token === '{') {
-                $depth++;
-            } elseif ($token === ')' || $token === ']' || $token === '}') {
-                $depth--;
-            } elseif ($depth === 0 && is_array($token) && str_contains($token[1], "\n")) {
+            if ($nesting === [] && is_array($token) && str_contains($token[1], "\n")) {
                 return true;
             }
+
+            $this->updateListNesting($token, $nesting);
         }
 
         return false;
@@ -721,21 +788,41 @@ final class PerCs31Verifier
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
     private function argumentEnd(array $tokens, int $start, int $close): int
     {
-        $depth = 0;
+        $nesting = [];
 
         for ($index = $start; $index < $close; $index++) {
             $token = $tokens[$index];
 
-            if ($token === '(' || $token === '[' || $token === '{') {
-                $depth++;
-            } elseif ($token === ')' || $token === ']' || $token === '}') {
-                $depth--;
-            } elseif ($token === ',' && $depth === 0) {
+            if ($token === ',' && $nesting === []) {
                 return $index;
             }
+
+            $this->updateListNesting($token, $nesting);
         }
 
         return $close;
+    }
+
+    /** @param array{0:int,1:string,2:int}|string $token
+     *  @param list<string> $nesting
+     */
+    private function updateListNesting(array|string $token, array &$nesting): void
+    {
+        if (is_array($token) && $token[0] === T_ATTRIBUTE) {
+            $nesting[] = ']';
+
+            return;
+        }
+
+        if (in_array($token, ['(', '[', '{'], true)) {
+            $nesting[] = $token === '(' ? ')' : ($token === '[' ? ']' : '}');
+
+            return;
+        }
+
+        if (in_array($token, [')', ']', '}'], true) && end($nesting) === $token) {
+            array_pop($nesting);
+        }
     }
 
     /** @param list<array{0:int,1:string,2:int}|string> $tokens */
