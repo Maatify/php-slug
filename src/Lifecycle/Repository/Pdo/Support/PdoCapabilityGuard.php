@@ -12,10 +12,12 @@ use Maatify\Slug\Lifecycle\Repository\CapabilityGuardInterface;
 use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoRowHydrator;
 use Throwable;
 
+/** Validates PDO driver, connection, and installed-schema capabilities. */
 final class PdoCapabilityGuard implements CapabilityGuardInterface
 {
     private bool $installedSchemaVerified = false;
 
+    /** Stores the injected PDO connection without creating hidden connections. */
     public function __construct(private PDO $pdo) {}
 
     /**
@@ -50,6 +52,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         $this->installedSchemaVerified = true;
     }
 
+    /** Returns the active PDO driver name when it can be read. */
     public function driverName(): ?string
     {
         try {
@@ -61,6 +64,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         return is_string($driver) ? $driver : null;
     }
 
+    /** Verifies the required MySQL driver, PDO attributes, and connection charset. */
     private function assertDriverAndConnectionAttributes(): void
     {
         $driver = $this->driverName();
@@ -88,6 +92,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Confirms the connection uses utf8mb4 for exact slug comparisons. */
     private function assertConnectionCharset(): void
     {
         $statement = $this->pdo->query('SELECT @@character_set_connection');
@@ -96,6 +101,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Probes transactions and savepoints while cleaning up the probe state. */
     private function assertTransactionAndSavepointCapabilities(): void
     {
         $outerTransaction = $this->pdo->inTransaction();
@@ -145,6 +151,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Probes binary equality semantics required for case-sensitive slugs. */
     private function assertExactStringSemantics(): void
     {
         $statement = $this->pdo->prepare(
@@ -166,6 +173,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Probes DATETIME(6) support required for lifecycle timestamps. */
     private function assertDatetimePrecision(): void
     {
         $statement = $this->pdo->prepare(
@@ -179,6 +187,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Confirms that the exact package table set is installed. */
     private function assertPackageTables(): void
     {
         $expected = [
@@ -218,6 +227,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Probes installed-table constraints without leaving rows behind. */
     private function probeInstalledSchemaCapabilities(): void
     {
         $outerTransaction = $this->pdo->inTransaction();
@@ -307,6 +317,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Rolls back capability probes while preserving a caller-owned transaction. */
     private function cleanupProbeTransaction(bool $outerTransaction, bool $startedTransaction, string $savepoint): void
     {
         if ($startedTransaction) {
@@ -338,6 +349,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Builds a deterministic safe savepoint name for capability probes. */
     private function savepointName(string $prefix): string
     {
         try {
@@ -347,6 +359,7 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         }
     }
 
+    /** Checks a driver exception's numeric code through its throwable chain. */
     private static function errorNumberIs(PDOException $exception, int $expected): bool
     {
         $errorInfo = $exception->errorInfo;
@@ -357,11 +370,13 @@ final class PdoCapabilityGuard implements CapabilityGuardInterface
         return (is_int($actual) && $actual === $expected) || (is_string($actual) && $actual === (string) $expected);
     }
 
+    /** Checks a driver exception message through its throwable chain. */
     private static function errorMentions(PDOException $exception, string $needle): bool
     {
         return str_contains(strtolower($exception->getMessage()), strtolower($needle));
     }
 
+    /** Executes a capability probe statement and maps driver failure to a package error. */
     private function exec(PDO $pdo, string $sql, string $message): void
     {
         try {

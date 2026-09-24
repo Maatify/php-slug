@@ -34,6 +34,7 @@ jobs:
           php-version: '8.5'
           extensions: intl, mbstring, pdo, pdo_mysql
           coverage: none
+          tools: composer:2.10
       - name: Run latest quality gate
         run: bash tools/ci/run-gate.sh latest-quality
 
@@ -53,6 +54,7 @@ jobs:
           php-version: '8.4'
           extensions: intl, mbstring, pdo, pdo_mysql
           coverage: none
+          tools: composer:2.10
       - name: Run latest quality gate
         run: bash tools/ci/run-gate.sh latest-quality
 
@@ -78,6 +80,7 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: intl, mbstring, pdo, pdo_mysql, pdo_sqlite
           coverage: none
+          tools: composer:2.10
       - name: Run full test gate
         run: bash tools/ci/run-gate.sh latest-tests
 
@@ -97,6 +100,7 @@ jobs:
           php-version: '8.4'
           extensions: intl, mbstring, pdo, pdo_mysql, pdo_sqlite
           coverage: none
+          tools: composer:2.10
       - name: Run lowest dependency gate
         run: bash tools/ci/run-gate.sh lowest-tests
 
@@ -122,6 +126,7 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: intl, mbstring, pdo, pdo_mysql
           coverage: none
+          tools: composer:2.10
       - name: Run clean consumer Harness twice
         run: bash tools/ci/run-gate.sh consumer
 
@@ -147,6 +152,7 @@ jobs:
           php-version: ${{ matrix.php }}
           extensions: intl, mbstring, pdo, pdo_mysql
           coverage: none
+          tools: composer:2.10
       - name: Run stateless and persisted example smoke gate
         run: bash tools/ci/run-gate.sh examples-smoke
 

@@ -13,9 +13,12 @@ use Maatify\Slug\Lifecycle\Repository\Operation\OperationSnapshotState;
 use Maatify\Slug\Lifecycle\Repository\Operation\ResultSnapshotMetadata;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 
+/** Provides immutable snapshot storage semantics for operation replay. */
 final class ResultSnapshotStorage
 {
     /**
+     * Decodes and validates a committed snapshot as a replay result.
+     *
      * @return SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO
      */
     public static function decodeCommitted(
@@ -43,6 +46,7 @@ final class ResultSnapshotStorage
         return $decoded;
     }
 
+    /** Rejects mutation of operation metadata or a committed result snapshot. */
     public static function assertImmutableUpdate(OperationSnapshotState $state, ResultSnapshotMetadata $metadata): void
     {
         if ($state->status !== 'IN_PROGRESS' || $state->resultSnapshot !== null || $state->completedAt !== null) {

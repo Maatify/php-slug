@@ -20,8 +20,16 @@ use Maatify\Slug\Lifecycle\Repository\Pdo\Transaction\PdoTransactionCoordinator;
 use Maatify\Slug\Lifecycle\Service\Allocation\GeneratedCandidateSequence;
 use Maatify\Slug\Lifecycle\Service\SlugLifecycleService;
 
+/**
+ * Test-only composition root for the core persisted lifecycle service.
+ *
+ * The caller supplies the real PDO connection, profile registry, reservation
+ * policy, and clock; this factory wires the package repositories, capability
+ * guard, transaction coordinator, and deterministic operation collaborators.
+ */
 final class SlugLifecycleServiceFactory
 {
+    /** Builds the complete persistence-backed lifecycle graph used by integration and system tests. */
     public static function create(
         PDO $pdo,
         SlugProfileRegistryInterface $profiles,

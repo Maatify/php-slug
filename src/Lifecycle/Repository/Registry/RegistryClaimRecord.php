@@ -18,6 +18,7 @@ use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 /** @internal Raw, validated Registry row used before DTO hydration. */
 final readonly class RegistryClaimRecord
 {
+    /** Stores the persisted claim dimensions needed to rebuild its public DTO. */
     public function __construct(
         public int $id,
         public int $scopeId,
@@ -34,6 +35,7 @@ final readonly class RegistryClaimRecord
         public DateTimeImmutable $updatedAt,
     ) {}
 
+    /** Hydrates the raw row with the registered profile and immutable value objects. */
     public function toDto(SlugProfileRegistryInterface $profiles): RegistryClaimDTO
     {
         $profileKey = new SlugProfileKey($this->profileKey);

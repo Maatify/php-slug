@@ -49,12 +49,15 @@ $pdo = new \PDO(
 $pdo->exec('SET NAMES utf8mb4 COLLATE utf8mb4_bin');
 $profiles = new SlugProfileRegistry();
 $profiles->register(new TestSlugProfile());
+/** Fixed UTC clock keeps competing claim attempts comparable across worker processes. */
 $clock = new class implements ClockInterface {
+    /** Returns the deterministic timestamp used by the race fixture. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC, matching the persistence timestamp contract. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');
@@ -63,7 +66,9 @@ $clock = new class implements ClockInterface {
 $capabilities = new PdoCapabilityGuard($pdo);
 $scopes = new PdoScopeRepository($pdo, $profiles, $clock, $capabilities);
 $repository = new PdoRegistryRepository($pdo, $profiles, $scopes, $clock, $capabilities);
+/** The race fixture intentionally leaves every candidate available to contention. */
 $policy = new class implements ReservedSlugPolicyInterface {
+    /** Never reserves a slug so uniqueness is decided by the real registry constraints. */
     public function isReserved(SlugScope $scope, Slug $slug): bool
     {
         return false;

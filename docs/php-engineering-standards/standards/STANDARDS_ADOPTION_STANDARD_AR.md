@@ -3,10 +3,9 @@
 ## بيانات المعيار
 
 - **Standard ID:** `std-standards-adoption`
-- **Standard Version:** `3.0.0`
+- **Standard Version:** `4.0.0`
 - **Standard Version Format:** `MAJOR.MINOR.PATCH`
 - **اللغة المعتمدة:** العربية.
-- **حالة الاعتماد:** يصبح معتمدًا عند دمجه في الفرع الافتراضي للمشروع.
 - **النطاق:** آلية اختيار المعايير وتثبيتها وتوزيعها وتفعيلها داخل المشاريع التابعة لمنظومة Maatify.
 - **الهدف:** استبدال نسخ المستودع الكامل باعتماد انتقائي مثبت وقابل للتتبع، مع الحفاظ على المصدر المركزي وسلامة الروابط والترقية القابلة للمراجعة.
 
@@ -22,7 +21,16 @@ Maatify/php-engineering-standards
 
 هو المصدر المركزي الوحيد لتأليف المعايير وProfiles. المشروع التابع يحتفظ بنسخ محلية لأغراض الاعتماد والتثبيت، لكنه لا يجعل النسخة المحلية أو ملف الـ Manifest مصدرًا منافسًا للقواعد الأصلية.
 
-يجب أن يملك كل موضوع معياري ملفًا واحدًا. Profile هو **composition manifest** يحدد ما يجتمع وما ينطبق، ولا يعيد كتابة القواعد المملوكة للـ Standard.
+يجب أن يملك كل موضوع معياري ملفًا واحدًا. المعنى الرسمي لـ`Profile` هو:
+
+```text
+Profile
+=
+versioned composition manifest
+under standards/profiles/
+```
+
+يحدد Profile ما يجتمع وما ينطبق، ولا يعيد كتابة القواعد المملوكة للـ Standard. الملفات الموجودة تحت `standards/modules/*.md` هي Standards وليست Profiles. يجوز استخدام `profile` بحروف صغيرة لوصف configuration أو backend shape وصفيًا فقط عندما يكون السياق غير ملتبس ولا يمكن فهمه كـ Profile رسمي.
 
 ## 2. منع Full Repository Snapshot
 
@@ -179,7 +187,7 @@ OWNER DECISION REQUIRED — VERSION BASELINE STATUS
 
 ولا يجوز حسمها بالتخمين أو بمجرد وجود Version في Profile manifest أو Git history.
 
-يملك هذا القسم Profile Versioning حصريًا. أما `Standard ID` و`Standard Version` و`Standard Version Format` وانتقالات إصدارات Standards فتخضع للسياسة المركزية [STANDARD_VERSIONING_POLICY_AR.md](governance/STANDARD_VERSIONING_POLICY_AR.md). لا تدخل هذه السياسة في `Pinned Adoption Control Set` أو `Resolved Applicable Standards Set`، ولا يحتاج Consumer إلى نسخها لمجرد Adoption.
+يملك هذا القسم Profile Versioning حصريًا. أما `Standard ID` و`Standard Version` و`Standard Version Format` وانتقالات إصدارات Standards فتخضع للسياسة المركزية `STANDARD_VERSIONING_POLICY_AR.md`. لا تدخل هذه السياسة في `Pinned Adoption Control Set` أو `Resolved Applicable Standards Set`، ولا يحتاج Consumer إلى نسخها لمجرد Adoption.
 
 ### 5.2 No-Cascade Profile Version Rule
 
@@ -215,6 +223,20 @@ project-host
 ```
 
 لا ينطبق هذا الإلزام على `package-only repositories` أو `module-only artifact scopes`. كما أن وجود `project-aware-slim-module` لا يغني عن `project-host` للـHost root، ولا يجعل ذلك الـModule نفسه Host Project.
+
+يكون تفعيل `project-aware-slim-module` على Scope ضيق صالحًا فقط عندما يفعّل المشروع نفسه:
+
+```text
+project-host @ /
+```
+
+في نفس Repository. غياب `project-host @ /` مع هذا التفعيل يجعل:
+
+```text
+Resolution Status = INVALID
+```
+
+ولا يُعالج كـ Exception أو `OWNER DECISION REQUIRED` أو fallback.
 
 عند وجود Packages أو Modules داخل Host Repository، يظل `project-host` مفعّلًا على `/`، وتظل Profiles الخاصة بالـPackages أو Modules مفعّلة على Scopesها المستقلة عند انطباقها. لا يغير هذا العقد Manifest schema، ولا يضيف Project Host applicability إلى أي Package أو Module Profile.
 
@@ -270,6 +292,24 @@ base-module
 
 إذا استبعدت applicability المملوكة للـStandard مرشحًا بصورة deterministic، فهذا حكم applicability وليس Exception أو deviation: لا يحتاج إلى Exception، ولا يجعل النتيجة `INVALID` أو `OWNER DECISION REQUIRED` بذاته. أما إذا لم تسمح قواعد الـStandard وحقائق الـScope بحسم applicability، فتطبق Resolution Status القائمة في §16 دون افتراض الانطباق. ولا يغير Profile القاعدة التي تملكها Standard أخرى؛ وأي deviation أو override لا يسمح به عقد الـStandard لا يصبح تطبيقًا صحيحًا بمجرد طلبه أو تسجيله في Profile أو Manifest. تسجل الاستثناءات المعتمدة والموثقة فقط في Manifest بعد اكتمال Adoption؛ أما الطلبات والقرارات غير المحسومة فتبقى review evidence. وتخضع النتائج لقواعد §16.
 
+### 7.1 Local Reference Closure and Final Pinned Set
+
+يجب أن تكون المجموعة المحلية النهائية المثبتة **locally reference-closed**. لا توجد طبقة ثالثة باسم `Reference Support Set`، ولا يجوز نسخ Standard غير منطبقة لمجرد إبقاء رابط من Standard أخرى حيًا.
+
+إذا احتوت Standard منطبقة على رابط نسبي إلى Standard أخرى، فيجب أن يكون الهدف موجودًا في `Pinned Adoption Control Set` أو `Final Resolved Applicable Standards Set`. وإذا كان الرابط مجرد إشارة informative إلى Standard قد لا تنطبق، فيجب إصلاح أو إعادة كتابة المرجع في upstream حتى لا ينشئ dependency محلية على Standard غير منطبقة.
+
+إذا كانت:
+
+```text
+A applicable
+B excluded
+A normatively requires B
+```
+
+فإن composition أو applicability design غير صالح، وتكون النتيجة `Resolution Status = INVALID`. لا يجوز إصلاح ذلك بنسخ B كملف support غير منطبق؛ المسار الصحيح هو إصلاح dependency أو applicability في المصدر canonical ثم إعادة الحل.
+
+يُعد فشل final local reference closure `Structural Invalidity`، ويجب اكتشافه fail-closed قبل قبول Adoption أو Upgrade أو Manifest Validation.
+
 ### مثال توضيحي عام: Project-Aware Slim
 
 عند تفعيل `project-aware-slim-module`، يظل Stage 1 مطالبًا بحل السلسلة كاملة `project-aware-slim-module → slim-module → base-module → composer-package` والتحقق من كل Profile وRequired Standard reference. بعد ذلك فقط يقيّم Stage 2 كل Standard على حدة. فإذا كان الـScope الفعلي ميزة Host-specific غير قابلة للاستخراج، فإن `COMPOSER_PACKAGE_STANDARD.md §3` لا ينطبق على هذا الـartifact لأنه يقصر نطاقه على مكتبات Composer مستقلة قابلة لإعادة الاستخدام؛ لذلك لا تدخل Composer Package Standard في المجموعة النهائية لذلك الـScope لمجرد inheritance. يظل Composer Profile ومرجعه جزءًا من الحل البنيوي، ولا يتغير inheritance أو أي Profile. هذا تطبيق للقاعدة العامة التي تملكها كل Standard، وليس استثناءً أو special case لاسم Profile.
@@ -305,11 +345,11 @@ docs/php-engineering-standards/
 ```text
 unused profiles
 unused engineering standards
-docs/audits/
+historical Audit / Verification evidence
 docs/decisions/
 ```
 
-لا يشترط الاعتماد نسخ Folders فارغة، ولا تدخل الملفات التاريخية في Adoption Set. تظل `docs/audits/` و`docs/decisions/` في المستودع المركزي للتاريخ والحوكمة فقط.
+لا يشترط الاعتماد نسخ Folders فارغة، ولا تدخل الوثائق التاريخية في Adoption Set. لا يقرر هذا المعيار Retention للوثائق التاريخية في المستودع المركزي؛ يخضع ذلك لـ[Documentation Lifecycle Standard](governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md).
 
 ## 9. عقد `STANDARDS_MANIFEST.md`
 
@@ -432,16 +472,19 @@ Underlying standards remain source of truth: YES
 - [ ] عدم استخدام floating `main`.
 - [ ] عدم نسخ `standards/` بالكامل افتراضيًا أو احتياطيًا.
 - [ ] وجود Profile ID وVersion وScope لكل Activation.
+- [ ] وجود `project-host @ /` في نفس Repository لكل `project-aware-slim-module` activation؛ وغيابه ينتج `Resolution Status = INVALID`.
 - [ ] سلامة inheritance وعدم وجود cycle.
 - [ ] وجود وصحة بنيوية لكل مراجع `Required Standards` المباشرة والموروثة في `Stage 1 / Candidate Standard References`؛ يظل أي مرجع Required Standard مفقود أو مكسور `Structural Invalidity` قبل Stage 2.
 - [ ] اقتصار `Pinned / Final Resolved Applicable Standards Set` على Standards التي اجتازت canonical applicability الخاصة بها في `Stage 2`.
+- [ ] كون المجموعة المحلية النهائية المثبتة locally reference-closed بعد تكوين Final Set؛ ويظل فشل الإغلاق `Structural Invalidity` fail-closed.
+- [ ] عدم إنشاء `Reference Support Set` أو نسخ Standard غير منطبقة لمجرد إبقاء رابط حيًا.
 - [ ] عدم اشتراط إدراج Candidate Standard استُبعدت بصورة deterministic وفق canonical applicability المملوكة لها في مجموعة `Final / Pinned Applicable Standards Set`.
 - [ ] تطبيق resolution عابر للـ Profiles دون تكرار يدوي.
 - [ ] تطابق Control Set وApplicable Standards Set مع Manifest.
 - [ ] عدم حاجة المهمة الهندسية العادية إلى upstream network.
 - [ ] الحفاظ على relative links والبنية اللازمة لها.
 - [ ] تسجيل Additional Standards والاستثناءات صراحةً.
-- [ ] عدم إدخال `docs/audits/` أو `docs/decisions/` في Adoption Set.
+- [ ] عدم إدخال historical Audit/Verification artifacts أو Decision records ضمن Adoption Set لمجرد وجودها في المستودع المركزي.
 - [ ] قراءة الوكيل للـ Standards المنطبقة فقط على Scope المهمة.
 - [ ] سلامة البنية قبل تقييم Exceptions، وعدم تحويل Structural Invalidity إلى حالة قابلة للـwaive.
 - [ ] تسجيل Resolution Status لكل Profile Activation/Scope بصورة مستقلة، دون إخفاء نتيجة غير صحيحة بنتيجة أخرى.
@@ -508,12 +551,14 @@ missing required inherited Profile
 missing or broken Explicit Additional Standard reference
 inheritance cycle
 broken required reference
+broken required relative link / final local reference closure
+missing project-host @ / for project-aware activation
 missing mandatory structural metadata
 structural Manifest mismatch
 known frozen-version/content mismatch
 ```
 
-يشمل `structural Manifest mismatch` عدم مطابقة ما يسجله Manifest فعليًا للـresolved Control Set أو Final Resolved Applicable Standards Set الناتجة من المرحلتين أو Profile Activations أو الـpinned structure المطلوبة. ويشمل `known frozen-version/content mismatch` ثبوت أن Version مجمدة نفسها تشير إلى artifact أو Profile manifest/content مختلفة عن الـFrozen snapshot التي ثبتت عند أول `Completed VALID Adoption` أو `Completed VALID Upgrade`. لا يعد اختلاف repository commit وحده mismatch؛ يجب مقارنة الـartifact نفسها. لا يعد عدم تسجيل Candidate Standard مستبعدة canonical ضمن Final Applicable Set mismatch؛ لكن يجب أن تظل كل مراجع Profile وRequired Standards قابلة للتحقق بنيويًا قبل تقييم applicability. يراعي فحص التطابق فقط deviations التي يسمح هذا العقد باستثنائها صراحةً؛ فلا يصبح deviation موثق ومسموح Structural Invalidity لمجرد أنه exception. لكن لا يجوز لأي exception أن يتجاوز أي بند من قائمة Structural Invalidity أعلاه؛ ويظل missing required Standard أو Profile أو inheritance أو reference أو metadata المطلوبة Structural Invalidity غير قابلة للـwaive.
+يشمل `structural Manifest mismatch` عدم مطابقة ما يسجله Manifest فعليًا للـresolved Control Set أو Final Resolved Applicable Standards Set الناتجة من المرحلتين أو Profile Activations أو الـpinned structure المطلوبة. ويشمل `final local reference closure` التحقق من أن كل رابط نسبي مطلوب من Standard منطبقة يصل إلى هدف موجود في Control Set أو Final Applicable Set، أو أن المرجع informative أُصلح upstream ولا ينشئ dependency محلية على Standard غير منطبقة. ويشمل `known frozen-version/content mismatch` ثبوت أن Version مجمدة نفسها تشير إلى artifact أو Profile manifest/content مختلفة عن الـFrozen snapshot التي ثبتت عند أول `Completed VALID Adoption` أو `Completed VALID Upgrade`. لا يعد اختلاف repository commit وحده mismatch؛ يجب مقارنة الـartifact نفسها. لا يعد عدم تسجيل Candidate Standard مستبعدة canonical ضمن Final Applicable Set mismatch؛ لكن يجب أن تظل كل مراجع Profile وRequired Standards قابلة للتحقق بنيويًا قبل تقييم applicability. يراعي فحص التطابق فقط deviations التي يسمح هذا العقد باستثنائها صراحةً؛ فلا يصبح deviation موثق ومسموح Structural Invalidity لمجرد أنه exception. لكن لا يجوز لأي exception أن يتجاوز أي بند من قائمة Structural Invalidity أعلاه؛ ويظل missing required Standard أو Profile أو inheritance أو reference أو metadata المطلوبة Structural Invalidity غير قابلة للـwaive.
 
 إذا تعذر إثبات الـFrozen artifact snapshot أو حالة الـBaseline، فلا يُفترض التطابق ولا الاختلاف، وتكون النتيجة `OWNER DECISION REQUIRED — VERSION BASELINE STATUS` بدل التخمين. أما known mismatch المثبت فينتج `Resolution Status = INVALID` ولا يمكن أن تكتمل معه Adoption أو Upgrade بحالة `VALID`.
 
@@ -572,13 +617,15 @@ APPROVED_AND_DOCUMENTED
 
 في Adoption أو Upgrade أو Manifest Validation، يسير الفحص بالترتيب التالي:
 
-1. تنفيذ Structural / Transitive Resolution فعليًا من ملفات Profiles المحلية المثبتة، مع جمع والتحقق من كل Required Standard references وExplicit Additional Standard references لإنتاج Candidate Standard References.
-2. التحقق من Structural Integrity لكل المرشحين والبنية قبل أي تصفية بسبب applicability أو تقييم للاستثناءات؛ يظل المرجع المكسور Structural Invalidity حتى إذا كان متوقعًا استبعاده في المرحلة التالية.
-3. تنفيذ Canonical Standard Applicability لكل Candidate Standard مقابل كل Activation/Scope وحقائق الـartifact، وتكوين Final Resolved Applicable Standards Set؛ لا يطبق Profile أو Additional Standard override على scope المعيار الأصلي.
-4. التحقق من Frozen Version Baseline وartifact snapshot لكل Version مجمدة منطبقة؛ known frozen-version/content mismatch ينتج `Resolution Status = INVALID`، وتعذر إثبات الـsnapshot أو الـBaseline ينتج `OWNER DECISION REQUIRED — VERSION BASELINE STATUS`. لا يعتبر اختلاف repository commit وحده mismatch.
-5. تشخيص كل Activation/Scope على حدة، بما في ذلك نتيجة applicability؛ والاستبعاد deterministic لا ينتج حالة Invalid أو Exception.
-6. تقييم الاستثناءات المسموح بها وحالتها، دون تطبيق أي Requested Exception.
-7. حساب Overall Resolution Status بقواعد §16.2.
-8. عدم اعتبار Adoption مكتملة إلا إذا كانت `Overall Resolution Status = VALID`.
+1. تنفيذ Stage-1 Structural / Transitive Resolution فعليًا من ملفات Profiles المحلية المثبتة، مع حل inheritance وإنتاج Candidate Standard References.
+2. التحقق من Stage-1 structural candidate/reference integrity قبل applicability: سلامة Profiles و`Extends`، ووجود Required Standard references upstream، وسلامة Explicit Additional Standard references، وعدم وجود cycle أو broken structural candidate reference.
+3. تنفيذ Stage-2 Canonical Standard Applicability لكل Candidate Standard مقابل كل Activation/Scope وحقائق الـartifact، دون أن يوسع Profile أو Additional Standard applicability المملوكة للـStandard.
+4. بناء `Final Resolved Applicable Standards Set` من المرشحين التي انطبقت عليها قواعدها canonical بعد اكتمال Stage 2.
+5. التحقق من `final local reference closure` بعد تكوين Final Set، مقابل `Pinned Adoption Control Set` و`Final Resolved Applicable Standards Set`. فشل closure هو `Structural Invalidity` و`Resolution Status = INVALID`; لا تُقبل `Reference Support Set` ولا نسخة Standard غير منطبقة كحل.
+6. التحقق من Frozen Version Baseline وartifact snapshot لكل Version مجمدة منطبقة؛ known frozen-version/content mismatch ينتج `Resolution Status = INVALID`، وتعذر إثبات الـsnapshot أو الـBaseline ينتج `OWNER DECISION REQUIRED — VERSION BASELINE STATUS`. لا يعتبر اختلاف repository commit وحده mismatch.
+7. تشخيص كل Activation/Scope على حدة، بما في ذلك نتيجة applicability؛ والاستبعاد deterministic لا ينتج حالة Invalid أو Exception.
+8. تقييم الاستثناءات المسموح بها وحالتها، دون تطبيق أي Requested Exception.
+9. حساب Overall Resolution Status بقواعد §16.2.
+10. عدم اعتبار Adoption مكتملة إلا إذا كانت `Overall Resolution Status = VALID`.
 
 `OWNER DECISION REQUIRED` ليست نجاحًا، و`REQUESTED` ليست موافقة، و`APPROVED_AND_DOCUMENTED` لا تصلح Structural Invalidity.

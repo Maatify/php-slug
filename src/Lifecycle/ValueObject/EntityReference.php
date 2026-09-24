@@ -7,8 +7,10 @@ namespace Maatify\Slug\Lifecycle\ValueObject;
 use JsonSerializable;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Immutable host entity identity used to address a binding. */
 final readonly class EntityReference implements JsonSerializable
 {
+    /** Validates bounded, path-safe entity type and key dimensions. */
     public function __construct(
         public string $entityType,
         public string $entityKey,
@@ -17,6 +19,7 @@ final readonly class EntityReference implements JsonSerializable
         self::assertDimension($entityKey, 191, 'entityKey');
     }
 
+    /** Enforces the shared entity dimension safety and length contract. */
     private static function assertDimension(string $value, int $maxCodePoints, string $field): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {

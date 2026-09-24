@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Lifecycle\Enum;
 
+/** Mutation categories emitted by binding and alias lifecycle operations. */
 enum ChangeTypeEnum: string
 {
     case ASSIGNED = 'ASSIGNED';

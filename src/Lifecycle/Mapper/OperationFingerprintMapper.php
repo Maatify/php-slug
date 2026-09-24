@@ -7,9 +7,12 @@ namespace Maatify\Slug\Lifecycle\Mapper;
 use JsonException;
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 
+/** Encodes operation request payloads into deterministic SHA-256 fingerprints. */
 final class OperationFingerprintMapper
 {
     /**
+     * Returns a stable fingerprint using canonical JSON encoding options.
+     *
      * @param array<string, mixed> $payload
      */
     public function fingerprint(array $payload, string $failureMessage = 'Request fingerprint encoding failed.'): string

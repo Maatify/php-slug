@@ -3,9 +3,9 @@
 [![Maatify Slug](https://img.shields.io/badge/Maatify-Slug-blue?style=for-the-badge)](https://github.com/Maatify/php-slug)
 [![Maatify Ecosystem](https://img.shields.io/badge/Maatify-Ecosystem-9C27B0?style=for-the-badge)](https://github.com/Maatify)
 
-## حالة الدعم الحالية
+## Current Support State
 
-يحتوي المستودع على التنفيذ الفعلي للحزمة (Runtime وCI)، ومع ذلك، لا توجد حاليًا نسخة Stable منشورة عبر Packagist أو خط إصدار Stable مدعوم. لا يمثل هذا الفرع أو Draft PR نسخة منشورة أو Release Candidate قابلًا للاستهلاك الخارجي لبيئات الإنتاج، ولا يقدم وعوداً بتوفر خدمة الدعم الفني العام وSLA في الوقت الحالي قبل النشر الرسمي.
+This repository contains the package implementation, Runtime, and CI, but no Stable release has been published through Packagist and no Stable release line is currently supported. A branch or Draft PR is not a published release or externally consumable Release Candidate, and this policy makes no public support or SLA commitment before official publication.
 
 ## Supported Versions
 
@@ -13,27 +13,27 @@
 |---|---|
 | No published release | No |
 
-سيُحدَّث هذا الجدول فقط عندما تتغير حالة النشر وسياسة الدعم الفعلية، وليس عند إنشاء branch أو tag غير منشور أو نجاح CI.
+This table changes only when the actual publication state and support policy change. Creating an unpublished branch or tag, or obtaining a successful CI run, does not change it.
 
-## نطاق سياسة الأمان
+## Security Scope
 
-يشمل نطاق الحزمة: Slug profiles وinput validation وownership/lifecycle وHistory وPDO MySQL persistence وtransactions وconcurrency وpublic result/exception contracts.
+The package scope includes slug profiles, input validation, ownership and lifecycle, history, PDO MySQL persistence, transactions, concurrency, and public result and exception contracts.
 
-يبقى خارج نطاق الحزمة: Host entity persistence/existence، authentication وauthorization، routing وURL transport، HTTP status/redirect policy، SEO، Framework integrations، وHost infrastructure. يجب إرسال مشكلة تخص هذه المجالات إلى مالك التطبيق أو الـadapter المسؤول عنها.
+Outside the package scope are Host entity persistence and existence, authentication, authorization, routing and URL transport, HTTP status and redirect policy, SEO, framework integrations, and Host infrastructure. Issues in those areas should be reported to the application owner or responsible adapter.
 
-## الإبلاغ الخاص
+## Private Reporting
 
-لا تستخدم GitHub Issues لنشر تفاصيل ثغرة لم تُعالج. أرسل بلاغًا خاصًا إلى `support@maatify.dev`، مع:
+Do not publish details of an unpatched vulnerability in GitHub Issues. Send a private report to `support@maatify.dev` with:
 
-- وصف واضح للمشكلة وتأثيرها.
-- خطوات إعادة الإنتاج أو إثبات المفهوم الآمن.
-- النسخة أو commit المتأثرة وبيئة التشغيل.
-- أي تخفيف مؤقت معروف، مع حذف الأسرار والبيانات الشخصية.
+- a clear description of the issue and its impact;
+- reproduction steps or a safe proof of concept;
+- the affected version or commit and runtime environment; and
+- any known temporary mitigation, with secrets and personal data removed.
 
-لا يحدد هذا المستند مدة استجابة أو إصلاح؛ تعتمد المعالجة على تحقق البلاغ ونطاقه وحالة Runtime المنشورة وقت وصوله.
+This document does not promise a response or remediation time. Handling depends on report validation, scope, and the published Runtime state when the report arrives.
 
-## حدود الادعاء الحالية
+## Current Claim Boundaries
 
-على الرغم من وجود Runtime و Tests و CI، فإن هذا لا يعتبر شهادة أمان أو security audit رسمي، ولا تدعي هذه السياسة الجاهزية لنشر الـ production أو release readiness قبل توفر نسخة ثابتة ومنشورة رسميًا. أي ادعاء لاحق عن دعم إصدار أو إصلاح أمني يجب أن يطابق نسخة منشورة وسياسة الدعم الفعلية.
+The existence of Runtime, Tests, and CI is not a security certification or formal security audit, and this policy does not claim production or release readiness before an official Stable release is published. Any later claim about supported versions or security fixes must match a published version and the actual support policy.
 
-للعقد الفني وحدود الثقة، راجع [Package Reference](SLUG_PACKAGE_REFERENCE.md).
+For the technical contract and trust boundaries, see [Package Reference](SLUG_PACKAGE_REFERENCE.md).

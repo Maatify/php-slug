@@ -1,99 +1,126 @@
-# Maatify/php-slug — سجل اعتماد المعايير
+# Maatify/php-slug — Standards Adoption Resolver Record
 
-## بيانات الاعتماد
+## Adoption Result
 
 - **Upstream Repository:** `Maatify/php-engineering-standards`
-- **Adoption Commit:** `4e268089d0aceedbc837d98f28da8b204d39dd7f`
-- **Adoption Date:** `2026-09-19`
+- **Old Adoption Commit:** `3de026f86f68c548c8eef1570a6aac0e3949f20a`
+- **Adoption Commit:** `7dd9d1d02b53013da0906c729dab4f667afeefb4`
+**Adoption Date:** `2026-09-23`
 - **Overall Resolution Status:** `VALID`
 - **Resolution Status Priority:** `INVALID > OWNER DECISION REQUIRED > VALID`
 - **Exception State:** `NONE`
 - **Repository:** `Maatify/php-slug`
 - **Composer Package:** `maatify/php-slug`
 - **Namespace:** `Maatify\\Slug\\`
+**Resolution Input:** exact upstream commit `7dd9d1d02b53013da0906c729dab4f667afeefb4` only; upstream `main` was verified at that exact SHA before resolution.
 
-هذا السجل هو Local Resolver Record لنتيجة Selective Pinned Adoption المكتملة من exact upstream commit المسجل أعلاه. لا يضيف قواعد هندسية، ولا يغيّر نتيجة الاعتماد، ولا يثبت وحده نجاح الاختبارات أو النشر.
+This Manifest records the completed Selective Pinned Adoption Upgrade. It is a local resolver record, not an engineering Standard and not evidence of test, CI, release, or publication success.
 
-## حقائق الـArtifact ونطاق الحل
+## Artifact Facts Used for Resolution
 
-تمت إعادة تقييم الحقائق من حالة `php-slug` الحالية بعد اكتمال Runtime artifacts، لا من حالة Preparation السابقة:
-
-| الحقيقة | النتيجة |
+| Fact | Current repository evidence |
 |---|---|
-| نوع الـArtifact | مكتبة PHP/Composer مستقلة قابلة لإعادة الاستخدام والتوزيع؛ `composer.json` يعلن `type: library` وPSR-4 production autoload |
-| هوية الحزمة | `maatify/php-slug` |
+| Artifact type | Standalone reusable PHP/Composer library; `composer.json` declares `type: library` and production PSR-4 autoload |
+| Package identity | `maatify/php-slug` |
 | Namespace | `Maatify\\Slug\\` |
-| حد PHP المقصود | PHP `^8.4` |
-| Extensions التشغيلية | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
-| حالة Runtime | توجد ملفات `composer.json` و`src/` و`tests/` و`schema/mysql/` و`.github/workflows/ci.yml` في الـcheckout الحالي |
-| Persistence | الحزمة تملك SQL persistence مملوكة لها، مع مستودعات PDO تحت `src/Lifecycle/Repository/Pdo/` واستعلامات الإدارة تحت `src/Lifecycle/Management/Repository/Pdo/` ومخطط package-owned تحت `schema/mysql/` |
-| قاعدة البيانات | مسار MySQL-compatible عبر `pdo_mysql`؛ الجداول والعلاقات package-local ولا توجد Host FKs أو Host table joins |
-| حدود الاستضافة | Host-agnostic؛ Host يهيئ اتصال PDO ويحقنه، والحزمة لا تنشئ اتصالًا مخفيًا |
-| نطاق الحوكمة | قواعد الحوكمة مفعلة على جذر المستودع `/` |
+| PHP contract | `^8.4` in `composer.json` |
+| Runtime extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
+| Runtime layout | `src/`, `tests/`, `schema/mysql/`, `.github/workflows/ci.yml`, `docs/guides/USAGE_GUIDE.md`, and root `examples/` exist |
+| Persistence ownership | The package owns SQL persistence behavior, package-local `maa_slug_*` schema, direct PDO repositories, schema installation, and persistence/system verification |
+| Database contract | MySQL-compatible `pdo_mysql` path with direct PDO; package-owned tables and package-local joins only |
+| Host boundary | Host injects PDO and collaborators; the package does not create hidden connections or depend on Host tables |
+| Governance scope | `repository-governance` is activated at `/`; the repository owns durable documentation, decision, and workflow governance surfaces |
+| Project-host applicability | Not applicable; this is a package-only repository, not a deployable Host/Application Project |
 
 ## Profile Activations
 
-| Profile ID | Profile Version | Scope | Extends | Resolution Status |
-|---|---:|---|---|---|
-| `composer-package` | `2.0.0` | `/` | `None` | `VALID` |
-| `repository-governance` | `2.0.0` | `/` | `None` | `VALID` |
+| Profile ID | Old Version | New Version | Scope | Extends | Activation Resolution |
+|---|---:|---:|---|---|---|
+| `composer-package` | `2.0.1` | `3.0.0` | `/` | `None` | `VALID` |
+| `repository-governance` | `2.0.1` | `3.0.0` | `/` | `None` | `VALID` |
 
-سُجلت نتيجة كل Profile Activation/Scope بصورة مستقلة. وتكون `Overall Resolution Status` هنا `VALID` بعد ثبوت سلامة الحل البنيوي، وانطباق كل Candidate Standard، والتحقق من Frozen Profile Version Baseline، وعدم وجود قرار Adoption معلق أو Exception مطلوبة.
+### Inheritance Result
 
-### Profiles الموروثة
+No inherited Profiles. Both active Profiles declare `Extends: None`; no inheritance cycle exists.
 
-لا توجد Profiles موروثة. كلا الـProfiles المفعّلين يعلن `Extends: None`.
+## Stage 1 — Structural / Transitive Resolution
 
-## Structural / Transitive Resolution
+The exact target contains both active Profile manifests and all Required Standard references. Structural resolution produced **12 Candidate Standard References** before deduplication and **11 unique Standard IDs**:
 
-اكتمل الحل البنيوي لكل Activation/Scope قبل تقييم canonical applicability:
+| # | Source Profile | Candidate Standard ID | Upstream path | Structural result |
+|---:|---|---|---|---|
+| 1 | `composer-package` | `std-package-building` | `standards/packages/PACKAGE_BUILDING_STANDARD.md` | Present and structurally valid |
+| 2 | `composer-package` | `std-composer-package` | `standards/packages/COMPOSER_PACKAGE_STANDARD.md` | Present and structurally valid |
+| 3 | `composer-package` | `std-ci-workflow` | `standards/packages/CI_WORKFLOW_STANDARD.md` | Present and structurally valid |
+| 4 | `composer-package` | `std-library-presentation` | `standards/packages/LIBRARY_PRESENTATION_STANDARD.md` | Present and structurally valid |
+| 5 | `composer-package` | `std-testing` | `standards/testing/TESTING_STANDARD.md` | Present and structurally valid |
+| 6 | `composer-package` | `std-documentation-lifecycle` | `standards/governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md` | Present and structurally valid |
+| 7 | `composer-package` | `std-php-source-documentation` | `standards/php/PHP_SOURCE_DOCUMENTATION_STANDARD.md` | Present and structurally valid |
+| 8 | `composer-package` | `std-php-coding-style` | `standards/php/PHP_CODING_STYLE_STANDARD.md` | Present and structurally valid |
+| 9 | `repository-governance` | `std-ai-collaboration-workflow` | `standards/ai/AI_COLLABORATION_WORKFLOW_AR.md` | Present and structurally valid |
+| 10 | `repository-governance` | `std-github-phase-stack-workflow` | `standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | Present and structurally valid |
+| 11 | `repository-governance` | `std-documentation-lifecycle` | `standards/governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md` | Present and structurally valid; duplicate candidate |
+| 12 | `repository-governance` | `std-decision-governance` | `standards/governance/DECISION_GOVERNANCE_STANDARD_AR.md` | Present and structurally valid |
 
-- تم التحقق من وجود كل Profile مفعّل في exact Target Adoption Commit.
-- لا توجد inheritance cycles.
-- لا توجد Profiles موروثة مطلوبة؛ كلا الـProfiles يعلن `Extends: None`.
-- تم جمع تسعة مراجع `Required Standards` كمرشحين قبل أي تصفية، مع إزالة التكرار عند تكوين المجموعة النهائية.
-- لا توجد `Explicit Additional Standards`.
+No Explicit Additional Standards were declared. No missing Profile, inheritance cycle, broken Required Standard reference, or mandatory structural metadata failure was found.
 
-### Candidate Standard References
+## Stage 2 — Canonical Standard Applicability
 
-| المصدر | Standard ID | المسار upstream | النتيجة البنيوية |
-|---|---|---|---|
-| `composer-package` | `std-package-building` | `standards/packages/PACKAGE_BUILDING_STANDARD.md` | موجود وصحيح بنيويًا |
-| `composer-package` | `std-composer-package` | `standards/packages/COMPOSER_PACKAGE_STANDARD.md` | موجود وصحيح بنيويًا |
-| `composer-package` | `std-ci-workflow` | `standards/packages/CI_WORKFLOW_STANDARD.md` | موجود وصحيح بنيويًا |
-| `composer-package` | `std-library-presentation` | `standards/packages/LIBRARY_PRESENTATION_STANDARD.md` | موجود وصحيح بنيويًا |
-| `composer-package` | `std-testing` | `standards/testing/TESTING_STANDARD.md` | موجود وصحيح بنيويًا |
-| `composer-package` | `std-documentation-lifecycle` | `standards/governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md` | موجود وصحيح بنيويًا |
-| `repository-governance` | `std-ai-collaboration-workflow` | `standards/ai/AI_COLLABORATION_WORKFLOW_AR.md` | موجود وصحيح بنيويًا |
-| `repository-governance` | `std-github-phase-stack-workflow` | `standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | موجود وصحيح بنيويًا |
-| `repository-governance` | `std-documentation-lifecycle` | `standards/governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md` | موجود وصحيح بنيويًا؛ مكرر مرجعيًا ولا يضيف Standard جديدة |
+The target Standards' own applicability rules were evaluated against the current artifact facts and each active Scope:
+
+- `std-package-building` applies to the standalone PHP/Composer library; its SQL/PDO/schema and persistence conditions apply because the package owns SQL persistence.
+- `std-composer-package` applies to the standalone reusable Composer library.
+- `std-ci-workflow` applies to the package verification and CI boundary.
+- `std-library-presentation` applies to the standalone package and its package-owned repository presentation, including the artifact-local AI consumer discovery contract.
+- `std-testing` applies to the standalone package, including its runtime, persistence, integration, system, and consumer-verification obligations where applicable.
+- `std-documentation-lifecycle` applies to the standalone package and the repository-governance Scope holding current, historical, verification, release, and adoption documentation.
+- `std-php-source-documentation` applies to repository-owned manually maintained PHP source in the package Scope.
+- `std-php-coding-style` applies to repository-owned manually maintained PHP source in the package Scope.
+- `std-ai-collaboration-workflow` applies to the `repository-governance` activation at `/`.
+- `std-github-phase-stack-workflow` applies to the repository's active Phase Stack workflow at `/`.
+- `std-decision-governance` applies to the repository-governance Scope because the repository can create, apply, review, and supersede durable engineering decisions; its required index is a post-adoption compliance contract, not an applicability prerequisite.
+
+No Candidate Standard was deterministically excluded. The deduplicated Final Resolved Applicable Standards Set therefore contains **11 Standards**.
+
+## Local Reference Closure
+
+- **Stage 1 reference integrity:** `PASS`.
+- **Final local reference closure:** `PASS` for normative inter-Standard relative references. Every such reference in the selected Control Set or Final Set resolves to another selected Control Set or Final Set artifact at the exact target. No `Reference Support Set` was created, and no non-applicable Standard was copied to keep a link alive.
+- External package/reference URLs and artifact-facing links are not local Standard dependencies.
+
+## Frozen-Version / Baseline Validation
+
+- Existing frozen Profile baseline: `composer-package@2.0.1` and `repository-governance@2.0.1`, adopted at `3de026f86f68c548c8eef1570a6aac0e3949f20a`.
+- New Profile versions are `3.0.0` for both activations; they are new major composition versions and are not presented as the old frozen versions.
+The unchanged-version Standard `std-testing@1.1.1` matches its previous local artifact byte-for-byte; `std-ai-collaboration-workflow` and `std-github-phase-stack-workflow` were re-read and updated to `8.0.0` and `4.0.0` from the exact target.
+- All other changed Standard versions carry the target metadata from the exact target commit; no known frozen-version/content mismatch was found.
+- **Baseline validation:** `PASS`.
 
 ## Pinned Adoption Control Set
 
-جميع الملفات الآتية نسخ مثبتة من Adoption Commit `4e268089d0aceedbc837d98f28da8b204d39dd7f` نفسه، مع الحفاظ على البنية النسبية:
+All files below are pinned from the same exact upstream Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`:
 
-- `docs/php-engineering-standards/standards/STANDARDS_ADOPTION_STANDARD_AR.md` — Standard Version `3.0.0`
-- `docs/php-engineering-standards/standards/profiles/COMPOSER_PACKAGE_PROFILE.md` — Profile Version `2.0.0`
-- `docs/php-engineering-standards/standards/profiles/REPOSITORY_GOVERNANCE_PROFILE.md` — Profile Version `2.0.0`
+- `docs/php-engineering-standards/standards/STANDARDS_ADOPTION_STANDARD_AR.md` — `std-standards-adoption@4.0.0`
+- `docs/php-engineering-standards/standards/profiles/COMPOSER_PACKAGE_PROFILE.md` — `composer-package Profile@3.0.0`
+- `docs/php-engineering-standards/standards/profiles/REPOSITORY_GOVERNANCE_PROFILE.md` — `repository-governance Profile@3.0.0`
 
-لا توجد ملفات Profile غير مفعّلة أو غير موروثة ضمن Control Set.
+No unused or non-inherited Profile manifests are copied.
 
 ## Final Resolved Applicable Standards Set
 
-بعد تطبيق canonical Applicability الخاصة بكل Standard على Scope `/` وحقائق الـArtifact الحالية، تكون المجموعة النهائية كما يلي:
-
-| Standard ID | Standard Version | المسار المحلي | Canonical Applicability |
-|---|---:|---|---|
-| `std-package-building` | `2.0.0` | `docs/php-engineering-standards/standards/packages/PACKAGE_BUILDING_STANDARD.md` | منطبق على مكتبة PHP/Composer مستقلة؛ وقواعد SQL persistence المشروطة منطبقة لأن الحزمة تملك SQL persistence فعلية مع direct PDO وschema package-owned |
-| `std-composer-package` | `3.0.0` | `docs/php-engineering-standards/standards/packages/COMPOSER_PACKAGE_STANDARD.md` | منطبق على `composer.json` الخاص بمكتبة PHP/Composer مستقلة قابلة لإعادة الاستخدام |
-| `std-ci-workflow` | `2.0.0` | `docs/php-engineering-standards/standards/packages/CI_WORKFLOW_STANDARD.md` | منطبق على بنية التحقق وCI الخاصة بحزمة Composer مستقلة |
-| `std-library-presentation` | `2.0.0` | `docs/php-engineering-standards/standards/packages/LIBRARY_PRESENTATION_STANDARD.md` | منطبق على مستودع مكتبة PHP/Composer المستقلة وعرضها release-facing |
-| `std-testing` | `1.1.0` | `docs/php-engineering-standards/standards/testing/TESTING_STANDARD.md` | منطبق على الاختبارات وحماية السلوك للمستودع والحزمة ذات Runtime وPersistence |
-| `std-documentation-lifecycle` | `1.0.0` | `docs/php-engineering-standards/standards/governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md` | منطبق على Standalone Package وعلى نطاق Repository Governance الذي يملك وثائق الحالة الحالية وVerification evidence وسجل الاعتماد |
-| `std-ai-collaboration-workflow` | `7.0.0` | `docs/php-engineering-standards/standards/ai/AI_COLLABORATION_WORKFLOW_AR.md` | منطبق على Scope الحوكمة المفعّل في `/` |
-| `std-github-phase-stack-workflow` | `3.0.0` | `docs/php-engineering-standards/standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | منطبق على دورة التنفيذ الحالية للمستودع التي تتبع Phase Stack |
-
-لم يُستبعد أي Candidate Standard؛ لذلك لا توجد Standard غير منطبقة مسجلة ضمن Applicable Set، ولا توجد فجوة applicability غير محسومة.
+| Standard ID | Old Version | New Version | Local pinned path | Applicability result |
+|---|---:|---:|---|---|
+| `std-package-building` | `3.0.0` | `3.0.1` | `docs/php-engineering-standards/standards/packages/PACKAGE_BUILDING_STANDARD.md` | Applicable to standalone PHP/Composer package; SQL persistence conditions apply |
+| `std-composer-package` | `3.0.1` | `4.0.0` | `docs/php-engineering-standards/standards/packages/COMPOSER_PACKAGE_STANDARD.md` | Applicable to standalone reusable Composer package |
+| `std-ci-workflow` | `2.0.0` | `3.0.0` | `docs/php-engineering-standards/standards/packages/CI_WORKFLOW_STANDARD.md` | Applicable to package CI and required verification gates |
+| `std-library-presentation` | `2.0.1` | `3.0.0` | `docs/php-engineering-standards/standards/packages/LIBRARY_PRESENTATION_STANDARD.md` | Applicable to standalone package presentation and consumer discovery |
+| `std-testing` | `1.1.1` | `1.1.1` | `docs/php-engineering-standards/standards/testing/TESTING_STANDARD.md` | Applicable to package behavior and applicable integration/consumer boundaries |
+| `std-documentation-lifecycle` | `2.0.0` | `3.0.0` | `docs/php-engineering-standards/standards/governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md` | Applicable to package and repository-governance documentation |
+| `std-php-source-documentation` | `—` | `1.0.0` | `docs/php-engineering-standards/standards/php/PHP_SOURCE_DOCUMENTATION_STANDARD.md` | Applicable to repository-owned manually maintained PHP source |
+| `std-php-coding-style` | `—` | `1.0.1` | `docs/php-engineering-standards/standards/php/PHP_CODING_STYLE_STANDARD.md` | Applicable to repository-owned manually maintained PHP source |
+| `std-ai-collaboration-workflow` | `7.0.1` | `8.0.0` | `docs/php-engineering-standards/standards/ai/AI_COLLABORATION_WORKFLOW_AR.md` | Applicable to repository governance at `/` |
+| `std-github-phase-stack-workflow` | `3.0.1` | `4.0.0` | `docs/php-engineering-standards/standards/GITHUB_PHASE_STACK_WORKFLOW_AR.md` | Applicable to the active Phase Stack workflow |
+| `std-decision-governance` | `—` | `1.0.0` | `docs/php-engineering-standards/standards/governance/DECISION_GOVERNANCE_STANDARD_AR.md` | Applicable to durable engineering decision governance at `/` |
 
 ## Explicit Additional Standards
 
@@ -101,24 +128,20 @@
 
 ## Explicit Exceptions / Overrides
 
-`None`.
+`None`. No requested, pending, or unauthorized deviation was applied.
 
-الملفات `standards/governance/STANDARD_VERSIONING_POLICY_AR.md` و`standards/modules/` و`standards/projects/` ليست جزءًا من Control Set أو Applicable Set؛ عدم نسخها التزام بحدود Selective Adoption وليس Exception أو Override. كما لم تُنسخ `docs/audits/` أو `docs/decisions/` أو شجرة `standards/` كاملة.
+## Exact Pinned Provenance
 
-## سلامة الروابط
+Every upstream-pinned file in the Control Set and Final Set was copied from `Maatify/php-engineering-standards@7dd9d1d02b53013da0906c729dab4f667afeefb4`.
+- No floating `main` reference is used.
+- No full upstream `standards/` snapshot, unused Profile, draft, decision, module Standard, project Standard, HTTP Standard, or versioning policy was copied.
+- `AGENTS.md` was not copied from upstream.
 
-- حُفظت البنية النسبية المحلية تحت `docs/php-engineering-standards/standards/`.
-- الروابط النسبية بين ملفات Control Set وApplicable Set المختارة، وكذلك روابط Profiles إلى المرشحين، تشير إلى المسارات الصحيحة في النسخة المحلية.
-- الإحالات النسبية إلى `STANDARD_VERSIONING_POLICY_AR.md` و`MODULE_BUILDING_STANDARD.md` و`PROJECT_DOCUMENTATION_STANDARD_AR.md` مراجع upstream مقصودة لمواد غير منسوخة؛ لم تُحوّل إلى ملفات محلية إضافية حتى لا يتوسع Adoption خارج resolution.
-- كل ملف منسوخ من upstream في Control Set أو Applicable Set يطابق محتوى exact Adoption Commit المسجل أعلاه.
-- لا توجد ملفات زائدة ضمن شجرة Adoption المحلية خارج Manifest والـPinned Adoption Files المسجلة.
+## Resolution Boundaries
 
-## Resolution Status
-
-الحل البنيوي والـCanonical Applicability مكتملان لكل Activation/Scope، والتحقق من Frozen Profile Version Baseline مكتمل، وجميع النتائج `VALID`. لا توجد `INVALID` أو `OWNER DECISION REQUIRED`، و`Exception State = NONE`.
-
-## حدود هذا الاعتماد
-
-- هذا السجل يثبت نتيجة حل المعايير ومجموعة الملفات المثبتة فقط.
-- وجود Runtime artifacts في الـcheckout الحالي لا يحول هذا السجل إلى تقرير نجاح لاختبارات PHP أو PHPStan أو CI أو MySQL؛ تلك النتائج تحتاج أدلة تشغيل مستقلة.
-- لا يضيف هذا الاعتماد Runtime أو Tests أو CI أو Blueprint أو Implementation Plan أو package documentation إلى نطاق التغيير.
+- Stage 1 completed before Stage 2; applicability was not used to hide a structural failure.
+- The final set was built from the 12 actual target Profile references, deduplicated to 11 applicable Standards.
+- Local reference closure was evaluated after the Final Set was formed and before pinning; no support-only copy was used.
+- Profile activation and Scope diagnostics were individually `VALID`.
+- Overall Resolution Status is `VALID`; Exception State is `NONE`.
+- This Manifest records resolution only; it does not claim tests, CI, release, tag, publish, or merge success.

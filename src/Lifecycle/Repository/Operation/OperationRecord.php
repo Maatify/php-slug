@@ -8,8 +8,10 @@ use DateTimeImmutable;
 use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 
+/** Immutable validated persistence snapshot for an idempotent operation row. */
 final readonly class OperationRecord
 {
+    /** Enforces operation identity, result type, status, and snapshot-state invariants. */
     public function __construct(
         public int $id,
         public string $operationKey,

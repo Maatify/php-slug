@@ -34,28 +34,34 @@ use Maatify\Slug\Canonicalization\Contract\SlugProfileInterface;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
+/** Shared DTO and value-object builders with stable defaults for contract tests. */
 final class ContractFixtures
 {
+    /** Returns the simple fixture profile used by canonicalization and lifecycle DTOs. */
     public static function profile(): SlugProfileInterface
     {
         return new FixtureProfile();
     }
 
+    /** Returns an in-memory registry preloaded with the fixture profile. */
     public static function registry(): SlugProfileRegistryInterface
     {
         return new FixtureRegistry(self::profile());
     }
 
+    /** Returns the fixed UTC timestamp used to make fixture history deterministic. */
     public static function date(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Builds a scope with the requested namespace and no locale or context qualifiers. */
     public static function scope(string $namespace = 'catalog'): SlugScope
     {
         return new SlugScope($namespace, null, null);
     }
 
+    /** Builds a product binding identity using the fixture profile and requested namespace. */
     public static function identity(int $entityId, string $namespace = 'catalog'): BindingIdentityDTO
     {
         return new BindingIdentityDTO(
@@ -64,11 +70,13 @@ final class ContractFixtures
         );
     }
 
+    /** Creates a slug owned by the fixture profile without changing the supplied value. */
     public static function slug(string $value): Slug
     {
         return Slug::fromProfile(self::profile(), $value);
     }
 
+    /** Builds a registry claim with deterministic timestamps and a configurable role. */
     public static function claim(
         BindingIdentityDTO $identity,
         Slug $slug,
@@ -78,6 +86,7 @@ final class ContractFixtures
         return new RegistryClaimDTO($id, $identity, $slug, $role, self::date(), self::date());
     }
 
+    /** Builds a binding snapshot; RELEASED bindings intentionally have no current claim. */
     public static function binding(
         BindingIdentityDTO $identity,
         int $id,
@@ -99,6 +108,7 @@ final class ContractFixtures
         );
     }
 
+    /** Builds one history event with optional previous state and original occurrence time. */
     public static function history(
         int $bindingId,
         int $id,
@@ -133,6 +143,7 @@ final class ContractFixtures
         );
     }
 
+    /** Builds an ASSIGN_EXACT result with one current claim and one history event. */
     public static function mutation(): SlugMutationResultDTO
     {
         $identity = self::identity(1);
@@ -157,6 +168,7 @@ final class ContractFixtures
         );
     }
 
+    /** Builds a successful MOVE result with source deactivation and target activation. */
     public static function transition(): ScopeTransitionResultDTO
     {
         $sourceIdentity = self::identity(1, 'catalog');
@@ -191,6 +203,7 @@ final class ContractFixtures
         );
     }
 
+    /** Builds a successful current-claim transfer with a source replacement claim. */
     public static function transfer(): AtomicTransferResultDTO
     {
         $sourceIdentity = self::identity(1);
@@ -235,6 +248,7 @@ final class ContractFixtures
         );
     }
 
+    /** Builds a successful current-claim adoption result with its adoption history event. */
     public static function adoption(): AdoptionResultDTO
     {
         $identity = self::identity(4);
@@ -256,35 +270,42 @@ final class ContractFixtures
     }
 }
 
+/** Minimal profile whose fixture methods preserve supplied values for contract assertions. */
 final class FixtureProfile implements SlugProfileInterface
 {
     private SlugProfileKey $profileKey;
 
+    /** Initializes the stable `ascii-v1` fixture profile key. */
     public function __construct()
     {
         $this->profileKey = new SlugProfileKey('ascii-v1');
     }
 
+    /** Returns the stable fixture profile key. */
     public function key(): SlugProfileKey
     {
         return $this->profileKey;
     }
 
+    /** Returns the source unchanged as the generated fixture slug. */
     public function generateFromSource(string $source): GeneratedSlugDTO
     {
         return new GeneratedSlugDTO($this->profileKey, $source, Slug::fromProfile($this, $source));
     }
 
+    /** Returns the candidate unchanged as the canonical fixture claim. */
     public function canonicalizeClaim(string $candidate): CanonicalSlugDTO
     {
         return new CanonicalSlugDTO($this->profileKey, $candidate, Slug::fromProfile($this, $candidate));
     }
 
+    /** Treats the decoded fixture segment as canonical without normalization. */
     public function canonicalizeLookup(string $decodedSegment): LookupCanonicalizationDTO
     {
         return new LookupCanonicalizationDTO($this->profileKey, $decodedSegment, InputFormCanonicalityEnum::CANONICAL, Slug::fromProfile($this, $decodedSegment));
     }
 
+    /** Applies the fixture slug grammar so invalid contract inputs still fail. */
     public function assertCanonicalSlug(string $candidate): void
     {
         if (preg_match('/\A[a-z0-9]+(?:-[a-z0-9]+)*\z/', $candidate) !== 1) {
@@ -293,21 +314,25 @@ final class FixtureProfile implements SlugProfileInterface
     }
 }
 
+/** In-memory profile registry used to isolate contract tests from production wiring. */
 final class FixtureRegistry implements SlugProfileRegistryInterface
 {
     /** @var array<string, SlugProfileInterface> */
     private array $profiles;
 
+    /** Starts the registry with one profile, keyed by that profile's value object. */
     public function __construct(SlugProfileInterface $profile)
     {
         $this->profiles = [$profile->key()->value => $profile];
     }
 
+    /** Registers or replaces a fixture profile by key for the current test. */
     public function register(SlugProfileInterface $profile): void
     {
         $this->profiles[$profile->key()->value] = $profile;
     }
 
+    /** Returns a registered profile and throws the contract exception for an unknown key. */
     public function get(SlugProfileKey $key): SlugProfileInterface
     {
         if (! isset($this->profiles[$key->value])) {
@@ -316,6 +341,7 @@ final class FixtureRegistry implements SlugProfileRegistryInterface
         return $this->profiles[$key->value];
     }
 
+    /** Reports whether the registry contains the requested profile key. */
     public function has(SlugProfileKey $key): bool
     {
         return isset($this->profiles[$key->value]);

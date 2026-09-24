@@ -10,8 +10,10 @@ use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 
+/** Immutable result of adopting a current, historical, or alias claim. */
 final readonly class AdoptionResultDTO implements JsonSerializable
 {
+    /** Validates adoption operation type and optional idempotency metadata. */
     public function __construct(
         public OperationTypeEnum $operationType,
         public ?string $operationKey,
@@ -33,6 +35,7 @@ final readonly class AdoptionResultDTO implements JsonSerializable
         }
     }
 
+    /** Returns the same result with replay status adjusted by the persistence boundary. */
     public function withReplayed(bool $replayed): self
     {
         return new self(
@@ -46,7 +49,11 @@ final readonly class AdoptionResultDTO implements JsonSerializable
         );
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Returns the operation, before/after state, adopted claim, and history event.
+     *
+     * @return array<string, mixed>
+     */
     public function jsonSerialize(): array
     {
         return [

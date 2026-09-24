@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Lifecycle\Enum;
 
+/** Idempotency operation identifiers persisted for lifecycle mutations. */
 enum OperationTypeEnum: string
 {
     case ASSIGN_EXACT = 'ASSIGN_EXACT';

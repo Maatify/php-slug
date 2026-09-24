@@ -10,8 +10,10 @@ use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Selects registry claims by scope and optional slug, role, and binding-status filters. */
 final readonly class RegistrySearchCriteria
 {
+    /** Validates UTF-8 search input before it reaches SQL parameters. */
     public function __construct(
         public ScopeProfileRequestDTO $scopeProfile,
         public PageRequest $pageRequest,

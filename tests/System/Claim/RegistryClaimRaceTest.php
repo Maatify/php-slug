@@ -110,14 +110,13 @@ final class RegistryClaimRaceTest extends MySqlIntegrationTestCase
                 1 => ['pipe', 'w'],
                 2 => ['pipe', 'w'],
             ];
-            $process = proc_open(
-                [
-                    PHP_BINARY,
-                    __DIR__ . '/RegistryClaimRaceWorker.php',
-                    $identity->scopeProfile->scope->namespace,
-                    $identity->entity->entityKey,
-                    $generated ? 'generated' : 'exact',
-                ],
+            $process = proc_open([
+                PHP_BINARY,
+                __DIR__ . '/RegistryClaimRaceWorker.php',
+                $identity->scopeProfile->scope->namespace,
+                $identity->entity->entityKey,
+                $generated ? 'generated' : 'exact',
+            ],
                 $descriptors,
                 $workerPipes,
                 dirname(__DIR__, 3),

@@ -17,6 +17,7 @@ use Maatify\Slug\Lifecycle\Enum\SameBindingDecisionEnum;
  */
 final class SameBindingOwnershipClassifier
 {
+    /** Classifies a same-binding candidate according to operation and existing registry role. */
     public function classify(OperationTypeEnum $operation, RegistryRoleEnum $role): SameBindingDecisionEnum
     {
         return match ($operation) {

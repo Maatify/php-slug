@@ -4,8 +4,8 @@
 
 ![Maatify.dev](https://www.maatify.dev/assets/img/img/maatify_logo_white.svg)
 
-[![Status](https://img.shields.io/badge/Status-Development-orange.svg)](#حالة-الحزمة-والنشر)
-[![PHP](https://img.shields.io/badge/PHP-^8.4-777bb4.svg?logo=php&logoColor=white)](#المتطلبات)
+[![Status](https://img.shields.io/badge/Status-Development-orange.svg)](#publication-state)
+[![PHP](https://img.shields.io/badge/PHP-^8.4-777bb4.svg?logo=php&logoColor=white)](#requirements)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PHPStan](https://img.shields.io/badge/PHPStan-Max-brightgreen.svg)](#quality-status)
 
@@ -18,42 +18,42 @@
 [![Security Policy](https://img.shields.io/badge/Security-Policy-blue.svg)](SECURITY.md)
 [![Contributing Guide](https://img.shields.io/badge/Contributing-Guide-blue.svg)](CONTRIBUTING.md)
 
-محرك مستقل لدورة حياة Slug في حزم PHP، مع فصل واضح بين Slug domain وHost وURL وHTTP وSEO.
+An independent PHP slug lifecycle engine with clear boundaries between the slug domain, the Host, URLs, HTTP, and SEO.
 
 </div>
 
 ---
 
-## حالة الحزمة والنشر
+## Publication State
 
-الحزمة في حالة **Development / Unpublished**. لا يوجد إصدار Stable أو Release Candidate منشور عبر قناة توزيع عامة، ولا يوجد حاليًا أمر تثبيت public صالح من registry.
+The package is **Development / Unpublished**. No Stable release or SemVer Release Candidate is currently published through a public distribution channel, so there is no public registry installation command yet.
 
-المرجع الحالي للعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). وتبقى حالة التحقق النهائي منفصلة: توجد أدلة نجاح تاريخية محددة أدناه، لكن `VG-001` ومراجعة القبول النهائية ما زالا مطلوبين بعد إغلاق remediation.
+The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). Verification evidence is SHA-scoped; historical evidence is identified below, while active integration and verification state is maintained in GitHub PR and CI history rather than duplicated in this consumer-facing README.
 
-## الميزات الأساسية
+## Key Features
 
-- **Slug Generation & Canonicalization:** توليد وcanonicalization متسقان عبر Profiles مدمجة بإصدارات محددة.
-- **Ownership & Lifecycle:** exact claiming وgenerated allocation وrelease وscope transition وatomic transfer وadoption.
-- **Aliases & History:** aliases نشطة أو متقاعدة وHistory دائم للتغيرات.
-- **Persistence & Concurrency:** Persistence عبر PDO MySQL-compatible مع transactions وCAS وضمانات التزامن.
-- **Resolution & Management:** resolution وavailability وmanagement reads مع pagination مشتركة.
+- **Slug Generation & Canonicalization:** Consistent generation and canonicalization through versioned built-in profiles.
+- **Ownership & Lifecycle:** Exact claiming, generated allocation, release, scope transition, atomic transfer, and adoption.
+- **Aliases & History:** Active and retired aliases with immutable lifecycle history.
+- **Persistence & Concurrency:** PDO MySQL-compatible persistence with transactions, CAS, and concurrency guarantees.
+- **Resolution & Management:** Resolution, availability, and management reads with shared pagination.
 
-## المتطلبات
+## Requirements
 
-| المتطلب | القيمة |
+| Requirement | Value |
 |---|---|
 | PHP | `^8.4` |
-| Database | PDO MySQL؛ `mysql:8.0.36` هو CI reproducibility target |
+| Database | PDO MySQL; `mysql:8.0.36` is the CI reproducibility target |
 | Extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
 | Direct packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
 
 ## Installation
 
-الحزمة غير منشورة؛ لذلك لا يوجد public distribution installation command صالح حاليًا ولا ينبغي عرض `composer require` كأمر قابل للاستخدام. لإعداد checkout التطويري وتشغيل التحقق المحلي، راجع [`CONTRIBUTING.md`](CONTRIBUTING.md).
+The package is not published yet. Do not present `composer require maatify/php-slug` as a currently usable public installation command. For a development checkout and local verification, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Quick Usage
 
-المسار stateless لا يحتاج إلى Database أو Host framework:
+The stateless path does not require a database or Host framework:
 
 ```php
 $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -65,54 +65,57 @@ $slug = $text->generateFromSource(
 // $slug->slug->value === 'hello-world'
 ```
 
-للمسار persisted، يحقن Host اتصال `PDO` وسياسة `ReservedSlugPolicyInterface` و`ClockInterface` في `SlugEngineFactory::create(...)`. راجع [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) للتدفق الكامل.
+For the persisted path, the Host injects a `PDO` connection, a `ReservedSlugPolicyInterface`, and a `ClockInterface` into `SlugEngineFactory::create(...)`. See [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) for the complete workflow.
 
 ## Public Runtime API
 
-يوفر الـRuntime العام مسارات فعلية لـ:
+The public Runtime provides actual paths for:
 
-- canonicalization عبر `SlugTextServiceInterface` و`generateFromSource` و`canonicalizeClaim` و`canonicalizeLookup`.
-- lifecycle ownership عبر `SlugEngine` و`SlugLifecycleServiceInterface`، ومنها `assignExact`.
-- consumer reads عبر `checkAvailability` و`getCurrent` و`resolve`.
-- management reads عبر `SlugManagementQueryInterface`.
+- canonicalization through `SlugTextServiceInterface`, `generateFromSource`, `canonicalizeClaim`, and `canonicalizeLookup`;
+- lifecycle ownership through `SlugEngine` and `SlugLifecycleServiceInterface`, including `assignExact`;
+- consumer reads through `checkAvailability`, `getCurrent`, and `resolve`; and
+- management reads through `SlugManagementQueryInterface`.
 
-هذا overview لا يستبدل inventory والعقود الكاملة في [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
+This overview does not replace the complete inventory and contracts in [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
 
 ## Examples
 
-- [`examples/canonicalization.php`](examples/canonicalization.php): مثال stateless للتوليد والـcanonicalization.
-- [`examples/persisted-lifecycle.php`](examples/persisted-lifecycle.php): مثال persisted يستخدم MySQL عبر دورة Compose canonical.
+- [`examples/canonicalization.php`](examples/canonicalization.php): a stateless generation and canonicalization example.
+- [`examples/persisted-lifecycle.php`](examples/persisted-lifecycle.php): a persisted MySQL lifecycle example using the canonical Compose flow.
 
-الأول يعمل دون Docker، والثاني يحتاج إلى بيئة Integration التي يشغلها [`tools/ci/run-gate.sh`](tools/ci/run-gate.sh).
+The first example runs without Docker. The second requires the Integration environment provided by [`tools/ci/run-gate.sh`](tools/ci/run-gate.sh).
 
 ## Documentation
 
-- [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) — طريقة الاستخدام والتكامل.
-- [`examples/`](examples/) — أمثلة المستهلك القابلة للتشغيل.
-- [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md) — العقد العام الحالي ومرجع Public API.
-- [`CHANGELOG.md`](CHANGELOG.md) — تاريخ التغييرات وحالة النشر.
-- [`SECURITY.md`](SECURITY.md) — سياسة الأمان ومسار البلاغات.
-- [`CONTRIBUTING.md`](CONTRIBUTING.md) — إعداد التطوير وأوامر التحقق.
+- [`docs/guides/USAGE_GUIDE.md`](docs/guides/USAGE_GUIDE.md) — consumer usage and integration.
+- [`examples/`](examples/) — runnable consumer examples.
+- [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md) — the current public contract and Public API reference.
+- [`CHANGELOG.md`](CHANGELOG.md) — change history and publication state.
+- [`SECURITY.md`](SECURITY.md) — security policy and reporting route.
+- [`CONTRIBUTING.md`](CONTRIBUTING.md) — development setup and verification commands.
+- [`README_AR.md`](README_AR.md) — non-canonical Arabic translation of this README.
 
 ## Transactions and Concurrency
 
-في المسار persisted، تملك الحزمة transaction عندما لا يملك Host outer transaction، وتستخدم savepoint عند المشاركة في outer transaction بحسب capability. تعتمد exact claims على unique Registry constraint باعتبارها السلطة النهائية في race، وتستخدم lifecycle mutations CAS وidempotency وفق العقد. التفاصيل المعيارية في [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
+On the persisted path, the package owns the transaction when the Host has no outer transaction and uses a savepoint when participating in an outer transaction where the capability is supported. Exact claims rely on the unique Registry constraint as the final race authority and use lifecycle mutation CAS and idempotency according to the contract. See [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md) for the normative details.
 
-## حدود الأمان والثقة
+## Security and Trust Boundaries
 
-Host يملك الاتصال وتهيئة PDO ووجود الكيان وrouting وHTTP وSEO وauthorization. الحزمة لا تنشئ اتصالات مخفية ولا تستخدم Host FKs أو JOINs. لبلاغات الثغرات، راجع [Security Policy](SECURITY.md) ولا تستخدم GitHub Issues للإفصاح عن تفاصيل ثغرة خاصة.
+The Host owns the connection, PDO configuration, entity existence, routing, HTTP, SEO, and authorization. The package does not create hidden connections or use Host foreign keys or joins. For vulnerability reports, see [Security Policy](SECURITY.md); do not disclose private vulnerability details through GitHub Issues.
 
 ## Quality Status
 
-توجد أدلة نجاح تاريخية لـGitHub Actions run #9 على SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b`. هذه الأدلة تخص ذلك الـSHA فقط ولا تؤهل current remediation HEAD. ما زال `VG-001` ومراجعة `Fresh Full Acceptance Review` مطلوبين، ولا يوجد ادعاء release-readiness حاليًا.
+Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` provides evidence for that SHA only. Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical facts qualify only their stated SHAs and do not qualify later commits.
 
-## التطوير والاختبار
+Verification evidence is SHA-scoped and does not qualify later commits. Current integration and verification state is maintained in GitHub PR and CI history and is intentionally not duplicated here. No current release-readiness claim is made.
 
-لإعداد المستودع وتشغيل الاختبارات وبوابات الأمثلة، راجع [`CONTRIBUTING.md`](CONTRIBUTING.md). المثال persisted يحتاج إلى canonical Compose lifecycle وMySQL disposable؛ لا تستخدم External MySQL.
+## Development and Testing
+
+For repository setup, tests, and example gates, see [`CONTRIBUTING.md`](CONTRIBUTING.md). The persisted example requires the canonical Compose lifecycle and disposable MySQL; do not use an external MySQL instance.
 
 ## License
 
-مرخص بموجب ترخيص [MIT](LICENSE).
+Licensed under the [MIT License](LICENSE).
 
 ## 👤 Author
 

@@ -12,18 +12,22 @@ use Maatify\Slug\Canonicalization\Service\SlugInputValidator;
 use Normalizer;
 use Transliterator;
 
+/** Shared ICU normalization, safety, and bounded-output behavior for built-in profiles. */
 abstract class AbstractBuiltinSlugProfile implements SlugProfileInterface
 {
+    /** Stores the immutable profile key and verifies required ICU capabilities. */
     protected function __construct(protected SlugProfileKey $profileKey)
     {
         RuntimeCompatibilityGuard::assertSupported();
     }
 
+    /** Returns the immutable profile key selected by the concrete built-in profile. */
     final public function key(): SlugProfileKey
     {
         return $this->profileKey;
     }
 
+    /** Normalizes input to NFC and fails when ICU cannot produce a string. */
     protected function normalize(string $value, string $field): string
     {
         $normalized = Normalizer::normalize($value, Normalizer::FORM_C);
@@ -33,6 +37,7 @@ abstract class AbstractBuiltinSlugProfile implements SlugProfileInterface
         return $normalized;
     }
 
+    /** Applies ICU lowercase conversion required by the built-in canonical forms. */
     protected function lower(string $value, string $field): string
     {
         $transliterator = Transliterator::create('Any-Lower');
@@ -46,11 +51,13 @@ abstract class AbstractBuiltinSlugProfile implements SlugProfileInterface
         return $lowered;
     }
 
+    /** Rejects invalid UTF-8, controls, format characters, and path separators. */
     protected function assertSafe(string $value, string $field): void
     {
         SlugInputValidator::assertSafe($value, $field);
     }
 
+    /** Ensures a value is safe, NFC-normalized, and already ICU-lowercase. */
     protected function assertCanonicalRepresentation(string $value, string $field): void
     {
         $this->assertSafe($value, $field);
@@ -64,6 +71,7 @@ abstract class AbstractBuiltinSlugProfile implements SlugProfileInterface
         }
     }
 
+    /** Truncates generated output to 160 code points without leaving a trailing hyphen. */
     protected function truncateGenerated(string $value): string
     {
         $value = mb_substr($value, 0, 160, 'UTF-8');

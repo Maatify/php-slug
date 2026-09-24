@@ -33,12 +33,14 @@ use Maatify\Slug\Lifecycle\Repository\Operation\OperationReservation;
 use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 use Throwable;
 
+/** PDO implementation of operation reservation and immutable result-snapshot persistence. */
 final readonly class PdoOperationRepository implements OperationPersistenceInterface
 {
     private PdoCapabilityGuard $capabilities;
 
     private PdoTransactionCoordinator $transactions;
 
+    /** Injects PDO, clock, capability, and transaction boundaries for idempotency storage. */
     public function __construct(
         private PDO $pdo,
         private ClockInterface $clock,
@@ -50,7 +52,11 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         $this->transactions = $transactions ?? new PdoTransactionCoordinator($pdo);
     }
 
-    /** @param list<OperationParticipant> $participants */
+    /**
+     * Reserves an operation or returns the existing participant reservation.
+     *
+     * @param list<OperationParticipant> $participants
+     */
     public function reserve(
         string $operationKey,
         OperationTypeEnum $operationType,
@@ -118,6 +124,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         return $result;
     }
 
+    /** Finds an operation by participant/idempotency key, optionally with a row lock. */
     public function findByParticipant(int $bindingId, string $idempotencyKey, bool $forUpdate = false): ?OperationRecord
     {
         if ($bindingId < 0) {
@@ -129,6 +136,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         return $row === null ? null : $this->operationFromRow($row);
     }
 
+    /** Commits one immutable result snapshot and marks the operation complete. */
     public function commitSnapshot(int $operationId, ResultSnapshotMetadata $metadata, SlugProfileRegistryInterface $profiles): void
     {
         if ($operationId < 0) {
@@ -178,6 +186,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         });
     }
 
+    /** Decodes the committed snapshot for typed idempotent replay. */
     public function decodeCommitted(int $operationId, SlugProfileRegistryInterface $profiles): SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO
     {
         $operation = $this->findOperationById($operationId, false);
@@ -225,6 +234,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
     }
 
+    /** Enforces the one-to-one relationship between result snapshots and operations. */
     private function assertResultOperationCompatibility(string $resultType, OperationTypeEnum $operationType): void
     {
         $valid = match ($resultType) {
@@ -256,6 +266,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
     }
 
+    /** Requires complete committed evidence before an idempotent replay is returned. */
     private function assertCommittedReplayEvidence(OperationRecord $operation): void
     {
         if ($operation->status !== 'COMMITTED' || $operation->resultSnapshot === null || $operation->completedAt === null) {
@@ -263,6 +274,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
     }
 
+    /** Inserts an in-progress operation and resolves a concurrent key race. */
     private function insertOperation(string $operationKey, OperationTypeEnum $operationType, string $requestFingerprint, string $resultType, int $resultSchemaVersion): int|PdoTransactionRollback
     {
         try {
@@ -302,6 +314,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         return $id;
     }
 
+    /** Requires the caller to own the transaction containing the operation. */
     private function assertCallerTransaction(): void
     {
         if (! $this->pdo->inTransaction()) {
@@ -311,6 +324,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
     }
 
+    /** Persists one participant idempotency reservation for an operation. */
     private function insertParticipant(int $operationId, OperationParticipant $participant): void
     {
         $statement = $this->pdo->prepare(
@@ -361,6 +375,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         return null;
     }
 
+    /** Loads an operation by id, optionally acquiring its row lock. */
     private function findOperationById(int $id, bool $forUpdate): ?OperationRecord
     {
         $suffix = $forUpdate ? ' FOR UPDATE' : '';
@@ -377,6 +392,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         return $row === null ? null : $this->operationFromRow($row);
     }
 
+    /** Loads an operation by key, optionally acquiring its row lock. */
     private function findOperationByKey(string $operationKey, bool $forUpdate): ?OperationRecord
     {
         $suffix = $forUpdate ? ' FOR UPDATE' : '';
@@ -436,11 +452,13 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         }
     }
 
+    /** Formats the injected clock value for DATETIME(6) persistence. */
     private function timestamp(): string
     {
         return $this->clock->now()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     }
 
+    /** Parses a six-microsecond UTC timestamp from an operation row. */
     private function date(mixed $value, string $field): DateTimeImmutable
     {
         if (! is_string($value) || preg_match('/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\z/', $value) !== 1) {
@@ -455,6 +473,7 @@ final readonly class PdoOperationRepository implements OperationPersistenceInter
         return $date;
     }
 
+    /** Converts PDO integer representations while rejecting negatives and overflow. */
     private function nonNegativeInt(mixed $value, string $field): int
     {
         if (is_int($value)) {

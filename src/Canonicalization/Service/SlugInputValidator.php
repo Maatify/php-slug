@@ -6,8 +6,10 @@ namespace Maatify\Slug\Canonicalization\Service;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Validates shared input safety and Unicode code-point boundaries. */
 final class SlugInputValidator
 {
+    /** Rejects invalid UTF-8, controls, format characters, and path separators. */
     public static function assertSafe(string $value, string $field = 'slug input'): void
     {
         if (preg_match('//u', $value) !== 1) {
@@ -23,6 +25,7 @@ final class SlugInputValidator
         }
     }
 
+    /** Rejects values longer than the supplied Unicode code-point limit. */
     public static function assertCodePointLength(string $value, int $maxCodePoints, string $field): void
     {
         if (mb_strlen($value, 'UTF-8') > $maxCodePoints) {
@@ -30,6 +33,7 @@ final class SlugInputValidator
         }
     }
 
+    /** Returns the UTF-8 code-point length used by slug bounds. */
     public static function codePointLength(string $value): int
     {
         return mb_strlen($value, 'UTF-8');

@@ -9,8 +9,10 @@ use Maatify\Slug\Lifecycle\Consumer\Enum\InputFormCanonicalityEnum;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
 
+/** Immutable lookup result preserving input classification and canonical value. */
 final readonly class LookupCanonicalizationDTO implements JsonSerializable
 {
+    /** Stores lookup canonicalization output and whether the input was canonical. */
     public function __construct(
         public SlugProfileKey $profileKey,
         public string $decodedSegment,
@@ -22,7 +24,11 @@ final readonly class LookupCanonicalizationDTO implements JsonSerializable
         }
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Returns the lookup classification and a nullable canonical slug value.
+     *
+     * @return array<string, mixed>
+     */
     public function jsonSerialize(): array
     {
         return [

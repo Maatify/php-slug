@@ -6,8 +6,10 @@ namespace Maatify\Slug\Lifecycle\Repository\Operation;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Immutable participant identity used to reserve an idempotent operation. */
 final readonly class OperationParticipant
 {
+    /** Validates binding identity, bounded idempotency key, and participant role. */
     public function __construct(
         public int $bindingId,
         public string $idempotencyKey,
@@ -22,6 +24,7 @@ final readonly class OperationParticipant
         }
     }
 
+    /** Enforces the safe bounded string contract for persisted idempotency keys. */
     public static function assertIdempotencyKey(string $value): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {

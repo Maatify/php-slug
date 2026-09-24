@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Lifecycle\Enum;
 
+/** Outcomes used when a candidate already belongs to the requesting binding. */
 enum SameBindingDecisionEnum: string
 {
     case NO_MATCH = 'NO_MATCH';

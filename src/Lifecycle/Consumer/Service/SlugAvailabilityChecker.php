@@ -26,6 +26,7 @@ final readonly class SlugAvailabilityChecker
 {
     private ReservationEvaluator $reservations;
 
+    /** Injects read-only registry/profile access and the host reservation policy. */
     public function __construct(
         private RegistryRepositoryInterface $registry,
         private SlugProfileRegistryInterface $profiles,
@@ -34,6 +35,7 @@ final readonly class SlugAvailabilityChecker
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
+    /** Computes advisory availability without bootstrapping state or reserving a candidate. */
     public function check(AvailabilityCriteria $criteria): SlugAvailabilityDTO
     {
         $profile = $this->profiles->get($criteria->scopeProfile->expectedProfileKey);
@@ -93,6 +95,7 @@ final readonly class SlugAvailabilityChecker
         );
     }
 
+    /** Hydrates the claim owner identity and fails if the owner binding is missing. */
     private function owner(RegistryClaimRecord $claim): \Maatify\Slug\Lifecycle\DTO\BindingDTO
     {
         $profileKey = new SlugProfileKey($claim->profileKey);
@@ -111,6 +114,7 @@ final readonly class SlugAvailabilityChecker
         return $owner;
     }
 
+    /** Compares the requesting binding with a claim owner across all identity dimensions. */
     private function sameBinding(?BindingIdentityDTO $requested, BindingIdentityDTO $owner): bool
     {
         if ($requested === null) {
@@ -122,6 +126,7 @@ final readonly class SlugAvailabilityChecker
             && $this->sameScope($requested->scopeProfile, $owner->scopeProfile);
     }
 
+    /** Compares scope/profile identity before classifying ownership. */
     private function sameScope(ScopeProfileRequestDTO $left, ScopeProfileRequestDTO $right): bool
     {
         return $left->expectedProfileKey->value === $right->expectedProfileKey->value

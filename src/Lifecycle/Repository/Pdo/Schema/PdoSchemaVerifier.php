@@ -8,10 +8,13 @@ use PDO;
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoRowHydrator;
 
+/** Verifies required package tables, columns, indexes, and foreign keys. */
 final readonly class PdoSchemaVerifier
 {
+    /** Stores the connection whose installed schema is being checked. */
     public function __construct(private PDO $pdo) {}
 
+    /** Fails closed when the installed schema does not match the package contract. */
     public function assertInstalled(): void
     {
         $expected = [
@@ -48,6 +51,7 @@ final readonly class PdoSchemaVerifier
         $this->assertColumnContract();
     }
 
+    /** Verifies the unique and lookup indexes required by lifecycle invariants. */
     private function assertRequiredIndexes(): void
     {
         $required = [
@@ -79,6 +83,7 @@ final readonly class PdoSchemaVerifier
         }
     }
 
+    /** Verifies the foreign-key topology required by persisted lifecycle state. */
     private function assertRequiredForeignKeys(): void
     {
         $required = [
@@ -108,6 +113,7 @@ final readonly class PdoSchemaVerifier
         }
     }
 
+    /** Verifies required column names and SQL definitions for the installed schema. */
     private function assertColumnContract(): void
     {
         $asciiColumns = [

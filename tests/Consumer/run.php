@@ -89,6 +89,7 @@ function databaseConfiguration(): array
     return $configuration;
 }
 
+/** Verifies the PHP extensions and PDO driver required by the external consumer. */
 function assertRequiredExtensions(): void
 {
     foreach (['intl', 'mbstring', 'pdo', 'pdo_mysql'] as $extension) {
@@ -112,8 +113,7 @@ function connectToDatabase(array $configuration): PDO
             $configuration['SLUG_TEST_DB_NAME'],
         ),
         $configuration['SLUG_TEST_DB_USER'],
-        $configuration['SLUG_TEST_DB_PASSWORD'],
-        [
+        $configuration['SLUG_TEST_DB_PASSWORD'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_EMULATE_PREPARES => false,
         ],
@@ -123,6 +123,7 @@ function connectToDatabase(array $configuration): PDO
     return $pdo;
 }
 
+/** Removes package-owned tables after the external consumer run. */
 function dropPackageSchema(PDO $pdo): void
 {
     foreach (['maa_slug_history', 'maa_slug_registry', 'maa_slug_operation_bindings', 'maa_slug_operations', 'maa_slug_bindings', 'maa_slug_scopes'] as $table) {
@@ -130,6 +131,7 @@ function dropPackageSchema(PDO $pdo): void
     }
 }
 
+/** Confirms consumer cleanup removed every package-owned table. */
 function assertNoPackageTables(PDO $pdo): void
 {
     $statement = $pdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME LIKE 'maa_slug_%'");
@@ -138,6 +140,7 @@ function assertNoPackageTables(PDO $pdo): void
     }
 }
 
+/** Writes the temporary consumer's path-based Composer manifest. */
 function writeConsumerComposerJson(string $consumerRoot, string $packageRoot): void
 {
     $composer = [
@@ -160,6 +163,7 @@ function writeConsumerComposerJson(string $consumerRoot, string $packageRoot): v
     writeFile($consumerRoot . '/composer.json', json_encode($composer, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);
 }
 
+/** Writes the standalone consumer workflow executed against the installed package. */
 function writeConsumerWorkflow(string $consumerRoot): void
 {
     $workflow = <<<'PHP'
@@ -703,6 +707,7 @@ function childEnvironment(array $overrides): array
     return $environment;
 }
 
+/** Creates an empty private directory for the external consumer project. */
 function createTemporaryDirectory(): string
 {
     $temporaryPath = tempnam(sys_get_temp_dir(), 'php-slug-consumer-');
@@ -712,6 +717,7 @@ function createTemporaryDirectory(): string
     return $temporaryPath;
 }
 
+/** Creates a private directory and fails if it cannot be created. */
 function mkdirOrFail(string $path): void
 {
     if (! mkdir($path, 0700, true) && ! is_dir($path)) {
@@ -719,6 +725,7 @@ function mkdirOrFail(string $path): void
     }
 }
 
+/** Writes a generated consumer artifact and converts failure to a harness error. */
 function writeFile(string $path, string $contents): void
 {
     if (file_put_contents($path, $contents) === false) {
@@ -726,6 +733,7 @@ function writeFile(string $path, string $contents): void
     }
 }
 
+/** Recursively removes the temporary consumer project after verification. */
 function removeTemporaryDirectory(string $path): void
 {
     if (! is_dir($path)) {

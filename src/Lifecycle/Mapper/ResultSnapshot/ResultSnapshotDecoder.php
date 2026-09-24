@@ -33,8 +33,10 @@ use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 use Throwable;
 
+/** Decodes and validates versioned persisted lifecycle result snapshots. */
 final class ResultSnapshotDecoder
 {
+    /** Decodes a stored snapshot into its typed result DTO after validating its schema. */
     public static function decode(
         string $json,
         SlugProfileRegistryInterface $profiles,
@@ -319,8 +321,9 @@ final class ResultSnapshotDecoder
         );
     }
 
-    /** @return list<HistoryEventDTO> */
     /**
+     * Decodes and validates ordered history events for one snapshot section.
+     *
      * @param list<int>|null $bindingIds
      * @return list<HistoryEventDTO>
      */
@@ -431,6 +434,7 @@ final class ResultSnapshotDecoder
         );
     }
 
+    /** Resolves the profile referenced by a snapshot or converts lookup failure to an invariant error. */
     private static function profile(ScopeProfileRequestDTO $request, SlugProfileRegistryInterface $profiles): SlugProfileInterface
     {
         try {
@@ -440,6 +444,7 @@ final class ResultSnapshotDecoder
         }
     }
 
+    /** Reconstructs a typed slug after validating it against the persisted profile. */
     private static function slug(mixed $value, string $path, SlugProfileInterface $profile): Slug
     {
         $candidate = self::string($value, $path);
@@ -450,11 +455,13 @@ final class ResultSnapshotDecoder
         }
     }
 
+    /** Reconstructs an optional typed slug while preserving explicit null values. */
     private static function nullableSlug(mixed $value, string $path, SlugProfileInterface $profile): ?Slug
     {
         return $value === null ? null : self::slug($value, $path, $profile);
     }
 
+    /** Parses and range-checks the canonical UTC timestamp stored in snapshots. */
     private static function date(mixed $value, string $path): DateTimeImmutable
     {
         $string = self::string($value, $path);
@@ -521,6 +528,7 @@ final class ResultSnapshotDecoder
         }
     }
 
+    /** Enforces the timestamp range supported by the persisted snapshot contract. */
     private static function dateRange(DateTimeImmutable $value, string $field): void
     {
         $utc = $value->setTimezone(new DateTimeZone('UTC'));
@@ -531,36 +539,43 @@ final class ResultSnapshotDecoder
         }
     }
 
+    /** Decodes an operation enum token from a snapshot field. */
     private static function operation(mixed $value, string $path): OperationTypeEnum
     {
         return self::enum($value, $path, OperationTypeEnum::class);
     }
 
+    /** Decodes a mutation change enum token from a snapshot field. */
     private static function change(mixed $value, string $path): ChangeTypeEnum
     {
         return self::enum($value, $path, ChangeTypeEnum::class);
     }
 
+    /** Decodes a scope-transition mode enum token from a snapshot field. */
     private static function mode(mixed $value, string $path): ScopeTransitionModeEnum
     {
         return self::enum($value, $path, ScopeTransitionModeEnum::class);
     }
 
+    /** Decodes a binding status enum token from a snapshot field. */
     private static function bindingStatus(mixed $value, string $path): BindingStatusEnum
     {
         return self::enum($value, $path, BindingStatusEnum::class);
     }
 
+    /** Decodes a registry role enum token from a snapshot field. */
     private static function role(mixed $value, string $path): RegistryRoleEnum
     {
         return self::enum($value, $path, RegistryRoleEnum::class);
     }
 
+    /** Decodes an optional registry role while preserving null. */
     private static function nullableRole(mixed $value, string $path): ?RegistryRoleEnum
     {
         return $value === null ? null : self::role($value, $path);
     }
 
+    /** Decodes a history event enum token from a snapshot field. */
     private static function eventType(mixed $value, string $path): HistoryEventTypeEnum
     {
         return self::enum($value, $path, HistoryEventTypeEnum::class);
@@ -616,6 +631,7 @@ final class ResultSnapshotDecoder
         }
     }
 
+    /** Requires a JSON string at the supplied snapshot path. */
     private static function string(mixed $value, string $path): string
     {
         if (! is_string($value)) {
@@ -624,6 +640,7 @@ final class ResultSnapshotDecoder
         return $value;
     }
 
+    /** Requires either a JSON string or null at the supplied snapshot path. */
     private static function nullableString(mixed $value, string $path): ?string
     {
         if ($value !== null && ! is_string($value)) {
@@ -632,6 +649,7 @@ final class ResultSnapshotDecoder
         return $value;
     }
 
+    /** Requires a JSON integer at the supplied snapshot path. */
     private static function integer(mixed $value, string $path): int
     {
         if (! is_int($value)) {
@@ -640,6 +658,7 @@ final class ResultSnapshotDecoder
         return $value;
     }
 
+    /** Requires a JSON boolean at the supplied snapshot path. */
     private static function boolean(mixed $value, string $path): bool
     {
         if (! is_bool($value)) {
@@ -648,11 +667,13 @@ final class ResultSnapshotDecoder
         return $value;
     }
 
+    /** Raises the invariant exception used for all malformed snapshot input. */
     private static function fail(string $message): never
     {
         throw new SlugPersistenceInvariantException($message);
     }
 
+    /** Ensures every result history event carries the enclosing operation key. */
     private static function assertResultOperationKeys(
         SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO $result,
     ): void {
@@ -688,6 +709,7 @@ final class ResultSnapshotDecoder
         }
     }
 
+    /** Rejects duplicate JSON object keys before decoding persisted snapshots. */
     private static function assertNoDuplicateObjectKeys(string $json): void
     {
         $length = strlen($json);
