@@ -225,20 +225,32 @@ final class AtomicTransferConcurrencyTest extends MySqlIntegrationTestCase
         self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug IN (:first, :second) AND claim_role = :role', ['first' => 'generated-moved-2', 'second' => 'generated-moved-3', 'role' => 'HISTORICAL_CANONICAL']));
         self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved', 'entity_key' => 'generated-current-source']));
         self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved', 'entity_key' => 'generated-current-target']));
+        self::assertSame(
+            2,
+            $this->scalarInt(
+                'SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key',
+                ['entity_key' => 'generated-current-source'],
+            ),
+        );
+
+        self::assertSame(
+            3,
+            $this->scalarInt(
+                'SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key',
+                ['entity_key' => 'generated-current-target'],
+            ),
+        );
+
         if ($writerResults[0]['status'] === 'OK') {
             self::assertSame('CLAIM', $writerResults[0]['operation']);
             self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved-2', 'entity_key' => 'generated-current-writer']));
             self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved-3', 'entity_key' => 'generated-current-source']));
             self::assertSame(3, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
-            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'generated-current-source']));
-            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'generated-current-target']));
         } else {
             self::assertSame(SlugAlreadyClaimedException::class, $writerResults[0]['class']);
             self::assertSame(1, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug AND binding_id = (SELECT id FROM maa_slug_bindings WHERE entity_key = :entity_key)', ['slug' => 'generated-moved-2', 'entity_key' => 'generated-current-source']));
             self::assertSame(0, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry WHERE slug = :slug', ['slug' => 'generated-moved-3']));
             self::assertSame(2, $this->scalarInt('SELECT COUNT(*) FROM maa_slug_registry'));
-            self::assertSame(1, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'generated-current-source']));
-            self::assertSame(2, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'generated-current-target']));
         }
     }
 
