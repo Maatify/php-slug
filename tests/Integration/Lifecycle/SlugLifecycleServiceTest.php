@@ -683,7 +683,10 @@ final class SlugLifecycleServiceTest extends MySqlIntegrationTestCase
         );
     }
 
-    /** @param array<string, scalar|null> $parameters */
+    /**
+     * @phpstan-impure
+     * @param array<string, scalar|null> $parameters
+     */
     private function scalarInt(string $sql, array $parameters = []): int
     {
         $statement = $this->pdo->prepare($sql);
