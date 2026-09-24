@@ -14,6 +14,10 @@ use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingSearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
+use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeOperationalSummaryDTO;
 
 /** Read-only repository boundary for paginated management projections. */
 interface ManagementQueryRepositoryInterface
@@ -52,4 +56,21 @@ interface ManagementQueryRepositoryInterface
      * @return PageResult<RegistryClaimDTO>
      */
     public function searchRegistry(int $scopeId, RegistrySearchCriteria $criteria): PageResult;
+
+    /**
+     * Returns all persisted Scopes matching the supplied search criteria.
+     *
+     * @return PageResult<ScopeDTO>
+     */
+    public function searchScopes(ScopeSearchCriteria $criteria): PageResult;
+
+    /** Returns persisted operational counts for one Scope. */
+    public function getScopeOperationalSummary(ScopeDTO $scope): ScopeOperationalSummaryDTO;
+
+    /**
+     * Returns package history using persisted event Scope snapshots for attribution.
+     *
+     * @return PageResult<HistoryEventDTO>
+     */
+    public function searchHistory(HistorySearchCriteria $criteria): PageResult;
 }

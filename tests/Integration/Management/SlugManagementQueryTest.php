@@ -8,6 +8,8 @@ use Maatify\Persistence\Pdo\Pagination\PageRequest;
 use Maatify\Slug\Lifecycle\Command\AddAliasCommand;
 use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
 use Maatify\Slug\Lifecycle\Command\ChangeExactCommand;
+use Maatify\Slug\Lifecycle\Command\DeactivateBindingCommand;
+use Maatify\Slug\Lifecycle\Command\RetireAliasCommand;
 use Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand;
 use Maatify\Slug\Lifecycle\Management\Criteria\AliasCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingCriteria;
@@ -17,6 +19,8 @@ use Maatify\Slug\Lifecycle\Management\Criteria\HistoryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\ScopeCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
@@ -86,6 +90,74 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
             role: RegistryRoleEnum::ACTIVE_ALIAS,
         ));
         self::assertSame(2, $searched->filtered);
+    }
+
+    public function testScopeDiscoverySummaryAndOperationalHistoryUsePersistedBoundaries(): void
+    {
+        $engine = $this->engine();
+        $primary = $this->identity('reporting-primary');
+        $inactive = $this->identity('reporting-inactive');
+        $released = $this->identity('reporting-released');
+
+        $engine->assignExact(new AssignExactCommand($primary, 'reporting-main', null, new AuditContextDTO()));
+        $engine->addAlias(new AddAliasCommand($primary, 'reporting-alias', 1, new AuditContextDTO()));
+        $engine->changeExact(new ChangeExactCommand($primary, 'reporting-current', 2, new AuditContextDTO()));
+        $engine->retireAlias(new RetireAliasCommand($primary, 'reporting-alias', 3, new AuditContextDTO()));
+        $engine->assignExact(new AssignExactCommand($inactive, 'reporting-inactive', null, new AuditContextDTO()));
+        $engine->deactivate(new DeactivateBindingCommand($inactive, 1, new AuditContextDTO()));
+        $engine->assignExact(new AssignExactCommand($released, 'reporting-released', null, new AuditContextDTO()));
+        $engine->releaseAllOwnership(new ReleaseAllOwnershipCommand($released, 1, new AuditContextDTO()));
+
+        $scopes = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 1), 'cat'));
+        self::assertSame(1, $scopes->total);
+        self::assertSame(1, $scopes->filtered);
+        self::assertSame('catalog', $scopes->data[0]->scope->namespace);
+
+        $summary = $engine->getScopeOperationalSummary(new ScopeCriteria($primary->scopeProfile));
+        self::assertNotNull($summary);
+        self::assertSame(3, $summary->bindingsTotal);
+        self::assertSame(1, $summary->bindingsActive);
+        self::assertSame(1, $summary->bindingsInactive);
+        self::assertSame(1, $summary->bindingsReleased);
+        self::assertSame(4, $summary->registryClaimsTotal);
+        self::assertSame(2, $summary->registryCurrentCanonical);
+        self::assertSame(1, $summary->registryHistoricalCanonical);
+        self::assertSame(0, $summary->registryActiveAliases);
+        self::assertSame(1, $summary->registryRetiredAliases);
+        self::assertSame(9, $summary->historyEventsTotal);
+
+        $history = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 100), $primary->scopeProfile));
+        self::assertSame(9, $history->total);
+        self::assertSame(9, $history->filtered);
+        self::assertSame('occurred_at', $history->sortBy);
+        self::assertSame('DESC', $history->sortDirection->value);
+        self::assertCount(9, $history->data);
+
+        $missing = new ScopeProfileRequestDTO(new SlugScope('missing-reporting-scope', null, null), new SlugProfileKey('ascii-v1'));
+        $empty = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $missing));
+        self::assertSame(0, $empty->total);
+        self::assertSame(0, $empty->filtered);
+        self::assertNull($engine->getScopeOperationalSummary(new ScopeCriteria($missing)));
+    }
+
+    public function testOperationalHistoryUsesHalfOpenUtcMicrosecondWindowAndFilters(): void
+    {
+        $engine = $this->engine();
+        $identity = $this->identity('reporting-window');
+        $engine->assignExact(new AssignExactCommand($identity, 'window-main', null, new AuditContextDTO()));
+        $engine->changeExact(new ChangeExactCommand($identity, 'window-current', 1, new AuditContextDTO()));
+        $binding = $engine->getBinding(new BindingCriteria($identity));
+        self::assertNotNull($binding);
+        $statement = $this->pdo->prepare("UPDATE maa_slug_history SET occurred_at = CASE sequence_no WHEN 1 THEN '2026-01-01 00:00:00.000001' ELSE '2026-01-01 00:00:00.000002' END WHERE binding_id = :binding_id");
+        self::assertNotFalse($statement);
+        $statement->execute(['binding_id' => $binding->id]);
+
+        $from = new \DateTimeImmutable('2026-01-01T02:00:00.000001+02:00');
+        $until = new \DateTimeImmutable('2026-01-01T00:00:00.000002Z');
+        $page = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10, 'occurred_at', 'ASC'), $identity->scopeProfile, HistoryEventTypeEnum::ASSIGNED, $from, $until));
+        self::assertSame(2, $page->total);
+        self::assertSame(1, $page->filtered);
+        self::assertSame(1, $page->data[0]->sequenceNo);
     }
 
     public function testManagementPrefixFiltersTreatWildcardAndEscapeCharactersAsLiteral(): void

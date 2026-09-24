@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Integration\Schema;
 
 use Maatify\Slug\Lifecycle\Repository\Pdo\Schema\PdoSchemaVerifier;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Schema\PdoSchemaInstaller;
 
 final class PdoSchemaInstallTest extends MySqlIntegrationTestCase
 {
@@ -36,6 +37,35 @@ final class PdoSchemaInstallTest extends MySqlIntegrationTestCase
         }
 
         $this->reinstallPackageSchema();
+    }
+
+    public function testPublishedRc1ThenAdditiveOperationalAssetPassesVerification(): void
+    {
+        $this->dropSchemaForUpgradeProof();
+        $base = file_get_contents(dirname(__DIR__, 3) . '/schema/mysql/001_slug_rc1.sql');
+        $additive = file_get_contents(dirname(__DIR__, 3) . '/schema/mysql/002_operational_reporting_indexes.sql');
+        self::assertIsString($base);
+        self::assertIsString($additive);
+
+        $installer = new PdoSchemaInstaller($this->pdo);
+        $installer->installSql($base);
+        $installer->installSql($additive);
+        (new PdoSchemaVerifier($this->pdo))->assertInstalled();
+    }
+
+    public function testMissingOperationalIndexFailsVerification(): void
+    {
+        $this->pdo->exec('ALTER TABLE maa_slug_history DROP INDEX ix_history_occurred_id');
+
+        $this->expectException(\Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException::class);
+        (new PdoSchemaVerifier($this->pdo))->assertInstalled();
+    }
+
+    private function dropSchemaForUpgradeProof(): void
+    {
+        foreach (['maa_slug_history', 'maa_slug_registry', 'maa_slug_operation_bindings', 'maa_slug_operations', 'maa_slug_bindings', 'maa_slug_scopes'] as $table) {
+            $this->pdo->exec('DROP TABLE IF EXISTS `' . $table . '`');
+        }
     }
 
 }

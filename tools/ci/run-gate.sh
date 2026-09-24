@@ -101,8 +101,9 @@ audit() {
 }
 
 schema_contract() {
-    if [[ ! -f schema/mysql/001_slug_rc1.sql ]]; then
-        echo 'The required package schema is missing: schema/mysql/001_slug_rc1.sql' >&2
+    local schema_assets=(schema/mysql/[0-9][0-9][0-9]_*.sql)
+    if ((${#schema_assets[@]} < 2)); then
+        echo 'The ordered package schema assets are incomplete.' >&2
         exit 1
     fi
 }

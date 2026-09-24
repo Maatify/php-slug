@@ -18,17 +18,22 @@ final readonly class PdoSchemaInstaller
         private ?PdoCapabilityGuard $capabilities = null,
     ) {}
 
-    /** Loads and executes the package's canonical schema file. */
+    /** Loads and executes all ordered package schema assets. */
     public function installPackageSchema(): void
     {
         ($this->capabilities ?? new PdoCapabilityGuard($this->pdo))->assertSupported();
-        $path = dirname(__DIR__, 5) . '/schema/mysql/001_slug_rc1.sql';
-        $sql = file_get_contents($path);
-        if ($sql === false) {
-            throw new SlugPersistenceInvariantException('The package schema file cannot be read.');
+        $paths = glob(dirname(__DIR__, 5) . '/schema/mysql/[0-9][0-9][0-9]_*.sql');
+        if ($paths === false || $paths === []) {
+            throw new SlugPersistenceInvariantException('The package schema assets cannot be found.');
         }
-
-        $this->installSql($sql);
+        sort($paths, SORT_STRING);
+        foreach ($paths as $path) {
+            $sql = file_get_contents($path);
+            if ($sql === false) {
+                throw new SlugPersistenceInvariantException(sprintf('The package schema asset cannot be read: %s.', basename($path)));
+            }
+            $this->installSql($sql);
+        }
     }
 
     /** Executes caller-supplied schema SQL without opening a separate connection. */
@@ -57,8 +62,8 @@ final readonly class PdoSchemaInstaller
             }
         }
 
-        if ($executed !== 6) {
-            throw new SlugPersistenceInvariantException(sprintf('Expected six package schema statements; executed %d.', $executed));
+        if ($executed < 1) {
+            throw new SlugPersistenceInvariantException('The package schema asset contained no executable statements.');
         }
     }
 }
