@@ -690,7 +690,7 @@ final class PerCs31Verifier
             return true;
         }
 
-        return $before !== null && $tokens[$before] === '&' && ($before = $this->previousMeaningful($tokens, $before)) !== null
+        return $before !== null && $this->isReferenceToken($tokens[$before]) && ($before = $this->previousMeaningful($tokens, $before)) !== null
             && is_array($tokens[$before]) && $tokens[$before][0] === T_FUNCTION;
     }
 

@@ -232,6 +232,29 @@ function build(
     $second,
 ): void {}
 PHP],
+    'split named by-reference function parameters pass' => [true, <<<'PHP'
+<?php
+function &build(
+    $first,
+    $second,
+) {
+}
+PHP],
+    'reject named by-reference function closing parenthesis placement' => [false, <<<'PHP'
+<?php
+function &build(
+    $first,
+    $second) {
+}
+PHP],
+    'reject named by-reference function parameter indentation' => [false, <<<'PHP'
+<?php
+function &build(
+  $first,
+    $second,
+) {
+}
+PHP],
     'split named method parameters exact indentation pass' => [true, <<<'PHP'
 <?php
 final class Builder
@@ -240,6 +263,27 @@ final class Builder
         $first,
         $second,
     ): void {}
+}
+PHP],
+    'split named by-reference method parameters pass' => [true, <<<'PHP'
+<?php
+final class Builder
+{
+    public function &build(
+        $first,
+        $second,
+    ) {
+    }
+}
+PHP],
+    'reject named by-reference method closing parenthesis placement' => [false, <<<'PHP'
+<?php
+final class Builder
+{
+    public function &build(
+        $first,
+        $second) {
+    }
 }
 PHP],
     'split anonymous closure parameters pass' => [true, <<<'PHP'
