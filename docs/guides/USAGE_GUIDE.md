@@ -18,13 +18,13 @@ Use `maatify/php-slug` when the package needs slug generation, canonicalization,
 
 ## Publication State
 
-The first RC identifier is `v1.0.0-rc.1`. When that exact version becomes externally resolvable through the approved Composer distribution source, consumers may install it with:
+`v1.0.0-rc.1` is the published Release Candidate and is externally resolvable through the approved Composer distribution source. It remains Pre-Stable and does not create a Stable support line. Install it with:
 
 ```bash
 composer require maatify/php-slug:1.0.0-rc.1@RC
 ```
 
-Until then, the available path is a development checkout and local setup documented in [`CONTRIBUTING.md`](../../CONTRIBUTING.md). This guide does not independently determine publication status.
+This guide does not independently determine publication status.
 
 ## Non-goals / Host Boundaries
 

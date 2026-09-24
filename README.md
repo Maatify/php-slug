@@ -4,12 +4,17 @@
 
 ![Maatify.dev](https://www.maatify.dev/assets/img/img/maatify_logo_white.svg)
 
-[![Status](https://img.shields.io/badge/Status-Development-orange.svg)](#publication-state)
+[![Status](https://img.shields.io/badge/Status-Release%20Candidate-orange.svg)](#publication-state)
+[![Version](https://img.shields.io/badge/Version-v1.0.0--rc.1-blue.svg)](https://packagist.org/packages/maatify/php-slug)
 [![PHP](https://img.shields.io/badge/PHP-^8.4-777bb4.svg?logo=php&logoColor=white)](#requirements)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PHPStan](https://img.shields.io/badge/PHPStan-Max-brightgreen.svg)](#quality-status)
 
+[![Packagist](https://img.shields.io/badge/Packagist-Distribution-blue.svg)](https://packagist.org/packages/maatify/php-slug)
+[![Monthly Downloads](https://img.shields.io/packagist/dm/maatify/php-slug.svg)](https://packagist.org/packages/maatify/php-slug)
+[![Total Downloads](https://img.shields.io/packagist/dt/maatify/php-slug.svg)](https://packagist.org/packages/maatify/php-slug)
 [![Maatify Ecosystem](https://img.shields.io/badge/Maatify-Ecosystem-blueviolet)](https://github.com/Maatify)
+[![Install](https://img.shields.io/badge/Install-1.0.0--rc.1%40RC-blue.svg)](#installation)
 
 [![Usage Guide](https://img.shields.io/badge/Usage-Guide-blue.svg)](docs/guides/USAGE_GUIDE.md)
 [![Examples](https://img.shields.io/badge/Examples-View-blue.svg)](examples/)
@@ -26,9 +31,13 @@ An independent PHP slug lifecycle engine with clear boundaries between the slug 
 
 ## Publication State
 
-The package remains **Development / Unpublished** until the exact first RC identifier, `v1.0.0-rc.1`, becomes externally resolvable and installable through the approved Composer distribution source. A branch, commit, CI run, Git tag, or GitHub Release alone does not prove Published state. If published, this RC remains Pre-Stable and does not create a Stable support line.
+`v1.0.0-rc.1` is a Published Release Candidate available through Packagist. It remains Pre-Stable, does not create a Stable support line, and there is no Published Stable release. Publication does not imply Stable readiness.
 
-The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). Verification evidence is SHA-scoped; historical evidence is identified below, while active integration and verification state is maintained in GitHub PR and CI history rather than duplicated in this consumer-facing README.
+The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). Execution evidence is maintained in GitHub PR and CI history rather than duplicated in this consumer-facing README.
+
+## Package Summary
+
+`maatify/php-slug` is a standalone PHP library for slug generation, canonicalization, scoped ownership, lifecycle management, aliases, history, resolution, and package-owned PDO MySQL persistence.
 
 ## Key Features
 
@@ -51,13 +60,11 @@ Built-in profiles require the normalization and transliteration capabilities pro
 
 ## Installation
 
-When `v1.0.0-rc.1` becomes externally resolvable, install that exact pre-release with:
+Install the published Release Candidate with:
 
 ```bash
 composer require maatify/php-slug:1.0.0-rc.1@RC
 ```
-
-Until then, use a development checkout and local verification through [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Quick Usage
 
@@ -111,11 +118,13 @@ On the persisted path, the package owns the transaction when the Host has no out
 
 The Host owns the connection, PDO configuration, entity existence, routing, HTTP, SEO, and authorization. The package does not create hidden connections or use Host foreign keys or joins. For vulnerability reports, see [Security Policy](SECURITY.md); do not disclose private vulnerability details through GitHub Issues.
 
+## Exceptions and Error Propagation
+
+Package-defined semantic and domain failures use the `SlugExceptionInterface` / `SlugDomainExceptionInterface` hierarchy described in the [Package Reference](SLUG_PACKAGE_REFERENCE.md#12-exception-contract). External infrastructure `Throwable` instances, including PDO failures outside the documented semantic conversions, may propagate unchanged according to the current contract.
+
 ## Quality Status
 
-Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` provides evidence for that SHA only. Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical facts qualify only their stated SHAs and do not qualify later commits.
-
-Verification evidence is SHA-scoped and does not qualify later commits. Current integration and verification state is maintained in GitHub PR and CI history and is intentionally not duplicated here. CI evidence alone does not prove Published or Stable state.
+The package is maintained behind the repository's configured CI and quality gates. Current execution evidence is maintained in GitHub PR and CI history. The Published Release Candidate remains Pre-Stable and does not claim Stable readiness.
 
 ## Development and Testing
 

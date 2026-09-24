@@ -13,10 +13,11 @@
 | Namespace | `Maatify\\Slug\\` |
 | Artifact | Standalone reusable PHP/Composer library |
 | Host model | Host-agnostic |
-| Release lifecycle | Pre-Stable / first-Stable lifecycle |
+| Release lifecycle | Published Release Candidate / Pre-Stable |
 | Exact first RC identifier | `v1.0.0-rc.1` |
 | Published Stable line | None |
-| Publication truth source | Approved external Composer distribution source |
+| Publication state | Published and externally resolvable through Packagist |
+| Publication truth source | Packagist / approved external Composer distribution source |
 
 The durable references associated with this document are:
 
@@ -53,13 +54,13 @@ The package has no Host foreign keys, Host table joins, or Host repository depen
 
 ## 3. Supported State and Installation
 
-When `v1.0.0-rc.1` is externally resolvable through the approved Composer distribution source, the exact conditional installation command is:
+The published Release Candidate is `v1.0.0-rc.1`. It is externally resolvable through Packagist and remains Pre-Stable without a Stable support line. Install this exact version with:
 
 ```bash
 composer require maatify/php-slug:1.0.0-rc.1@RC
 ```
 
-Until that external resolvability exists, the available access path is a development checkout through [`CONTRIBUTING.md`](CONTRIBUTING.md). This Package Reference records the stable public/runtime/behavioral contract; it does not independently determine publication status.
+This Package Reference records the stable public/runtime/behavioral contract; it does not independently determine publication status.
 
 The Runtime provides implemented examples. The current stateless construction path is:
 
@@ -658,18 +659,9 @@ SlugUnsupportedDriverException, SlugPersistenceInvariantException
 
 The package uses the published hierarchy from `maatify/exceptions ^1.0`. It does not convert every SQLSTATE `23xxx` into a conflict; duplicate conversion is limited to MySQL `1062` with constraint context. Transaction catches rethrow the original throwable after rollback.
 
-## 13. Evidence and Release State
+## 13. Current Release State
 
-Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` provides evidence for that SHA only, including:
-
-- Composer validation, platform checks, and production autoload;
-- PHPStan `level: max`, PHPUnit, and style or whitespace gates;
-- Unit, Integration, System, Concurrency, and Transaction evidence with real MySQL; and
-- two clean-state Consumer Verification Harness runs from an independent Composer root.
-
-Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical results do not qualify any later HEAD.
-
-Verification evidence is SHA-scoped: historical verification qualifies only the exact SHA stated and does not qualify later commits. Active integration and verification status is maintained in GitHub PR/CI history. Transient VG/PR state is not part of this public package contract. CI evidence alone does not prove Published or Stable state.
+`v1.0.0-rc.1` is the published Release Candidate for `maatify/php-slug`, externally resolvable through Packagist. The package lifecycle remains Pre-Stable, with no Published Stable release and no Stable support line. CI and review execution evidence is maintained in GitHub PR/CI history rather than duplicated in this current-state contract.
 
 The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`. That manifest is the authoritative resolver record for the applicable Standard versions.
 

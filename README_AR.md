@@ -15,9 +15,13 @@
 
 ## حالة النشر
 
-تبقى الحزمة في حالة **Development / Unpublished** حتى يصبح المعرّف الأول المحدد للـRC، وهو `v1.0.0-rc.1`، قابلًا للحل والتثبيت خارجيًا عبر مصدر Composer المعتمد للتوزيع. لا يثبت branch أو commit أو CI أو Git tag أو GitHub Release وحده حالة Published. وإذا نُشرت هذه RC فستظل Pre-Stable ولا تنشئ Stable support line.
+إن `v1.0.0-rc.1` هي Published Release Candidate متاحة عبر Packagist. وتبقى Pre-Stable، ولا تنشئ Stable support line، ولا يوجد Published Stable release. النشر الفعلي لا يعني الجاهزية للإصدار Stable.
 
-المرجع الحالي للعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). أدلة التحقق مرتبطة بالـSHA التي شُغّلت عليها؛ وترد الأدلة التاريخية أدناه، بينما تُحفظ حالة التكامل والتحقق النشطة في سجل GitHub PR وCI بدل تكرارها في ملف README هذا الموجّه للمستهلك.
+المرجع الحالي للعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). تُحفظ أدلة التنفيذ في سجل GitHub PR وCI بدل تكرارها في ملف README هذا الموجّه للمستهلك.
+
+## ملخص الحزمة
+
+`maatify/php-slug` مكتبة PHP مستقلة لتوليد Slug وCanonicalization والملكية المقيّدة بالنطاق وإدارة دورة الحياة والـAliases والـHistory والـResolution، مع Persistence مملوكة للحزمة عبر PDO MySQL.
 
 ## الميزات الأساسية
 
@@ -40,13 +44,11 @@
 
 ## التثبيت
 
-عندما تصبح `v1.0.0-rc.1` قابلة للحل خارجيًا، ثبّت هذه النسخة السابقة للإصدار بالأمر المحدد:
+ثبّت Published Release Candidate بالأمر المحدد:
 
 ~~~bash
 composer require maatify/php-slug:1.0.0-rc.1@RC
 ~~~
-
-وحتى ذلك الحين، استخدم development checkout والتحقق المحلي عبر [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## الاستخدام السريع
 
@@ -100,11 +102,13 @@ $slug = $text->generateFromSource(
 
 يملك Host الاتصال وتهيئة PDO ووجود الكيان وrouting وHTTP وSEO وauthorization. لا تنشئ الحزمة اتصالات مخفية ولا تستخدم Host foreign keys أو joins. لبلاغات الثغرات، راجع SECURITY.md، ولا تنشر تفاصيل ثغرة خاصة في GitHub Issues.
 
+## الاستثناءات وتمرير الأخطاء
+
+تستخدم الإخفاقات الدلالية وإخفاقات النطاق المعرفة داخل الحزمة تسلسل `SlugExceptionInterface` و`SlugDomainExceptionInterface` الموضح في [Package Reference](SLUG_PACKAGE_REFERENCE.md#12-exception-contract). وقد تمرر أخطاء البنية التحتية الخارجية، ومنها أخطاء PDO خارج التحويلات الدلالية الموثقة، دون تغيير وفق العقد الحالي.
+
 ## حالة الجودة
 
-يوفر GitHub Actions run #9 على SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` دليلًا لذلك الـSHA فقط. نجح التحقق التاريخي `VG-001` على SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` عبر Actions run `35444700308`، ثم نجحت Direct Lead Fresh Full Acceptance Review قبل integration. تخص هذه الحقائق التاريخية الـSHAs المذكورة فقط ولا تؤهل أي commits لاحقة.
-
-أدلة التحقق مرتبطة بالـSHA ولا تؤهل commits لاحقة. تُحفظ حالة التكامل والتحقق الحالية في GitHub PR وCI history ولا يتم تكرارها هنا. دليل CI وحده لا يثبت حالة Published أو Stable.
+تُصان الحزمة خلف بوابات CI والجودة المهيأة للمستودع. تُحفظ أدلة التنفيذ الحالية في سجل GitHub PR وCI. وتبقى Published Release Candidate في حالة Pre-Stable ولا تدعي الجاهزية للإصدار Stable.
 
 ## التطوير والاختبار
 

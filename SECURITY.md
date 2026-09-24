@@ -5,7 +5,7 @@
 
 ## Current Support State
 
-This repository contains the package implementation, Runtime, and CI. There is no Published Stable release line and no Stable support line. `v1.0.0-rc.1` is the first RC identifier; external publication of that version makes it a published pre-release, not Stable, and does not create a Stable support line. A branch, tag, CI run, or GitHub Release alone is not proof of Composer publication, and this policy makes no public support or SLA commitment for the RC.
+This repository contains the package implementation, Runtime, and CI. `v1.0.0-rc.1` is published through Packagist as a Release Candidate / pre-release, not Stable. There is no Published Stable release and no Stable support line. The RC does not create a public Stable support or SLA commitment.
 
 ## Supported Versions
 
