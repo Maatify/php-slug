@@ -3,7 +3,7 @@
 ## Profile Metadata
 
 - **Profile ID:** `composer-package`
-- **Profile Version:** `1.0.0`
+- **Profile Version:** `3.0.0`
 - **Purpose / Applicability:** مكتبات PHP/Composer المستقلة القابلة لإعادة الاستخدام والتوزيع ضمن منظومة Maatify.
 - **Extends:** `None`
 
@@ -16,8 +16,11 @@
 - [CI Workflow Standard](../packages/CI_WORKFLOW_STANDARD.md)
 - [Library Presentation Standard](../packages/LIBRARY_PRESENTATION_STANDARD.md)
 - [Testing Standard](../testing/TESTING_STANDARD.md)
+- [Documentation Lifecycle Standard](../governance/DOCUMENTATION_LIFECYCLE_STANDARD_AR.md)
+- [PHP Source Documentation Standard](../php/PHP_SOURCE_DOCUMENTATION_STANDARD.md)
+- [PHP Coding Style Standard](../php/PHP_CODING_STYLE_STANDARD.md)
 
-لا ينقل هذا Profile محتوى أي Standard إلى ملف Profile.
+لا ينقل هذا Profile محتوى أي Standard إلى ملف Profile. وتظل تغطية وجودة توثيق PHP العامة مملوكة حصريًا لـ [PHP Source Documentation Standard](../php/PHP_SOURCE_DOCUMENTATION_STANDARD.md)، ويظل عقد تنسيق PHP مملوكًا حصريًا لـ [PHP Coding Style Standard](../php/PHP_CODING_STYLE_STANDARD.md).
 
 ## Conditional Applicability
 
@@ -25,9 +28,7 @@
 
 ## Resolved Dependency Behavior
 
-لا يرث هذا Profile Profile آخر. يدخل Required Standards الخمسة في Resolved Set عند تفعيله، ثم تضاف Additional Standards المصرح بها في Manifest فقط.
-
-عند تفعيل هذا Profile، يجب تثبيت ملفه محليًا ضمن `Pinned Adoption Control Set`؛ وتثبت كذلك ملفات Profiles الموروثة اللازمة للحل، بينما لا تُنسخ Profiles غير المفعلة.
+لا يرث هذا Profile Profile آخر. وتبقى المعايير المباشرة له هي المعايير المدرجة أعلاه دون غيرها. لا يعيد هذا الملف تعريف آلية resolver؛ فتظل تفاصيل Adoption والحل مملوكة لـ [STANDARDS_ADOPTION_STANDARD_AR.md](../STANDARDS_ADOPTION_STANDARD_AR.md).
 
 ## Scope Notes
 
@@ -35,4 +36,4 @@
 
 ## Precedence Notes
 
-هذا الملف composition manifest. تفاصيل Package وComposer وCI وPresentation وTesting تظل مملوكة للملفات الأصلية، وآلية التفعيل والتثبيت مملوكة لـ [STANDARDS_ADOPTION_STANDARD_AR.md](../STANDARDS_ADOPTION_STANDARD_AR.md).
+هذا الملف composition manifest. تفاصيل Package وComposer وCI وPresentation وTesting وتغطية وجودة توثيق PHP وتنسيق PHP تظل مملوكة للملفات الأصلية، وآلية التفعيل والتثبيت مملوكة لـ [STANDARDS_ADOPTION_STANDARD_AR.md](../STANDARDS_ADOPTION_STANDARD_AR.md).

@@ -1,0 +1,126 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maatify\Slug\Lifecycle\Consumer\Service\Resolution;
+
+use Maatify\Slug\Lifecycle\Consumer\Service\SlugAvailabilityChecker;
+use Maatify\Slug\Lifecycle\Consumer\Service\SlugQueryServiceInterface;
+use Maatify\Slug\Lifecycle\Consumer\Criteria\AvailabilityCriteria;
+use Maatify\Slug\Lifecycle\Criteria\CurrentSlugCriteria;
+use Maatify\Slug\Lifecycle\Consumer\Criteria\ResolutionCriteria;
+use Maatify\Slug\Lifecycle\DTO\CurrentSlugDTO;
+use Maatify\Slug\Lifecycle\Consumer\DTO\SlugAvailabilityDTO;
+use Maatify\Slug\Lifecycle\Consumer\DTO\SlugResolutionDTO;
+use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
+use Maatify\Slug\Lifecycle\Consumer\Enum\InputFormCanonicalityEnum;
+use Maatify\Slug\Lifecycle\Consumer\Enum\MatchKindEnum;
+use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
+use Maatify\Slug\Lifecycle\Repository\CapabilityGuardInterface;
+use Maatify\Slug\Lifecycle\Repository\Registry\RegistryRepositoryInterface;
+use Maatify\Slug\Canonicalization\Service\SlugProfileRegistryInterface;
+
+/** Read-only resolution service combining profile canonicalization with registry state. */
+final readonly class SlugQueryService implements SlugQueryServiceInterface
+{
+    /** Injects profile, registry, availability, and schema capability boundaries. */
+    public function __construct(
+        private SlugProfileRegistryInterface $profiles,
+        private RegistryRepositoryInterface $registry,
+        private SlugAvailabilityChecker $availability,
+        private CapabilityGuardInterface $capabilities,
+    ) {}
+
+    /** Returns advisory availability without reserving or mutating a slug. */
+    public function checkAvailability(AvailabilityCriteria $criteria): SlugAvailabilityDTO
+    {
+        return $this->availability->check($criteria);
+    }
+
+    /** Returns the current claim for a binding, or null when no current claim exists. */
+    public function getCurrent(CurrentSlugCriteria $criteria): ?CurrentSlugDTO
+    {
+        $this->capabilities->assertInstalledSchemaSupported();
+        $binding = $this->registry->binding($criteria->binding);
+        if ($binding === null || $binding->currentClaim === null) {
+            return null;
+        }
+
+        return new CurrentSlugDTO($binding, $binding->currentClaim, $binding->state->revision);
+    }
+
+    /** Resolves lookup input to a current, alias, historical, or unmatched result. */
+    public function resolve(ResolutionCriteria $criteria): SlugResolutionDTO
+    {
+        $profile = $this->profiles->get($criteria->scopeProfile->expectedProfileKey);
+        $lookup = $profile->canonicalizeLookup($criteria->decodedSegment);
+        if ($lookup->canonicality === InputFormCanonicalityEnum::INVALID || $lookup->canonicalSlug === null) {
+            return new SlugResolutionDTO(
+                $criteria->scopeProfile,
+                $criteria->decodedSegment,
+                InputFormCanonicalityEnum::INVALID,
+                null,
+                null,
+                MatchKindEnum::NONE,
+                null,
+                null,
+                null,
+                null,
+            );
+        }
+
+        $scope = $this->registry->findScope(
+            $criteria->scopeProfile->scope,
+            $criteria->scopeProfile->expectedProfileKey,
+        );
+        if ($scope === null) {
+            return $this->none($criteria, InputFormCanonicalityEnum::NOT_APPLICABLE, $lookup->canonicalSlug);
+        }
+        $claim = $this->registry->findClaimByScopeSlug($scope->id, $lookup->canonicalSlug);
+        if ($claim === null) {
+            return $this->none($criteria, InputFormCanonicalityEnum::NOT_APPLICABLE, $lookup->canonicalSlug);
+        }
+
+        $owner = $this->registry->binding($claim->toDto($this->profiles)->binding);
+        if ($owner === null || $owner->currentClaim === null) {
+            throw new \Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException('Resolution claim owner Binding cannot be read.');
+        }
+
+        $matchKind = match ($claim->role) {
+            RegistryRoleEnum::CURRENT_CANONICAL => MatchKindEnum::CURRENT,
+            RegistryRoleEnum::ACTIVE_ALIAS => MatchKindEnum::ALIAS,
+            RegistryRoleEnum::HISTORICAL_CANONICAL => MatchKindEnum::HISTORICAL,
+            RegistryRoleEnum::RETIRED_ALIAS => MatchKindEnum::RETIRED_ALIAS,
+        };
+
+        return new SlugResolutionDTO(
+            $criteria->scopeProfile,
+            $criteria->decodedSegment,
+            $lookup->canonicality,
+            $lookup->canonicalSlug,
+            $claim->toDto($this->profiles)->slug,
+            $matchKind,
+            $owner->state->status,
+            $owner->currentClaim->slug,
+            $owner->identity->entity,
+            $owner->state->revision,
+        );
+    }
+
+    /** Builds the stable unmatched result while preserving lookup canonicality. */
+    private function none(ResolutionCriteria $criteria, InputFormCanonicalityEnum $canonicality, \Maatify\Slug\Canonicalization\ValueObject\Slug $canonicalSlug): SlugResolutionDTO
+    {
+        return new SlugResolutionDTO(
+            $criteria->scopeProfile,
+            $criteria->decodedSegment,
+            $canonicality,
+            $canonicalSlug,
+            null,
+            MatchKindEnum::NONE,
+            null,
+            null,
+            null,
+            null,
+        );
+    }
+}
