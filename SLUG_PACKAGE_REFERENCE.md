@@ -664,7 +664,7 @@ Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea
 
 Verification evidence is SHA-scoped: historical verification qualifies only the exact SHA stated and does not qualify later commits. Active integration and verification status is maintained in GitHub PR/CI history. Transient VG/PR state is not part of this public package contract, and this document makes no claim that the package is Stable, Published, or release-ready.
 
-The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `3de026f86f68c548c8eef1570a6aac0e3949f20a`. That manifest is the authoritative resolver record for the applicable Standard versions.
+The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`. That manifest is the authoritative resolver record for the applicable Standard versions.
 
 ## 14. Supporting Documents
 
