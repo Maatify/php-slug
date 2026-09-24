@@ -132,29 +132,49 @@ final class ComposerPolicyVerifier
     /** @param array<string, string> $environment */
     private function verifyEnvironment(array $environment): array
     {
-        $rejected = [
-            'COMPOSER_POLICY' => ['0'],
-            'COMPOSER_NO_BLOCKING' => ['1'],
-            'COMPOSER_NO_SECURITY_BLOCKING' => ['1'],
-            'COMPOSER_POLICY_ADVISORIES_BLOCK' => ['0'],
-            'COMPOSER_POLICY_MALWARE_BLOCK' => ['0'],
-            'COMPOSER_NO_AUDIT' => ['1'],
-            'COMPOSER_AUDIT_ABANDONED' => ['ignore', 'report'],
-        ];
-
         $errors = [];
-        foreach ($rejected as $name => $values) {
+
+        foreach (['COMPOSER_POLICY', 'COMPOSER_POLICY_ADVISORIES_BLOCK', 'COMPOSER_POLICY_MALWARE_BLOCK'] as $name) {
+            $state = $this->composerBooleanState($environment[$name] ?? null);
+            if (in_array($state, ['empty', 'false', 'invalid'], true)) {
+                $errors[] = "$name has an invalid or weakening value";
+            }
+        }
+
+        foreach (['COMPOSER_NO_BLOCKING', 'COMPOSER_NO_SECURITY_BLOCKING', 'COMPOSER_NO_AUDIT'] as $name) {
             if (!array_key_exists($name, $environment)) {
                 continue;
             }
 
-            $value = strtolower(trim($environment[$name]));
-            if (in_array($value, $values, true)) {
-                $errors[] = "$name=$value is a weakening override";
+            if ($this->rawNoFlagState($environment[$name]) === 'non-empty') {
+                $errors[] = "$name has a weakening non-empty value";
             }
         }
 
+        if (array_key_exists('COMPOSER_AUDIT_ABANDONED', $environment) && $environment['COMPOSER_AUDIT_ABANDONED'] !== 'fail') {
+            $errors[] = 'COMPOSER_AUDIT_ABANDONED must be exactly fail when present';
+        }
+
         return $errors;
+    }
+
+    private function composerBooleanState(?string $value): string
+    {
+        if ($value === null) {
+            return 'unset';
+        }
+
+        return match ($value) {
+            '' => 'empty',
+            '0', 'false', 'off' => 'false',
+            '1', 'true', 'on' => 'true',
+            default => 'invalid',
+        };
+    }
+
+    private function rawNoFlagState(string $value): string
+    {
+        return $value === '' || $value === '0' ? 'safe' : 'non-empty';
     }
 
     public function run(string $root): int
