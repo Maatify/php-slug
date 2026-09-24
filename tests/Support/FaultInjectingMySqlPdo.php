@@ -26,8 +26,7 @@ final class FaultInjectingMySqlPdo extends PDO
                 (string) getenv('SLUG_TEST_DB_NAME'),
             ),
             (string) getenv('SLUG_TEST_DB_USER'),
-            (string) getenv('SLUG_TEST_DB_PASSWORD'),
-            [
+            (string) getenv('SLUG_TEST_DB_PASSWORD'), [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ],

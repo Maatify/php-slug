@@ -45,12 +45,11 @@ final class ResultSnapshotEncoder
         self::assertResultOperationKeys($result);
 
         try {
-            return json_encode(
-                [
-                    'result_type' => $type,
-                    'result_schema_version' => 1,
-                    'result' => $result,
-                ],
+            return json_encode([
+                'result_type' => $type,
+                'result_schema_version' => 1,
+                'result' => $result,
+            ],
                 JSON_UNESCAPED_UNICODE
                 | JSON_UNESCAPED_SLASHES
                 | JSON_PRESERVE_ZERO_FRACTION

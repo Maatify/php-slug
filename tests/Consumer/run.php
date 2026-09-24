@@ -113,8 +113,7 @@ function connectToDatabase(array $configuration): PDO
             $configuration['SLUG_TEST_DB_NAME'],
         ),
         $configuration['SLUG_TEST_DB_USER'],
-        $configuration['SLUG_TEST_DB_PASSWORD'],
-        [
+        $configuration['SLUG_TEST_DB_PASSWORD'], [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_EMULATE_PREPARES => false,
         ],

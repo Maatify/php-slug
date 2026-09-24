@@ -72,8 +72,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $pdo = new PDO(
             $dsn,
             $configuration['SLUG_TEST_DB_USER'],
-            $configuration['SLUG_TEST_DB_PASSWORD'],
-            [
+            $configuration['SLUG_TEST_DB_PASSWORD'], [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ],
