@@ -41,6 +41,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
 {
     private PdoCapabilityGuard $capabilities;
 
+    /** Injects PDO, profile/scope dependencies, clock, and capability checks. */
     public function __construct(
         private PDO $pdo,
         private SlugProfileRegistryInterface $profiles,
@@ -51,16 +52,19 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         $this->capabilities = $capabilities ?? new PdoCapabilityGuard($pdo);
     }
 
+    /** Verifies the installed schema before registry access. */
     public function assertInstalledSchemaSupported(): void
     {
         $this->capabilities->assertInstalledSchemaSupported();
     }
 
+    /** Ensures a scope/profile row and returns its immutable snapshot. */
     public function ensureScope(SlugScope $scope, SlugProfileKey $profileKey): ScopeDTO
     {
         return $this->scopes->ensureScope(new ScopeProfileRequestDTO($scope, $profileKey));
     }
 
+    /** Finds a scope/profile row, optionally with a row lock. */
     public function findScope(SlugScope $scope, SlugProfileKey $expectedProfileKey, bool $forUpdate = false): ?ScopeDTO
     {
         $this->profiles->get($expectedProfileKey);
@@ -75,6 +79,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         return $this->scopeFromRow($row);
     }
 
+    /** Returns a required scope under a row lock and enforces profile identity. */
     public function lockScope(SlugScope $scope, SlugProfileKey $expectedProfileKey): ScopeDTO
     {
         $result = $this->findScope($scope, $expectedProfileKey, true);
@@ -85,6 +90,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         return $result;
     }
 
+    /** Locks or creates the binding row for an entity in the supplied scope. */
     public function lockOrCreateBinding(ScopeDTO $scope, EntityReference $entity): RegistryBindingRecord
     {
         $record = $this->lockOrCreateBindingRecord($scope, $entity);
@@ -156,6 +162,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         return $this->bindingRecordFromRow($row, false);
     }
 
+    /** Finds a claim by scope and canonical slug, optionally with a row lock. */
     public function findClaimByScopeSlug(int $scopeId, Slug $slug, bool $forUpdate = false): ?RegistryClaimRecord
     {
         return $this->findClaim('r.scope_id = :scope_id AND r.slug = :slug', [
@@ -164,6 +171,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         ], $forUpdate);
     }
 
+    /** Finds a claim by binding and canonical slug, optionally with a row lock. */
     public function findClaimByBindingSlug(int $bindingId, Slug $slug, bool $forUpdate = false): ?RegistryClaimRecord
     {
         return $this->findClaim('r.binding_id = :binding_id AND r.slug = :slug', [
@@ -172,7 +180,11 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         ], $forUpdate);
     }
 
-    /** @return list<RegistryClaimRecord> */
+    /**
+     * Returns all claims for one binding in stable registry order.
+     *
+     * @return list<RegistryClaimRecord>
+     */
     public function findClaimsForBinding(int $bindingId, bool $forUpdate = false): array
     {
         if ($bindingId < 0) {
@@ -388,6 +400,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         return array_map(fn(array $row): RegistryClaimRecord => $this->claimFromRow($row), $hydratedRows);
     }
 
+    /** Inserts a claim and returns its raw row, or null when a uniqueness race loses. */
     public function insertClaim(int $scopeId, int $bindingId, Slug $slug, RegistryRoleEnum $role): ?RegistryClaimRecord
     {
         $now = $this->timestamp();
@@ -427,6 +440,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         return $claim;
     }
 
+    /** Marks a claim current while applying the expected binding revision. */
     public function activateCurrent(int $bindingId, int $expectedRevision, int $registryId): void
     {
         $statement = $this->pdo->prepare(
@@ -449,6 +463,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         }
     }
 
+    /** Updates binding state and counters under optimistic revision control. */
     public function mutateBinding(
         int $bindingId,
         int $expectedRevision,
@@ -480,6 +495,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         }
     }
 
+    /** Updates a claim role and returns the refreshed raw record. */
     public function updateClaimRole(int $registryId, RegistryRoleEnum $role): RegistryClaimRecord
     {
         if ($registryId < 0) {
@@ -507,6 +523,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         return $claim;
     }
 
+    /** Deletes one registry claim after lifecycle authorization. */
     public function deleteClaim(int $registryId): void
     {
         if ($registryId < 0) {
@@ -522,11 +539,13 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         }
     }
 
+    /** Hydrates a public binding snapshot by identity, optionally under lock. */
     public function binding(BindingIdentityDTO $identity, bool $forUpdate = false): ?BindingDTO
     {
         return $this->scopes->findBinding($identity->scopeProfile, $identity->entity, $forUpdate);
     }
 
+    /** Loads a registry claim by id through the shared claim projection. */
     private function findClaimById(int $id, bool $forUpdate): ?RegistryClaimRecord
     {
         return $this->findClaim('r.id = :registry_id', ['registry_id' => $id], $forUpdate);
@@ -595,6 +614,7 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         return PdoRowHydrator::one($statement->fetch(PDO::FETCH_ASSOC));
     }
 
+    /** Re-reads a binding after mutation to validate its persisted lifecycle state. */
     private function validatedBindingRecord(ScopeDTO $scope, EntityReference $entity, bool $created): RegistryBindingRecord
     {
         $binding = $this->scopes->findBinding(
@@ -685,11 +705,13 @@ final readonly class PdoRegistryRepository implements RegistryRepositoryInterfac
         );
     }
 
+    /** Formats the injected clock value for registry persistence. */
     private function timestamp(): string
     {
         return $this->clock->now()->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
     }
 
+    /** Parses a six-microsecond UTC timestamp from a registry row. */
     private function date(string $value, string $field): DateTimeImmutable
     {
         if (preg_match('/\A\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}\z/', $value) !== 1) {

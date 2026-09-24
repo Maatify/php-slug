@@ -10,8 +10,10 @@ use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 
+/** Read result that preserves requested input, canonicalization, ownership, and advisory status. */
 final readonly class SlugAvailabilityDTO implements JsonSerializable
 {
+    /** Availability is intentionally advisory; claim operations remain authoritative. */
     public function __construct(
         public ScopeProfileRequestDTO $scopeProfile,
         public string $requestedInput,
@@ -25,7 +27,11 @@ final readonly class SlugAvailabilityDTO implements JsonSerializable
         }
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * Returns the availability decision without exposing alternate internal state.
+     *
+     * @return array<string, mixed>
+     */
     public function jsonSerialize(): array
     {
         return [

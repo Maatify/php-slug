@@ -7,8 +7,10 @@ namespace Maatify\Slug\Lifecycle\ValueObject;
 use JsonSerializable;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Immutable namespace and optional dimensions defining a slug scope. */
 final readonly class SlugScope implements JsonSerializable
 {
+    /** Validates the lowercase namespace and optional bounded scope dimensions. */
     public function __construct(
         public string $namespace,
         public ?string $localeKey,
@@ -27,6 +29,7 @@ final readonly class SlugScope implements JsonSerializable
         }
     }
 
+    /** Enforces the shared scope dimension safety and length contract. */
     private static function assertDimension(string $value, int $maxCodePoints, string $field): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {

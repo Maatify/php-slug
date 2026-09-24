@@ -9,8 +9,10 @@ use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 
+/** Immutable lifecycle state with revision and append-only history position. */
 final readonly class BindingStateDTO implements JsonSerializable
 {
+    /** Enforces status/current-slug consistency and non-negative counters. */
     public function __construct(
         public BindingStatusEnum $status,
         public ?Slug $currentSlug,

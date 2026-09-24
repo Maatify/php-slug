@@ -32,13 +32,16 @@ final class SlugEngineFactoryTest extends TestCase
     }
 }
 
+/** Fixed UTC clock proving factory wiring does not depend on wall-clock state. */
 final class TestClock implements ClockInterface
 {
+    /** Returns the deterministic timestamp used by factory-created services. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC for service persistence collaborators. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');

@@ -9,8 +9,10 @@ use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Selects bindings in a scope using optional entity and lifecycle filters. */
 final readonly class BindingSearchCriteria
 {
+    /** Validates optional entity identifiers and prefixes before they reach SQL search parameters. */
     public function __construct(
         public ScopeProfileRequestDTO $scopeProfile,
         public PageRequest $pageRequest,
@@ -28,6 +30,7 @@ final readonly class BindingSearchCriteria
         }
     }
 
+    /** Enforces the bounded, path-safe prefix contract used by binding searches. */
     private static function assertSearchPrefix(string $value): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {

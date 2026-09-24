@@ -3,7 +3,7 @@
 ## بيانات المعيار
 
 - **Standard ID:** `std-ai-collaboration-workflow`
-- **Standard Version:** `7.0.1`
+- **Standard Version:** `8.0.0`
 - **Standard Version Format:** `MAJOR.MINOR.PATCH`
 - **اللغة المعتمدة:** العربية.
 - **مالك المعيار:** مالك المشروع.
@@ -151,7 +151,8 @@
 - كتابة توجيه تنفيذي مغلق الحدود وبالحد الأدنى الكافي من المعلومات، مع اختبار ضرورة كل سطر قبل إرساله.
 - مراجعة الكود أو التوثيق، والـ diff أو الـ staged patch، والـ checks، والـ PR بنفسه قبل قبول أي ناتج عندما تكون هذه العناصر متاحة.
 - رفض الناتج أو طلب تعديله إذا خالف الواقع أو العقود أو النطاق، حتى لو ادعى تقرير المنفذ نجاحه.
-- تصحيح عنوان أو وصف الـ PR عند توفر الصلاحية.
+- الحفاظ على عنوان ووصف الـ PR كـcurrent-state resume surface دقيقة وفق §3.2.5 عند توفر الصلاحية، وتصحيحها كلما تغيّرت الحالة المادية للـPR.
+- ضمان أن أي governed work branch غير افتراضية تُنشر على GitHub تحصل على PR صحيحة كجزء من publication handoff وفق §6.3 وPhase Stack، وألا يستمر العمل على remote branch بلا PR.
 - تصنيف النتيجة: جاهزة، تحتاج تعديلًا، تحتاج follow-up، أو يجب إيقافها.
 
 ### 3.2.1 مسؤولية القرار الهندسي
@@ -163,7 +164,7 @@
 
 ### 3.2.2 سلطة التنفيذ داخل الـPhase أو الـExecution Batch
 
-بعد اعتماد Scope الـPhase أو Execution Batch صراحة من مالك المشروع، يجوز للمساعد القائد إدارة التنفيذ داخل النطاق، عندما تكون الأدوات والصلاحيات متاحة، دون الرجوع للمالك عند كل Micro-step. هذه صلاحية تنسيق وتنفيذ، وليست Standing Merge Authority.
+بعد اعتماد Scope الـPhase أو Execution Batch صراحة من مالك المشروع، يجوز للمساعد القائد **إدارة وتنظيم دورة التنفيذ** داخل النطاق، عندما تكون الأدوات والصلاحيات متاحة، دون الرجوع للمالك عند كل Micro-step. هذه صلاحية orchestration وإدارة workflow، وليست إسنادًا تلقائيًا لدور Executor إلى المساعد القائد ولا Standing Merge Authority.
 
 تشمل هذه السلطة:
 
@@ -191,6 +192,26 @@
 - لا ينفذ المساعد القائد تغييرات داخل المستودع إلا بتكليف صريح من مالك المشروع أو وفق صلاحية تنفيذ محددة في تعليمات المشروع أو المهمة.
 - عند تكليفه بالتنفيذ، يخضع لنفس قواعد النطاق والتحقق وصلاحيات Git المطبقة على أي منفذ.
 
+#### قاعدة إسناد دور التنفيذ إلى المساعد القائد
+
+موافقة مالك المشروع على التحرك أو الاستمرار في Plan أو Scope أو Phase أو Work Unit أو remediation معتمدة تمنح المساعد القائد صلاحية **تحريك وإدارة الـworkflow داخل سلطته القائمة**، لكنها لا تعيّنه تلقائيًا Executor لتعديلات المستودع.
+
+هذه القاعدة **دلالية وليست phrase-based**: لا تعتمد على كلمة أو صيغة أو قائمة عبارات بعينها. لا يصبح المساعد القائد منفذًا شخصيًا للتغيير إلا إذا كان الأثر الدلالي للتعليمات المنطبقة يحدد بوضوح أن المساعد القائد نفسه هو الـactor المسؤول عن تنفيذ تعديل المستودع، أو كانت هناك تعليمات project/phase/task نافذة تمنحه مسبقًا صلاحية التنفيذ المحددة.
+
+إذا أمكن فهم الموافقة بصورة صحيحة على أنها تفويض للمساعد القائد بإدارة العمل واختيار/تكليف Executor، وفي الوقت نفسه أمكن تخمين أنها تسمح له بالتنفيذ الشخصي، يُعتمد **التفسير الأضيق**:
+
+```text
+Owner approval to advance approved work
+→ Lead orchestration / delegation
+
+Lead personal repository implementation
+→ explicit semantic assignment of Lead as Executor required
+```
+
+لا يجوز للمساعد القائد توسيع الموافقة المبهمة إلى self-execution authority، ولا يحتاج في المقابل إلى إيقاف الـworkflow لمجرد عدم إسناد التنفيذ إليه؛ يواصل دوره الطبيعي باختيار المنفذ المناسب وكتابة التوجيه ومراجعة الناتج.
+
+وتبقى **صلاحية العملية** منفصلة عن **إسناد دور المنفذ**. التصريح بعملية محددة تحكمها قاعدة مستقلة — مثل Owner authorization لGitHub Merge — يسمح بتلك العملية وفق عقدها، لكنه لا يعيّن المساعد القائد Executor لتغييرات مستودع أخرى. وبالمثل، إسناد التنفيذ للمساعد القائد لا يمنحه تلقائيًا Branch أو Commit أو Push أو PR أو Merge authority خارج العقود والصلاحيات الخاصة بكل عملية.
+
 ### 3.2.4 استلام PR من Jules
 
 بعد أن ينهي Jules مهمته ويكتب على branch جديدة خاصة بالمهمة الحالية (Jules task branch)، تصبح بيانات الـ PR النهائية مسؤولية المساعد القائد:
@@ -202,6 +223,36 @@
 5. إذا كانت المهمة غير مكتملة، لا يُجمّل وصف الـ PR؛ بل يطلب التصحيح أو يوقفها.
 
 هذا الـ handoff طبيعي؛ لأن Jules قد يستطيع الكتابة وفتح PR، لكنه لا يُعتمد عليه لتعديل PR metadata بعد آخر كتابة أو بعد تغير الـ remote HEAD.
+
+### 3.2.5 Stewardship لحالة الـPR والاستئناف
+
+كل PR نشطة تستخدم كـexecution أو review أو integration boundary يجب أن تبقى **current-state resume surface** دقيقة وقابلة للاستئناف. المساعد القائد مسؤول عن أن يستطيع Lead جديد فهم الحالة الحالية من GitHub والمستودع والمراجع authoritative دون مطالبة مالك المشروع بإعادة سرد سياق المحادثة السابقة.
+
+يكون حجم الوصف متناسبًا مع المهمة، لكنه يحتفظ بما ينطبق ماديًا من:
+
+- الهدف والـScope المغلق.
+- exact base/parent أو comparison boundary اللازمة لفهم الحالة الحالية.
+- القرارات المقفلة أو dependencies أو non-goals الخاصة بهذه الـPR فقط.
+- حالة التنفيذ/المراجعة/التكامل الحالية.
+- exact reviewed أو accepted HEAD عندما توجد.
+- blockers أو Owner Decisions غير المحسومة عندما توجد.
+- الخطوة الصحيحة التالية والسلطة التي تملكها.
+
+وصف الـPR هو **mutable current-state snapshot** وليس historical diary. تُحدّث الحالة فيه in-place كلما تغيّر الواقع، ولا تُنسخ داخله قواعد هذا المعيار أو Phase Stack العامة؛ يكفي reference إلى المصدر canonical مع إبقاء task-specific state والحدود فقط.
+
+أما التاريخ التنفيذي فيبقى داخل GitHub timeline: commits وdiffs وreview threads وmaterial PR comments وchecks وmerge events. قبل تصنيف PR بأنها جاهزة لـOwner-authorized Merge يجب أن تكون نتيجة Direct Lead Acceptance على exact accepted HEAD قابلة للاسترجاع تاريخيًا من الـPR. وإذا غيّرت remediation حالة سبق قبولها أو رفضها، تسجل نتيجة الـFresh Review الجديدة للحالة المتراكمة بدل إعادة كتابة milestone التاريخية السابقة.
+
+إذا احتوت نفس Work Branch/PR على عدة Work Units أو logical milestones متتابعة، فلا ينتظر المساعد القائد نهاية الـPR لتوثيقها جميعًا دفعة واحدة. قبل بدء Work Unit التالية، يجب أن تكون Acceptance/Lead Review للوحدة المكتملة قابلة للاسترجاع تاريخيًا على exact HEAD الخاصة بها، وأن يُحدّث وصف الـPR من حالة الوحدة المكتملة إلى current state والخطوة التالية وفق transition gate المملوك لـPhase Stack. لا تجعل هذه القاعدة كل micro-step Work Unit مستقلة ولا تفرض PR جديدة.
+
+يحافظ السجل على high signal: لا يلزم comment لكل command أو progress update أو micro-fix أو إعادة نسخ تقرير Executor لا يغير scope أو decision أو review/integration state. وإذا احتاج claim تاريخي مادي إلى تصحيح لاحق، يضاف تصحيح جديد يحدد الحقيقة المصححة بدل تعديل التاريخ ليبدو كأن الخطأ لم يقع.
+
+بعد Owner-authorized Merge، يتولى المساعد القائد post-merge metadata reconciliation المنطبقة: لا تبقى Child PR تصف نفسها مثلًا بأنها `READY FOR MERGE` بعد دمجها، ويطبق على أي Parent/Umbrella نشطة عقد propagation وresulting-parent-HEAD gate المملوك لـPhase Stack قبل بدء العمل المتتابع أو المعتمد التالي.
+
+إذا لم تتوفر للمساعد القائد صلاحية فعلية لتحديث PR metadata المطلوبة، يعرض discrepancy صراحة ولا يدعي اكتمال resume-state reconciliation حتى يصححها actor مخول.
+
+عند تغير chat أو session أو executor، يبدأ الاستئناف من PR الحالية وGitHub timeline والـremote refs والكود/التوثيق والمراجع authoritative. Chat أو Memory أو تقرير Executor أدوات discovery فقط وليست بديلًا عن هذا السجل.
+
+لكي يكون هذا العقد متاحًا لكل published governed work branch، تطبق قاعدة DEC-017: branch محلية غير منشورة قد توجد أثناء الإعداد والتنفيذ المحلي، لكن أي non-default work branch تُنشر إلى GitHub يجب أن ترتبط بالـPR الصحيحة ضمن نفس publication handoff قبل استمرار governed execution. لا تفرض هذه القاعدة PR جديدة إذا كانت branch مرتبطة بالفعل بـPR صحيحة قائمة.
 
 ## 3.3 المنفذ المحلي (Local Executor)
 
@@ -407,9 +458,11 @@ Review Staging مسموح افتراضيًا ما لم يمنعه التوجيه
 
 - Review Staging لا يعني Commit.
 - Commit لا يعني Push.
-- Push لا يعني فتح PR.
+- Push لا يمنح المنفذ تلقائيًا صلاحية فتح PR.
 - فتح PR لا يعني Merge.
 - **كل GitHub Merge يحتاج Owner authorization صريحة منفصلة**، سواء كان إلى Phase Draft أو Batch Integration Boundary أو `main` أو parent آخر.
+
+استقلال الصلاحيات لا يسمح بحالة branch-only مستقرة. إذا أدى Push إلى نشر governed work branch غير افتراضية لا تملك PR صحيحة قائمة، تصبح publication handoff غير مكتملة. يفتح الـactor المخول الـPR في نفس التدفق؛ وإذا لم يكن الناشر مخولًا بذلك، يتولى المساعد القائد فتحها بعد التحقق من remote branch والـbase والـancestry. لا يستمر governed execution أو delegation على تلك branch حتى توجد PR صحيحة.
 
 ولرفع الالتباس الاصطلاحي، يفرق هذا المعيار بين صلاحيات عمليات Git المحلية وبين GitHub Merge. تملك Phase Stack دورة الـMerge وحدود التكامل وتسلسله، بينما يحدد هذا المعيار صلاحيات الأدوار والعمليات المحلية؛ وتظل كل GitHub Merge مشروطة بـOwner authorization صريحة.
 
@@ -517,6 +570,8 @@ git diff --stat
 * تظل الـ PR واضحة وقابلة للمراجعة.
 * يتم طلب التصحيح عبر top-level PR conversation comment أو Reply عادي داخل نفس PR بمنشن صريح `@jules`.
 * كل تصحيح بعد Commit يتم في Commit جديدة، بدون amend أو force-push.
+
+تخص قاعدة `@jules` أعلاه جولات التصحيح اليدوي الناتجة عن ملاحظات Lead أو PR. أما task-scoped automatic CI remediation وفق §11.4، إذا كانت continuation لنفس المهمة، فلا تحتاج top-level `@jules` comment منفصلًا لكل repair cycle؛ وتظل على نفس Jules task branch وداخل نفس task boundary، ولا تعيد تعريف المهمة أو acceptance criteria.
 
 **تبدأ Jules Session جديدة عندما:**
 * تكون المهمة الجديدة نطاقًا مستقلًا عن المهمة الحالية.
@@ -641,15 +696,17 @@ git diff --stat
 
 ## المرحلة 8 — Commit وPush وPR
 
-تحدث وفق صلاحيات Git المحددة في التوجيه. Commit وPush وفتح PR صلاحيات مستقلة يمكن التصريح بها، أما كل GitHub Merge فيحتاج Owner authorization صريحة منفصلة. كل تصحيح بعد Commit يُضاف في Commit جديد. نشر Jules واختيار Publish Branch أو Publish PR يخضعان للقسم `6.7`.
+تحدث وفق صلاحيات Git المحددة في التوجيه. Commit وPush وفتح PR صلاحيات مستقلة على مستوى actor authority، لكن نشر governed work branch جديدة إلى GitHub لا يكتمل كـworkflow state قبل وجود PR صحيحة لها وفق DEC-017 وPhase Stack. إذا لم يملك المنفذ صلاحية فتحها، ينهي الناشر الـPush ويحوّل handoff فورًا إلى المساعد القائد لفتح PR قبل استمرار التنفيذ. أما كل GitHub Merge فيحتاج Owner authorization صريحة منفصلة. كل تصحيح بعد Commit يُضاف في Commit جديد. نشر Jules واختيار Publish Branch أو Publish PR يخضعان للقسم `6.7`.
 
 ## المرحلة 9 — مراجعة PR وmetadata handoff
 
-تشمل scope وdiff وbase freshness والـ checks والـ threads. بعد مهمة Jules الناجحة، يتولى المساعد القائد تثبيت العنوان والوصف النهائيين للـ PR من الحالة الفعلية.
+تشمل scope وdiff وbase freshness والـchecks والـthreads، ويطبق المساعد القائد عقد current-state/resume في §3.2.5. قبل عرض PR بوصفها جاهزة للدمج، يثبت exact remote HEAD التي راجعها، ويجعل الوصف يعكس الحالة الحالية الفعلية، ويسجل نتيجة القبول على تلك الـHEAD في GitHub timeline بصورة قابلة للاسترجاع تاريخيًا.
 
-تستمر التصحيحات الطبيعية داخل نفس PR. في مهام Jules تُرسل الملاحظات على نفس المهمة عبر top-level PR conversation comment أو Reply عادي داخل نفس PR بمنشن صريح `@jules` وفق القسم `11.1`. عند التكدس أو فقدان الاستيعاب يُطبق مسار الاستعادة في القسم `6.7`.
+بعد مهمة Jules الناجحة، يتولى المساعد القائد تثبيت العنوان والوصف النهائيين للـPR من الحالة الفعلية. تستمر التصحيحات اليدوية الطبيعية داخل نفس PR. في مهام Jules تُرسل ملاحظات Lead أو PR على نفس المهمة عبر top-level PR conversation comment أو Reply عادي داخل نفس PR بمنشن صريح `@jules` وفق القسم `11.1`. أما task-scoped automatic CI remediation التابعة للمهمة نفسها فتتبع lifecycle §11.4 ولا تحتاج comment يدويًا منفصلًا لكل دورة. عند التكدس أو فقدان الاستيعاب يُطبق مسار الاستعادة في القسم `6.7`.
 
-بعد إنشاء أي PR تُراجع `base` و`head` و`merge-base` و`changed files`. يُصلح خطأ الـ base من نفس head branch فقط عندما تكون ancestry صحيحة؛ أما branch المبنية من مصدر خاطئ فتُستبدل بbranch جديدة من المصدر الصحيح.
+بعد إنشاء أي PR تُراجع `base` و`head` و`merge-base` و`changed files`. يُصلح خطأ الـbase من نفس head branch فقط عندما تكون ancestry صحيحة؛ أما branch المبنية من مصدر خاطئ فتُستبدل بbranch جديدة من المصدر الصحيح.
+
+بعد أي Owner-authorized Merge، تنفذ metadata/state reconciliation المنطبقة وفق §3.2.5 وPhase Stack قبل اعتبار الـexecution chain جاهزة للانتقال إلى عمل متتابع أو معتمد تالٍ.
 
 ## المرحلة 10 — قرار الدمج
 
@@ -804,6 +861,7 @@ Acceptance:
 
 نفّذ جميع العمليات المحددة بـ YES حتى آخر خطوة مصرح بها، بعد نجاح بواباتها.
 لا تطلب تأكيدًا إضافيًا لتنفيذ Commit أو Push أو فتح PR إذا كانت مصرحًا بها صراحة.
+إذا كانت المهمة ستنشر governed work branch جديدة وكان `PR: NO`، يجب أن يكون التوجيه قد حدد أن المساعد القائد سيتولى فتح PR الصحيحة فور الـPush؛ يتوقف المنفذ عند handoff ولا يواصل عملًا جديدًا على الـremote branch قبل إنشاء PR. أما branch التي تملك PR صحيحة قائمة فلا تحتاج PR جديدة.
 
 بعد التحقق:
 
@@ -883,7 +941,7 @@ git diff --cached --check
 
 - إذا كانت العملية `YES` تُنفذ بعد نجاح بواباتها دون طلب تأكيد جديد.
 - كسياسة خاصة بـ Maatify: `Publish PR: YES` لا يُستخدم إلا عندما تكون `PR Base` هي `main`.
-- عندما تكون `PR Base` غير `main` يجب أن يكون `Publish PR: NO`، ويُستخدم `Publish Branch: YES` عند التصريح.
+- عندما تكون `PR Base` غير `main` يجب أن يكون `Publish PR: NO`، ويُستخدم `Publish Branch: YES` عند التصريح؛ وتكون هذه publication handoff غير مكتملة حتى يفتح المساعد القائد PR الصحيحة إلى `PR Base` المحددة بعد التحقق من الـremote branch. لا يبدأ عمل لاحق على branch المنشورة قبل هذا الـhandoff.
 
 اعرض: Starting branch، starting SHA، branch المنشورة، commits، remote HEAD، remote merge-base، changed files، `git diff --check`، وطريقة النشر، وPR URL إن وجدت.
 ````
@@ -914,15 +972,17 @@ Jules يكتب فقط على branch **خاصة بمهمته الحالية (Jule
 - **PR feedback does not expand task scope:** أي تعليق أو استخدام لـ `@jules` يسمح فقط بتصحيح أو استكمال نفس المهمة (acceptance criteria الحالية)، ولا يمنح نطاقًا أو قرارًا معماريًا جديدًا.
 - عند تغير النطاق، أو بدء Session جديدة، أو فقدان الاستيعاب، يُستخدم المسار المتتابع في القسم `6.7`.
 
+هذه القواعد الخاصة بـ`@jules` تخص manual Lead/PR feedback correction. أما task-scoped automatic CI remediation الناتجة عن implementation أو publication للمهمة نفسها فليست manual PR feedback، ولا تحتاج comment منفصلًا لبدء كل repair cycle؛ وتظل على نفس Jules task branch وداخل نفس task boundary ووفق topology وصلاحيات Git القائمة.
+
 هذه الآلية خاصة بمهام Jules، ولا تغيّر مسار المنفذ المحلي أو صلاحيات المساعد القائد.
 
 ## 11.2 Commits والنشر
 
-يمكن السماح لـ Jules بإنشاء branch وCommit وPush أو Publish PR، لكن كل صلاحية مستقلة. إعداد Starting branch وطريقة النشر يتبعان القسم `6.7`، وMerge يظل ممنوعًا على Jules.
+يمكن السماح لـ Jules بإنشاء branch وCommit وPush أو Publish PR، لكن كل صلاحية مستقلة على مستوى صلاحية Jules. لا تغير هذه الاستقلالية DEC-017: إذا نُشرت Jules task branch ولم تنشئ Jules الـPR الصحيحة بنفسها، لا تعد publication مكتملة حتى يفتحها المساعد القائد، ولا يستمر تنفيذ governed work على branch المنشورة قبل ذلك. إعداد Starting branch وطريقة النشر يتبعان القسم `6.7`، وMerge يظل ممنوعًا على Jules.
 
 ## 11.3 PR metadata handoff
 
-عندما تُفتح PR إلى `main`، تكتب Jules عنوانًا ووصفًا أوليين. وعندما تكون base غير `main`، تنشر branch فقط ويفتح المساعد القائد PR الصحيحة بعد التحقق.
+عندما تُفتح PR إلى `main`، تكتب Jules عنوانًا ووصفًا أوليين. وعندما تكون base غير `main`، تنشر Jules branch فقط لأن فتح الـPR الصحيحة مملوك للمساعد القائد في هذا المسار؛ ويجب على المساعد القائد بعد التحقق فتح PR إلى الـbase الصحيحة فورًا كجزء من نفس publication handoff وقبل أي تنفيذ لاحق على branch.
 
 بعد النشر:
 
@@ -934,12 +994,46 @@ Jules يكتب فقط على branch **خاصة بمهمته الحالية (Jule
 
 ## 11.4 التعديلات التلقائية للمستودع (Autonomous Repository Mutations)
 
-أي أتمتة لـ Jules يمكنها إنشاء أو تعديل Branch أو Commit أو PR تلقائيًا خارج التوجيه المباشر (مثل CI auto-fixing أو scheduled tasks) تكون **غير مستخدمة افتراضيًا** في المشاريع الخاضعة لهذا المعيار.
-لا يُسمح بتفعيلها إلا بقرار صريح من مالك المشروع، ويجب ألا تتجاوز في عملها:
-- النطاق المحدد للمهمة (task scope).
-- قواعد ملكية الـ Branch.
-- dependencies وExecution topology التي يحددها Phase Stack.
-- سلطة الدمج (merge authority) الخاصة بالمالك.
+يجب التمييز بين نوعين من التعديلات التلقائية لـJules يمكنها إنشاء أو تعديل Branch أو Commit أو PR خارج التوجيه اليدوي المباشر:
+
+### Task-scoped automatic remediation
+
+عندما تكون CI auto-remediation ناتجة عن implementation أو publication للمهمة الحالية نفسها، فهي continuation لنفس Jules task lifecycle، ولا تحتاج Owner authorization مستقلة لكل repair cycle. والمسار هو:
+
+```text
+Assigned Jules Task
+→ Implementation
+→ Publish
+→ CI failure
+→ Jules automatic repair commit(s)
+→ CI rerun/resubmission
+→ Final accumulated state
+→ Lead Fresh Full Acceptance Review
+```
+
+وتظل هذه continuation محكومة كلها بـ:
+
+- نفس task scope وacceptance criteria والقرارات المقفلة.
+- نفس Jules task branch ونفس branch ancestry وPR topology القائمة.
+- صلاحيات Git القائمة للمهمة وقيود Phase Stack.
+- مراجعة Lead كاملة للحالة النهائية المتراكمة، بما في ذلك implementation الأصلي وكل automatic repair commits.
+- عدم أي توسع مادي في Architecture أو Policy أو Ownership أو Public Contract أو Versioning أو task scope أو branch ancestry أو GitHub Merge authority.
+
+لا تتمتع automatic repair commits بثقة خاصة، ولا تعني `CI green` القبول:
+
+```text
+CI green ≠ Lead Acceptance
+```
+
+ويجوز للـLead بعد Fresh Full Acceptance Review أن يقبل الناتج، أو يطلب من Jules تصحيحه داخل نفس المهمة، أو يرفض repair approach، أو يكلّف منفذًا آخر بإصلاح الناتج وفق العقود العادية. لا تنشئ هذه القاعدة topology خاصة بالـhandoff، ولا تغير Phase Stack أو صلاحيات Git أو قواعد Publish Branch/Publish PR أو Owner-only GitHub Merge.
+
+### Independent autonomous repository mutation
+
+أما scheduled tasks أو أي autonomous repository mutation لا تكون continuation للمهمة الحالية، فتظل **غير مستخدمة افتراضيًا** ولا تُفعّل إلا وفق Owner authorization والسياسة القائمة الخاصة بذلك التغيير. ولا يمنحها هذا القسم أي صلاحية في:
+
+- Architecture أو Policy أو Ownership أو Public Contract أو Versioning.
+- task scope أو branch ancestry أو Execution topology.
+- GitHub Merge أو أي سلطة مملوكة للمالك.
 
 ## 11.5 سياق وذاكرة Jules (Jules Memory)
 
@@ -1066,7 +1160,7 @@ Fix verification != final acceptance review
 4. checks والـ review threads وتاريخ commits مفهومة.
 5. وصف PR النهائي مبني على remote state.
 6. في مهام Jules، إعداد Starting branch وطريقة النشر مطابقان للقسم `6.7`.
-7. أي استخدام لـ `@jules` يخص نفس المهمة ونفس PR والـ branch وفق القسم `11.1`.
+7. أي manual PR feedback correction باستخدام `@jules` يخص نفس المهمة ونفس PR والـ branch وفق القسم `11.1`؛ أما task-scoped automatic CI remediation فتتبع §11.4 ولا تحتاج comment يدويًا منفصلًا لكل cycle.
 8. عند خطأ base، فُصل بين خطأ metadata وخطأ ancestry، ولم تُحذف branch قبل التحقق من البديل.
 9. القرار النهائي معروض على مالك المشروع.
 
@@ -1148,6 +1242,18 @@ Fix verification != final acceptance review
 ---
 
 # 17. سجل تغييرات المعيار
+
+## `8.0.0`
+
+- تطبيق `DEC-016`: جعل وصف كل PR نشطة مستخدمة كحد تنفيذ/مراجعة/تكامل current-state resume surface قابلة للاستئناف، مع إبقاء GitHub timeline سجل التنفيذ التاريخي عالي الإشارة وتوثيق انتقال Work Units المتتابعة داخل نفس PR قبل بدء التالية.
+- إلزام Lead بإثبات exact accepted HEAD وتسجيل القبول النهائي تاريخيًا قبل merge-readiness، وتنفيذ post-merge metadata reconciliation وعدم الاعتماد على chat أو memory لاستعادة السياق.
+- ربط Child/Parent post-merge propagation بPhase Stack دون تغيير Owner-only GitHub Merge authority أو فرض PR لكل Work Unit أو نسخ قواعد workflow العامة داخل أوصاف PRs.
+- تطبيق `DEC-017`: منع published governed work branch غير افتراضية من الاستقرار بلا PR، مع إبقاء صلاحيات Push وفتح PR مستقلة على مستوى actor authority وإلزام Lead بإكمال PR handoff عندما لا يملك الناشر صلاحية فتحها.
+- تطبيق `DEC-018`: تثبيت أن موافقة Owner على تحريك العمل تمنح Lead orchestration authority فقط ولا تعيّنه implementation Executor إلا بإسناد دلالي صريح للدور، مع تفسير أي ambiguity لصالح delegation وفصل role assignment عن operation-specific authorization.
+## `7.1.0`
+
+- تطبيق `DEC-015`: اعتبار task-scoped automatic CI remediation الناتجة عن implementation أو publication للمهمة نفسها continuation لنفس Jules task lifecycle دون Owner authorization مستقلة لكل repair cycle، مع إبقاء نفس task scope وbranch وtopology وصلاحيات Git، وإلزام Lead Fresh Full Acceptance Review للحالة النهائية المتراكمة.
+- إبقاء manual Lead/PR feedback correction عبر `@jules`، وفصل scheduled/unrelated autonomous repository mutation كمسار مستقل Owner-controlled، مع تثبيت أن `CI green` لا يساوي Lead Acceptance وعدم تغيير Architecture أو Policy أو Ownership أو Public Contract أو Versioning أو Merge authority أو Publish PR topology.
 
 ## `7.0.1`
 
@@ -1270,11 +1376,13 @@ Fix verification != final acceptance review
 - **المنفذ المكلّف:** ينفذ النطاق المحدد ويعرض الأدلة، ولا يقرر السياسة أو المعمارية من نفسه؛ يحدد المشروع أو المرحلة أو المهمة أو مالك المشروع من ينفذ كل نوع من العمل.
 - **Jules عند تكليفه:** يبدأ من Repository وStarting branch محددتين قبل الـ Prompt، وينفذ على branch خاصة بمهمته الحالية (Jules task branch).
 - **نشر Jules:** Publish Branch للـ base غير `main`؛ Publish PR فقط عند استهداف `main`.
-- **تصحيح Jules:** عبر top-level PR conversation comment أو Reply عادي داخل نفس PR بمنشن صريح `@jules` لنفس المهمة ونفس PR والـ branch فقط.
+- **تصحيح Jules اليدوي:** عبر top-level PR conversation comment أو Reply عادي داخل نفس PR بمنشن صريح `@jules` لنفس المهمة ونفس PR والـ branch فقط؛ أما task-scoped automatic CI remediation فتتبع §11.4 ولا تحتاج comment منفصلًا لكل repair cycle.
+- **Task-scoped automatic CI remediation:** continuation لنفس المهمة عند صدورها عن implementation أو publication للمهمة نفسها، مع مراجعة Lead Fresh Full Acceptance Review للحالة النهائية المتراكمة؛ ولا تعني `CI green` القبول.
 - **Review Staging:** مسموح افتراضيًا للمسارات الصريحة، مع بقاء التغييرات local وstaged وuncommitted.
 - **Amend:** ممنوع؛ كل تصحيح Commit جديد.
 - **جولات التصحيح:** تستمر داخل نفس PR ما دامت واضحة وداخل النطاق؛ session وbranch متتابعة تستخدم فقط عند ظهور تكدس فعلي وبتصاريح Git صريحة.
 - **التحقق البعيد:** ancestry وmerge-base وPR base تُثبت من GitHub الفعلي، لا من تقرير محلي فقط.
+- **PR current state / history:** وصف الـPR هو current resume surface؛ GitHub timeline هي historical execution ledger؛ وبعد الدمج تُصالح Child/Parent state قبل العمل المتتابع أو المعتمد التالي وفق Phase Stack.
 - **تصحيح base:** إذا كانت ancestry صحيحة يمكن إصلاح أو استبدال الـ PR من نفس head branch؛ إذا كانت ancestry خاطئة تلزم branch جديدة من المصدر الصحيح.
 - **تعثر session:** تُعالج حالة Work Unit/Component غير المكتملة وحدود التكامل وفق Phase Stack؛ ويظل هذا المعيار مسؤولًا عن session/source-context behavior، ولا يختار parent أو fallback من نفسه.
 - **العربية:** لغة التواصل والتوجيه والتقارير ووصف الـ PR افتراضيًا.

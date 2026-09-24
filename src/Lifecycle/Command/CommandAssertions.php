@@ -6,8 +6,10 @@ namespace Maatify\Slug\Lifecycle\Command;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 
+/** Shared validation rules for lifecycle command inputs. */
 final class CommandAssertions
 {
+    /** Rejects an empty command field. */
     public static function nonEmpty(string $value, string $field): void
     {
         if ($value === '') {
@@ -15,6 +17,7 @@ final class CommandAssertions
         }
     }
 
+    /** Accepts a missing revision or rejects a negative optimistic-lock value. */
     public static function revision(?int $value, string $field = 'expectedRevision'): void
     {
         if ($value !== null && $value < 0) {
@@ -22,6 +25,7 @@ final class CommandAssertions
         }
     }
 
+    /** Rejects timestamps outside the package's supported UTC storage range. */
     public static function dateTime(?\DateTimeImmutable $value, string $field): void
     {
         if ($value !== null) {

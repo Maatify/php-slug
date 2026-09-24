@@ -13,8 +13,10 @@ use Maatify\Slug\Lifecycle\DTO\SlugMutationResultDTO;
 use Maatify\Slug\Lifecycle\Enum\OperationTypeEnum;
 use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
 
+/** Encodes typed lifecycle results into the versioned persisted snapshot shape. */
 final class ResultSnapshotEncoder
 {
+    /** Serializes a supported result with its operation-specific replay evidence. */
     public static function encode(
         SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO $result,
     ): string {
@@ -43,12 +45,11 @@ final class ResultSnapshotEncoder
         self::assertResultOperationKeys($result);
 
         try {
-            return json_encode(
-                [
-                    'result_type' => $type,
-                    'result_schema_version' => 1,
-                    'result' => $result,
-                ],
+            return json_encode([
+                'result_type' => $type,
+                'result_schema_version' => 1,
+                'result' => $result,
+            ],
                 JSON_UNESCAPED_UNICODE
                 | JSON_UNESCAPED_SLASHES
                 | JSON_PRESERVE_ZERO_FRACTION
@@ -79,6 +80,7 @@ final class ResultSnapshotEncoder
         ];
     }
 
+    /** Ensures encoded result history is consistent with its operation key. */
     private static function assertResultOperationKeys(
         SlugMutationResultDTO|ScopeTransitionResultDTO|AtomicTransferResultDTO|AdoptionResultDTO $result,
     ): void {

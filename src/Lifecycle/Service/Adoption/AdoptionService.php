@@ -46,11 +46,12 @@ use Maatify\Slug\Lifecycle\Service\Reserved\ReservationEvaluator;
 use Maatify\Slug\Lifecycle\Factory\OperationKeyFactory;
 use Maatify\Slug\Lifecycle\Mapper\OperationFingerprintMapper;
 
-/** Persisted current, historical, and alias adoption for WU-06. */
+/** Persists adoption of pre-existing current, historical, and alias claims. */
 final readonly class AdoptionService
 {
     private ReservationEvaluator $reservations;
 
+    /** Wires registry, history, operation, transaction, and host-policy boundaries. */
     public function __construct(
         private SlugProfileRegistryInterface $profiles,
         private RegistryRepositoryInterface $registry,
@@ -66,6 +67,13 @@ final readonly class AdoptionService
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
+    /**
+     * Adopts an external claim as current. The Binding must be absent with a
+     * null expected revision, or RELEASED with a matching current revision;
+     * either path establishes current ownership. The optional original
+     * occurrence time is normalized into adoption history, and the mutation is
+     * transactional and idempotently replayable.
+     */
     public function adoptCurrent(AdoptCurrentCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -81,6 +89,13 @@ final readonly class AdoptionService
         );
     }
 
+    /**
+     * Adopts an external claim as historical without promoting it to current.
+     * An existing ACTIVE or INACTIVE current-bearing Binding and its matching
+     * current revision are required; the current pointer remains unchanged.
+     * The optional original occurrence time is normalized, and the mutation is
+     * transactional and idempotently replayable.
+     */
     public function adoptHistorical(AdoptHistoricalCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -96,6 +111,13 @@ final readonly class AdoptionService
         );
     }
 
+    /**
+     * Adopts an external claim as an alias without promoting it to current.
+     * An existing ACTIVE or INACTIVE current-bearing Binding and its matching
+     * current revision are required; the optional original occurrence time is
+     * normalized, and the mutation is transactional and idempotently
+     * replayable.
+     */
     public function adoptAlias(AdoptAliasCommand $command): AdoptionResultDTO
     {
         return $this->adopt(
@@ -111,6 +133,7 @@ final readonly class AdoptionService
         );
     }
 
+    /** Executes the shared adoption transaction for the requested target role. */
     private function adopt(
         OperationTypeEnum $operation,
         HistoryEventTypeEnum $eventType,
@@ -225,6 +248,7 @@ final readonly class AdoptionService
         });
     }
 
+    /** Enforces role-specific binding state and revision rules before adoption. */
     private function assertState(?RegistryBindingRecord $record, ?BindingDTO $before, ?int $expectedRevision, bool $currentAdoption): void
     {
         if ($currentAdoption) {
@@ -260,6 +284,7 @@ final readonly class AdoptionService
         }
     }
 
+    /** Loads the binding required to complete and verify an adoption mutation. */
     private function requiredBinding(BindingIdentityDTO $identity, bool $forUpdate): BindingDTO
     {
         $binding = $this->registry->binding($identity, false);
@@ -282,6 +307,7 @@ final readonly class AdoptionService
         return null;
     }
 
+    /** Reserves an adoption operation when the caller supplied an idempotency key. */
     private function reserve(OperationTypeEnum $operation, string $fingerprint, int $bindingId, AuditContextDTO $audit): ?OperationReservation
     {
         if ($audit->idempotencyKey === null) {
@@ -300,6 +326,7 @@ final readonly class AdoptionService
         );
     }
 
+    /** Builds the canonical request fingerprint used by adoption idempotency. */
     private function fingerprint(OperationTypeEnum $operation, BindingIdentityDTO $identity, Slug $slug, ?int $expectedRevision, ?DateTimeImmutable $originalOccurredAt): string
     {
         $payload = [

@@ -12,8 +12,15 @@ require_command() {
     fi
 }
 
+composer_policy() {
+    require_command php
+    php tools/ci/verify-composer-policy.php
+    php tools/ci/test-composer-policy.php
+}
+
 latest_dependencies() {
     require_command composer
+    composer_policy
     composer validate --strict
     composer update --no-interaction --prefer-dist --no-progress
     composer dump-autoload --optimize --strict-psr
@@ -22,6 +29,7 @@ latest_dependencies() {
 
 lowest_dependencies() {
     require_command composer
+    composer_policy
     composer validate --strict
     composer update --prefer-lowest --prefer-stable --no-interaction --prefer-dist --no-progress
     composer dump-autoload --optimize --strict-psr
@@ -82,10 +90,13 @@ style() {
         exit 1
     fi
     vendor/bin/php-cs-fixer fix --dry-run --diff --allow-risky=yes --sequential
+    php tools/ci/test-per-cs31.php
+    php tools/ci/verify-per-cs31.php
 }
 
 audit() {
     require_command composer
+    composer_policy
     composer audit --no-interaction --abandoned=fail
 }
 
@@ -156,6 +167,7 @@ test() {
 consumer() {
     require_command php
     require_command composer
+    composer_policy
     bash tools/ci/run-integration.sh consumer
 }
 
@@ -179,7 +191,7 @@ Gates:
   test-system      System suite through the canonical Compose lifecycle
   syntax           PHP syntax for src/, tests/, tools/, examples/, and PHP tool configuration
   phpstan          PHPStan max using phpstan.neon
-  style            PHP CS Fixer dry-run
+  style            Composite PER-CS 3.1 verification (PHP CS Fixer + supplemental verifier)
   audit            Composer security and abandoned-package audit
   schema           Verify the package-owned schema path exists
   workflow-lint    actionlint for every .github/workflows/*.yml|*.yaml

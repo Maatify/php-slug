@@ -9,8 +9,10 @@ use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
 use Normalizer;
 use Transliterator;
 
+/** Fails closed unless the ICU and Unicode tuple required by built-in profiles is available. */
 final class RuntimeCompatibilityGuard
 {
+    /** Validates the actual ICU runtime and its required normalization capabilities. */
     public static function assertSupported(): void
     {
         if (! defined('INTL_ICU_VERSION')) {
@@ -31,6 +33,7 @@ final class RuntimeCompatibilityGuard
         );
     }
 
+    /** Validates the supported ICU/Unicode tuple and required ext-intl classes. */
     public static function assertTupleSupported(
         int $icuMajor,
         int $unicodeMajor,
@@ -51,6 +54,7 @@ final class RuntimeCompatibilityGuard
 
     private function __construct() {}
 
+    /** Converts a version component into an integer, returning zero for malformed input. */
     private static function versionPart(mixed $value): int
     {
         if (is_int($value)) {

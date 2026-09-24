@@ -9,11 +9,15 @@ use Maatify\Slug\Lifecycle\Exception\SlugTransactionParticipationException;
 use Maatify\Slug\Lifecycle\Repository\Transaction\TransactionCoordinatorInterface;
 use Throwable;
 
+/** PDO transaction coordinator supporting owned transactions and savepoints. */
 final readonly class PdoTransactionCoordinator implements TransactionCoordinatorInterface
 {
+    /** Stores the caller-owned PDO connection. */
     public function __construct(private PDO $pdo) {}
 
     /**
+     * Runs the callback in a transaction or savepoint and restores the prior boundary on failure.
+     *
      * @template TResult
      *
      * @param callable(): TResult $callback
@@ -127,6 +131,7 @@ final readonly class PdoTransactionCoordinator implements TransactionCoordinator
         return $result;
     }
 
+    /** Returns a safe unique savepoint name for the current transaction. */
     public function newSavepointName(): string
     {
         try {
@@ -142,6 +147,7 @@ final readonly class PdoTransactionCoordinator implements TransactionCoordinator
         return 'maa_slug_sp_' . $suffix;
     }
 
+    /** Rolls back a nested transaction scope to its savepoint. */
     private function rollbackToSavepoint(string $savepoint): void
     {
         $this->execOrThrow(
@@ -154,6 +160,7 @@ final readonly class PdoTransactionCoordinator implements TransactionCoordinator
         );
     }
 
+    /** Rolls back a transaction started by this coordinator or reports cleanup failure. */
     private function rollbackOwnedOrThrow(): void
     {
         if (! $this->pdo->inTransaction()) {
@@ -171,6 +178,7 @@ final readonly class PdoTransactionCoordinator implements TransactionCoordinator
         }
     }
 
+    /** Rolls back an owned transaction while preserving the original failure. */
     private function rollbackOwnedPreserving(Throwable $original): void
     {
         try {
@@ -184,6 +192,7 @@ final readonly class PdoTransactionCoordinator implements TransactionCoordinator
         }
     }
 
+    /** Executes transaction-control SQL and maps failure to the package exception. */
     private function execOrThrow(string $sql, string $message): void
     {
         try {

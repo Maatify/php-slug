@@ -50,18 +50,23 @@ $pdo = new PDO(
 $pdo->exec('SET NAMES utf8mb4 COLLATE utf8mb4_bin');
 $profiles = new SlugProfileRegistry();
 $profiles->register(new TestSlugProfile());
+/** Fixed UTC clock makes the transfer race history deterministic. */
 $clock = new class implements ClockInterface {
+    /** Returns the stable timestamp used by the transfer service. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC for persisted transfer history. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');
     }
 };
+/** The race fixture intentionally leaves candidates unreserved. */
 $policy = new class implements ReservedSlugPolicyInterface {
+    /** Never reserves a slug; the database arbitrates ownership races. */
     public function isReserved(SlugScope $scope, Slug $slug): bool
     {
         return false;

@@ -6,9 +6,10 @@ namespace Maatify\Slug\Lifecycle\Repository\Registry;
 
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 
-/** @internal */
+/** @internal Raw binding row used by lifecycle coordination before DTO hydration. */
 final readonly class RegistryBindingRecord
 {
+    /** Preserves transaction-local creation state needed by lifecycle decisions. */
     public function __construct(
         public int $id,
         public int $scopeId,

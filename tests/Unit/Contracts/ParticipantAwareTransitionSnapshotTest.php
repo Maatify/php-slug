@@ -259,33 +259,40 @@ final class ParticipantAwareTransitionSnapshotTest extends TestCase
     }
 }
 
+/** Profile double whose prefix makes participant-specific snapshot evidence distinguishable. */
 final class DifferentialFixtureProfile implements SlugProfileInterface
 {
+    /** @param SlugProfileKey $profileKey Participant-specific registry key. @param string $prefix Canonical slug prefix. */
     public function __construct(
         private SlugProfileKey $profileKey,
         private string $prefix,
     ) {}
 
+    /** Returns the participant-specific profile key. */
     public function key(): SlugProfileKey
     {
         return $this->profileKey;
     }
 
+    /** Preserves source text as a generated fixture slug for snapshot encoding. */
     public function generateFromSource(string $source): GeneratedSlugDTO
     {
         return new GeneratedSlugDTO($this->profileKey, $source, Slug::fromProfile($this, $source));
     }
 
+    /** Preserves the candidate as a profile-owned fixture claim. */
     public function canonicalizeClaim(string $candidate): CanonicalSlugDTO
     {
         return new CanonicalSlugDTO($this->profileKey, $candidate, Slug::fromProfile($this, $candidate));
     }
 
+    /** Treats the participant segment as canonical for snapshot decoding. */
     public function canonicalizeLookup(string $decodedSegment): LookupCanonicalizationDTO
     {
         return new LookupCanonicalizationDTO($this->profileKey, $decodedSegment, InputFormCanonicalityEnum::CANONICAL, Slug::fromProfile($this, $decodedSegment));
     }
 
+    /** Requires the participant prefix and lowercase suffix used by the fixture. */
     public function assertCanonicalSlug(string $candidate): void
     {
         if (preg_match('/\\A' . preg_quote($this->prefix, '/') . '-[a-z]+\\z/', $candidate) !== 1) {
@@ -294,11 +301,13 @@ final class DifferentialFixtureProfile implements SlugProfileInterface
     }
 }
 
+/** In-memory registry that keeps source and target participant profiles distinct. */
 final class DifferentialFixtureRegistry implements SlugProfileRegistryInterface
 {
     /** @var array<string, SlugProfileInterface> */
     private array $profiles = [];
 
+    /** Registers every supplied participant profile by its immutable key. */
     public function __construct(SlugProfileInterface ...$profiles)
     {
         foreach ($profiles as $profile) {
@@ -306,11 +315,13 @@ final class DifferentialFixtureRegistry implements SlugProfileRegistryInterface
         }
     }
 
+    /** Adds or replaces a participant profile for snapshot decoding. */
     public function register(SlugProfileInterface $profile): void
     {
         $this->profiles[$profile->key()->value] = $profile;
     }
 
+    /** Returns a participant profile or fails closed for unknown snapshot evidence. */
     public function get(SlugProfileKey $key): SlugProfileInterface
     {
         if (! isset($this->profiles[$key->value])) {
@@ -319,6 +330,7 @@ final class DifferentialFixtureRegistry implements SlugProfileRegistryInterface
         return $this->profiles[$key->value];
     }
 
+    /** Reports whether participant evidence names a registered profile. */
     public function has(SlugProfileKey $key): bool
     {
         return isset($this->profiles[$key->value]);

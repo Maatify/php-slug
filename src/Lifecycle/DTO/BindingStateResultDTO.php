@@ -8,6 +8,7 @@ use JsonSerializable;
 use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 
+/** Immutable mutation result containing before/after state and ordered history events. */
 final readonly class BindingStateResultDTO implements JsonSerializable
 {
     /** @param list<HistoryEventDTO> $historyEvents */

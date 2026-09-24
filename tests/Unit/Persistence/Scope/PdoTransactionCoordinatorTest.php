@@ -74,44 +74,57 @@ final class PdoTransactionCoordinatorTest extends TestCase
     }
 }
 
+/** PDO double whose first transaction boundary cannot be established. */
 final class BeginFailingPdo extends PDO
 {
+    /** Avoids opening a real connection because transaction behavior is injected. */
     public function __construct() {}
 
+    /** Models a connection outside a transaction before begin failure. */
     public function inTransaction(): bool
     {
         return false;
     }
 
+    /** Rejects transaction start so the callback must not run. */
     public function beginTransaction(): bool
     {
         return false;
     }
 }
 
+/** PDO double that accepts begin but rejects commit and records rollback cleanup. */
 final class CommitFailingPdo extends PDO
 {
+    /** Tracks the synthetic transaction state used by the coordinator test. */
     public bool $active = false;
+
+    /** Proves the coordinator attempted rollback after commit failure. */
     public bool $rolledBack = false;
 
+    /** Avoids opening a real connection because transaction behavior is injected. */
     public function __construct() {}
 
+    /** Reports the synthetic transaction state. */
     public function inTransaction(): bool
     {
         return $this->active;
     }
 
+    /** Starts the synthetic transaction accepted by the coordinator. */
     public function beginTransaction(): bool
     {
         $this->active = true;
         return true;
     }
 
+    /** Rejects commit to exercise coordinator error translation and cleanup. */
     public function commit(): bool
     {
         return false;
     }
 
+    /** Clears the synthetic transaction and records that rollback was attempted. */
     public function rollBack(): bool
     {
         $this->active = false;
@@ -120,15 +133,19 @@ final class CommitFailingPdo extends PDO
     }
 }
 
+/** PDO double that reports every savepoint statement as failed. */
 final class SavepointFailingPdo extends PDO
 {
+    /** Avoids opening a real connection because savepoint behavior is injected. */
     public function __construct() {}
 
+    /** Reports an outer transaction so the coordinator chooses savepoint mode. */
     public function inTransaction(): bool
     {
         return true;
     }
 
+    /** Rejects savepoint creation before the callback can mutate state. */
     public function exec(string $statement): int|false
     {
         return false;

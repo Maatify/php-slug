@@ -35,6 +35,7 @@ final readonly class RegistryClaimCoordinator
 {
     private ReservationEvaluator $reservations;
 
+    /** Coordinates exact and generated claim insertion under the caller's transaction. */
     public function __construct(
         private RegistryRepositoryInterface $registry,
         private SlugProfileRegistryInterface $profiles,
@@ -46,6 +47,7 @@ final readonly class RegistryClaimCoordinator
         $this->reservations = new ReservationEvaluator($reservedPolicy);
     }
 
+    /** Claims an exact slug and returns the ownership outcome for lifecycle classification. */
     public function claimExact(
         BindingIdentityDTO $binding,
         string $slugCandidate,
@@ -65,6 +67,7 @@ final readonly class RegistryClaimCoordinator
         });
     }
 
+    /** Tries candidates in order until one is accepted or allocation is exhausted. */
     public function allocateGenerated(
         BindingIdentityDTO $binding,
         string $sourceText,
@@ -84,6 +87,7 @@ final readonly class RegistryClaimCoordinator
         });
     }
 
+    /** Applies the exact claim state machine after transaction and schema checks. */
     private function claimExactInsideTransaction(
         BindingIdentityDTO $identity,
         \Maatify\Slug\Lifecycle\DTO\ScopeDTO $scope,
@@ -148,6 +152,7 @@ final readonly class RegistryClaimCoordinator
         throw new SlugAllocationExhaustedException('All 1000 generated slug candidates are unavailable.');
     }
 
+    /** Inserts a claim for a new assignment while preserving existing-role rules. */
     private function insertForAssignment(int $scopeId, int $bindingId, Slug $slug): RegistryClaimRecord
     {
         $claim = $this->registry->insertClaim($scopeId, $bindingId, $slug, RegistryRoleEnum::CURRENT_CANONICAL);
@@ -164,6 +169,7 @@ final readonly class RegistryClaimCoordinator
         return $claim;
     }
 
+    /** Rejects assignment against a binding state that cannot accept a first claim. */
     private function assertAssignmentState(RegistryBindingRecord $binding, ?int $expectedRevision): void
     {
         if ($binding->createdInCurrentTransaction) {
@@ -180,6 +186,7 @@ final readonly class RegistryClaimCoordinator
         }
     }
 
+    /** Classifies an exact assignment collision against an existing claim. */
     private function classifyExistingForAssignment(RegistryClaimRecord $claim, int $bindingId): never
     {
         if ($claim->bindingId === $bindingId) {
@@ -192,6 +199,7 @@ final readonly class RegistryClaimCoordinator
         throw new SlugAlreadyClaimedException('The requested slug is owned by another Binding.');
     }
 
+    /** Classifies a generated assignment collision and permits candidate iteration. */
     private function classifyExistingForGeneratedAssignment(RegistryClaimRecord $claim, int $bindingId): void
     {
         if ($claim->bindingId === $bindingId) {
@@ -203,6 +211,7 @@ final readonly class RegistryClaimCoordinator
         }
     }
 
+    /** Re-reads the binding and builds the public ownership-claim result. */
     private function result(BindingIdentityDTO $identity, RegistryClaimRecord $claim, int $attempts): OwnershipClaimResultDTO
     {
         $binding = $this->registry->binding($identity, true);

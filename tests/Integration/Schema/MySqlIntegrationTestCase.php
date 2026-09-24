@@ -15,10 +15,19 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
 
+/**
+ * Shared real-MySQL integration harness for package schema tests.
+ *
+ * The setup lifecycle validates the integration environment, enforces the
+ * `_test` database safety boundary, and recreates and verifies the package
+ * schema before each test; teardown removes the package schema afterward.
+ */
 abstract class MySqlIntegrationTestCase extends TestCase
 {
+    /** The real-MySQL connection used by the current integration test. */
     protected PDO $pdo;
 
+    /** Fails clearly when MySQL support or the configured isolated test database is unavailable. */
     protected function setUp(): void
     {
         parent::setUp();
@@ -34,6 +43,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         }
     }
 
+    /** Drops the package schema after the test, then lets PHPUnit finish teardown. */
     protected function tearDown(): void
     {
         if (isset($this->pdo)) {
@@ -42,11 +52,13 @@ abstract class MySqlIntegrationTestCase extends TestCase
         parent::tearDown();
     }
 
+    /** Supplies the fixed UTC clock used by assertions that inspect persisted timestamps. */
     protected function clock(): ClockInterface
     {
         return new FrozenClock();
     }
 
+    /** Creates the native-prepared, binary-collation PDO connection used by this integration test. */
     protected function newTestConnection(): PDO
     {
         $configuration = $this->testConfiguration();
@@ -60,8 +72,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $pdo = new PDO(
             $dsn,
             $configuration['SLUG_TEST_DB_USER'],
-            $configuration['SLUG_TEST_DB_PASSWORD'],
-            [
+            $configuration['SLUG_TEST_DB_PASSWORD'], [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_EMULATE_PREPARES => false,
             ],
@@ -71,6 +82,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         return $pdo;
     }
 
+    /** Recreates, verifies, and capability-checks the package schema in a clean test database. */
     protected function reinstallPackageSchema(): void
     {
         $this->dropSchema();
@@ -80,7 +92,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         $capabilities->assertInstalledSchemaSupported();
     }
 
-    /** @return array<string, string> */
+    /** @return array{SLUG_TEST_DB_HOST: string, SLUG_TEST_DB_PORT: string, SLUG_TEST_DB_NAME: string, SLUG_TEST_DB_USER: string, SLUG_TEST_DB_PASSWORD: string} */
     private function testConfiguration(): array
     {
         $configuration = [];
@@ -108,6 +120,7 @@ abstract class MySqlIntegrationTestCase extends TestCase
         return $configuration;
     }
 
+    /** Removes package tables in reverse dependency order; callers must use a `_test` database. */
     private function dropSchema(): void
     {
         foreach ([
@@ -123,13 +136,16 @@ abstract class MySqlIntegrationTestCase extends TestCase
     }
 }
 
+/** Fixed UTC clock for deterministic integration history timestamps. */
 final class FrozenClock implements ClockInterface
 {
+    /** Returns the stable microsecond timestamp used by integration assertions. */
     public function now(): DateTimeImmutable
     {
         return new DateTimeImmutable('2026-01-01T00:00:00.123456Z');
     }
 
+    /** Returns UTC, the timezone required by the persistence contract. */
     public function getTimezone(): DateTimeZone
     {
         return new DateTimeZone('UTC');

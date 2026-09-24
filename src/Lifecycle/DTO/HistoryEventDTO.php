@@ -13,8 +13,10 @@ use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
+/** Immutable append-only lifecycle event snapshot with participant and audit context. */
 final readonly class HistoryEventDTO implements JsonSerializable
 {
+    /** Validates identifiers, timestamps, role snapshots, and event-specific invariants. */
     public function __construct(
         public int $id,
         public int $bindingId,
@@ -82,6 +84,7 @@ final readonly class HistoryEventDTO implements JsonSerializable
         }
     }
 
+    /** Rejects negative identifiers and sequence values used by persisted history. */
     private static function nonNegative(int $value, string $field): void
     {
         if ($value < 0) {
@@ -89,6 +92,7 @@ final readonly class HistoryEventDTO implements JsonSerializable
         }
     }
 
+    /** Validates the optional lowercase hexadecimal idempotency key format. */
     private static function operationKey(?string $value): void
     {
         if ($value !== null && preg_match('/\A[a-f0-9]{32}\z/', $value) !== 1) {
@@ -96,6 +100,7 @@ final readonly class HistoryEventDTO implements JsonSerializable
         }
     }
 
+    /** Validates bounded audit metadata without permitting controls or path separators. */
     private static function auditString(string $value, int $maxCodePoints, string $field): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {
@@ -112,6 +117,7 @@ final readonly class HistoryEventDTO implements JsonSerializable
         }
     }
 
+    /** Validates free-form history reasons while retaining UTF-8 and control limits. */
     private static function reason(string $value, int $maxCodePoints = 500, string $field = 'reason'): void
     {
         if ($value === '' || preg_match('//u', $value) !== 1) {

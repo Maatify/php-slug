@@ -11,9 +11,14 @@ use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
 use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 
+/** Immutable result of a scope transition with participant state and ordered history. */
 final readonly class ScopeTransitionResultDTO implements JsonSerializable
 {
-    /** @param list<HistoryEventDTO> $historyEvents */
+    /**
+     * Validates transition metadata, revisions, and ordered participant history.
+     *
+     * @param list<HistoryEventDTO> $historyEvents
+     */
     public function __construct(
         public OperationTypeEnum $operationType,
         public ?string $operationKey,
@@ -78,6 +83,7 @@ final readonly class ScopeTransitionResultDTO implements JsonSerializable
         }
     }
 
+    /** Returns the same transition result with replay metadata applied. */
     public function withReplayed(bool $replayed): self
     {
         return new self(

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Lifecycle\Consumer\Enum;
 
+/** Advisory availability outcomes for a canonical candidate. */
 enum AvailabilityStatusEnum: string
 {
     case AVAILABLE = 'AVAILABLE';

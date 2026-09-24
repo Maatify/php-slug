@@ -12,10 +12,16 @@ use Maatify\Slug\Canonicalization\Contract\SlugProfileInterface;
  * Internal bounded candidate preparation. WU-02 remains the owner of the
  * suffix/truncation algorithm; this class only applies it to the selected
  * Profile and returns validated Slug values in order.
+ *
+ * Applies the package's bounded suffix algorithm to profile-generated slugs.
  */
 final class GeneratedCandidateSequence
 {
-    /** @return list<Slug> */
+    /**
+     * Returns validated candidates in allocation order, beginning with the generated base.
+     *
+     * @return list<Slug>
+     */
     public function fromSource(SlugProfileInterface $profile, string $source): array
     {
         $base = $profile->generateFromSource($source)->slug;

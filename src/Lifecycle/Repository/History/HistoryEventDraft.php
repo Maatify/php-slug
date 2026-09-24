@@ -12,9 +12,10 @@ use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
 
-/** @internal Immutable input for one append-only History row. */
+/** @internal Immutable input for one append-only history row. */
 final readonly class HistoryEventDraft
 {
+    /** Carries the event snapshot and audit metadata into the history repository. */
     public function __construct(
         public int $bindingId,
         public int $sequenceNo,
