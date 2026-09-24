@@ -1,0 +1,242 @@
+name: PHP package verification
+
+on:
+  pull_request:
+    branches:
+      - main
+      - phase-draft/rc-1
+  push:
+    branches:
+      - main
+      - phase-draft/rc-1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: php-slug-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  latest-quality:
+    name: Latest compatible quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP 8.5
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.5'
+          extensions: intl, mbstring, pdo, pdo_mysql
+          coverage: none
+          tools: composer:2.10
+      - name: Run latest quality gate
+        env:
+          COMPOSER_NO_AUDIT: '0'
+        run: bash tools/ci/run-gate.sh latest-quality
+
+  latest-quality-8-4:
+    name: Latest quality on PHP 8.4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, pdo, pdo_mysql
+          coverage: none
+          tools: composer:2.10
+      - name: Run latest quality gate
+        env:
+          COMPOSER_NO_AUDIT: '0'
+        run: bash tools/ci/run-gate.sh latest-quality
+
+  full-tests:
+    name: Full PHPUnit on PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '8.4'
+          - '8.5'
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, mbstring, pdo, pdo_mysql, pdo_sqlite
+          coverage: none
+          tools: composer:2.10
+      - name: Run full test gate
+        env:
+          COMPOSER_NO_AUDIT: '0'
+        run: bash tools/ci/run-gate.sh latest-tests
+
+  lowest-tests:
+    name: Lowest dependencies on PHP 8.4
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP 8.4
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.4'
+          extensions: intl, mbstring, pdo, pdo_mysql, pdo_sqlite
+          coverage: none
+          tools: composer:2.10
+      - name: Run lowest dependency gate
+        env:
+          COMPOSER_NO_AUDIT: '0'
+        run: bash tools/ci/run-gate.sh lowest-tests
+
+  consumer-harness:
+    name: Consumer Harness on PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '8.4'
+          - '8.5'
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, mbstring, pdo, pdo_mysql
+          coverage: none
+          tools: composer:2.10
+      - name: Run clean consumer Harness twice
+        env:
+          COMPOSER_NO_AUDIT: '0'
+        run: bash tools/ci/run-gate.sh consumer
+
+  examples-smoke:
+    name: Examples smoke on PHP ${{ matrix.php }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        php:
+          - '8.4'
+          - '8.5'
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: intl, mbstring, pdo, pdo_mysql
+          coverage: none
+          tools: composer:2.10
+      - name: Run stateless and persisted example smoke gate
+        env:
+          COMPOSER_NO_AUDIT: '0'
+        run: bash tools/ci/run-gate.sh examples-smoke
+
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Run pinned actionlint validator
+        run: bash tools/ci/run-gate.sh workflow-lint
+
+  whitespace:
+    name: Committed whitespace verification
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      CI_COMPARISON_RANGE: ${{ github.event_name == 'pull_request' && format('{0}...{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || format('{0}...{1}', github.event.before, github.sha) }}
+    steps:
+      - name: Checkout current commit and comparison history
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Check the committed comparison range
+        run: bash tools/ci/run-gate.sh whitespace "$CI_COMPARISON_RANGE"
+
+  stable-gate:
+    name: CI Gate (stable)
+    if: ${{ always() }}
+    needs:
+      - latest-quality
+      - latest-quality-8-4
+      - full-tests
+      - lowest-tests
+      - consumer-harness
+      - examples-smoke
+      - workflow-lint
+      - whitespace
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Fail closed on every required upstream result
+        env:
+          LATEST_QUALITY: ${{ needs.latest-quality.result }}
+          LATEST_QUALITY_8_4: ${{ needs.latest-quality-8-4.result }}
+          FULL_TESTS: ${{ needs.full-tests.result }}
+          LOWEST_TESTS: ${{ needs.lowest-tests.result }}
+          CONSUMER_HARNESS: ${{ needs.consumer-harness.result }}
+          EXAMPLES_SMOKE: ${{ needs.examples-smoke.result }}
+          WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
+          WHITESPACE: ${{ needs.whitespace.result }}
+        run: |
+          set -euo pipefail
+          for result in \
+            "latest-quality:$LATEST_QUALITY" \
+            "latest-quality-8-4:$LATEST_QUALITY_8_4" \
+            "full-tests:$FULL_TESTS" \
+            "lowest-tests:$LOWEST_TESTS" \
+            "consumer-harness:$CONSUMER_HARNESS" \
+            "examples-smoke:$EXAMPLES_SMOKE" \
+            "workflow-lint:$WORKFLOW_LINT" \
+            "whitespace:$WHITESPACE"; do
+            job="${result%%:*}"
+            status="${result##*:}"
+            if [[ "$status" != success ]]; then
+              echo "Required CI job $job ended with unexpected status: $status" >&2
+              exit 1
+            fi
+          done
+          echo 'All required upstream jobs passed.'

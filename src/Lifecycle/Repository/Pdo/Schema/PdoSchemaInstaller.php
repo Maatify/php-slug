@@ -1,0 +1,64 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maatify\Slug\Lifecycle\Repository\Pdo\Schema;
+
+use PDO;
+use Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException;
+use Maatify\Slug\Lifecycle\Repository\Pdo\Support\PdoCapabilityGuard;
+use Throwable;
+
+/** Installs the package-owned MySQL schema through an injected PDO connection. */
+final readonly class PdoSchemaInstaller
+{
+    /** Stores the connection used for schema installation. */
+    public function __construct(
+        private PDO $pdo,
+        private ?PdoCapabilityGuard $capabilities = null,
+    ) {}
+
+    /** Loads and executes the package's canonical schema file. */
+    public function installPackageSchema(): void
+    {
+        ($this->capabilities ?? new PdoCapabilityGuard($this->pdo))->assertSupported();
+        $path = dirname(__DIR__, 5) . '/schema/mysql/001_slug_rc1.sql';
+        $sql = file_get_contents($path);
+        if ($sql === false) {
+            throw new SlugPersistenceInvariantException('The package schema file cannot be read.');
+        }
+
+        $this->installSql($sql);
+    }
+
+    /** Executes caller-supplied schema SQL without opening a separate connection. */
+    public function installSql(string $sql): void
+    {
+        $statements = preg_split('/;\s*(?:\r?\n|\z)/', $sql);
+        if ($statements === false) {
+            throw new SlugPersistenceInvariantException('The package schema could not be split into statements.');
+        }
+
+        $executed = 0;
+        foreach ($statements as $statement) {
+            $statement = trim($statement);
+            if ($statement === '') {
+                continue;
+            }
+            try {
+                if ($this->pdo->exec($statement) === false) {
+                    throw new SlugPersistenceInvariantException('A package schema statement returned false.');
+                }
+                $executed++;
+            } catch (SlugPersistenceInvariantException $exception) {
+                throw $exception;
+            } catch (Throwable $throwable) {
+                throw new SlugPersistenceInvariantException('A package schema statement failed.', 0, $throwable);
+            }
+        }
+
+        if ($executed !== 6) {
+            throw new SlugPersistenceInvariantException(sprintf('Expected six package schema statements; executed %d.', $executed));
+        }
+    }
+}

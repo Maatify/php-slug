@@ -1,0 +1,17 @@
+# Maatify Slug
+
+> An independent PHP slug lifecycle engine with clear boundaries between the slug domain, the Host, URLs, HTTP, and SEO.
+
+Use this file only as a consumer navigation layer for `maatify/php-slug`. The supported package contract is defined by the canonical consumer documentation linked below. Repository internals, tests, fixtures, `AGENTS.md`, and internal Engineering Standards are not Supported Consumer Contract merely because they are visible in the repository. If the canonical consumer documentation does not support a claim, do not infer that contract from implementation internals.
+
+## Primary Documentation
+
+- [Package Reference](SLUG_PACKAGE_REFERENCE.md) — Canonical stable public/runtime/behavioral package contract and complete Public Runtime API inventory.
+- [Usage Guide](docs/guides/USAGE_GUIDE.md) — Consumer integration workflows, requirements, and package boundaries.
+- [Examples](examples/) — Maintained examples using the documented Public API.
+- [README](README.md) — Package overview, publication state, requirements, Quick Usage, and Public Runtime API overview.
+
+## Release and Support
+
+- [Changelog](CHANGELOG.md) — Release history and notable package changes.
+- [Security Policy](SECURITY.md) — Current support state and security reporting policy.

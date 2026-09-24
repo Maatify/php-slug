@@ -1,0 +1,28 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Maatify\Slug\Lifecycle\Enum;
+
+/** Idempotency operation identifiers persisted for lifecycle mutations. */
+enum OperationTypeEnum: string
+{
+    case ASSIGN_EXACT = 'ASSIGN_EXACT';
+    case ASSIGN_GENERATED = 'ASSIGN_GENERATED';
+    case CHANGE_EXACT = 'CHANGE_EXACT';
+    case CHANGE_GENERATED = 'CHANGE_GENERATED';
+    case RESTORE_HISTORICAL = 'RESTORE_HISTORICAL';
+    case DEACTIVATE = 'DEACTIVATE';
+    case REACTIVATE = 'REACTIVATE';
+    case RELEASE_CLAIM = 'RELEASE_CLAIM';
+    case RELEASE_ALL = 'RELEASE_ALL';
+    case TRANSITION_SCOPE = 'TRANSITION_SCOPE';
+    case ATOMIC_TRANSFER = 'ATOMIC_TRANSFER';
+    case ADD_ALIAS = 'ADD_ALIAS';
+    case RETIRE_ALIAS = 'RETIRE_ALIAS';
+    case REACTIVATE_ALIAS = 'REACTIVATE_ALIAS';
+    case PROMOTE_ALIAS = 'PROMOTE_ALIAS';
+    case ADOPT_CURRENT = 'ADOPT_CURRENT';
+    case ADOPT_HISTORICAL = 'ADOPT_HISTORICAL';
+    case ADOPT_ALIAS = 'ADOPT_ALIAS';
+}
