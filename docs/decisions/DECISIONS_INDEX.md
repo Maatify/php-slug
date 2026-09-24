@@ -10,4 +10,6 @@ The active built-in profile runtime compatibility decision is registered below.
 
 ## Registered Decisions
 
-- [DEC-001 — Built-in Profile Runtime Compatibility](DEC-001_BUILTIN_PROFILE_RUNTIME_COMPATIBILITY.md) — `ACTIVE`; capability and observable-behavior admission for `ascii-v1` and `unicode-v1`.
+| Decision ID | Title | Status | Scope | Concern | Decision Record | Canonical Contract / Current Owner |
+|---|---|---|---|---|---|---|
+| `DEC-001` | Built-in Profile Runtime Compatibility | `ACTIVE` | `/` | Built-in slug profile runtime compatibility | [DEC-001_BUILTIN_PROFILE_RUNTIME_COMPATIBILITY.md](DEC-001_BUILTIN_PROFILE_RUNTIME_COMPATIBILITY.md) | `SLUG_PACKAGE_REFERENCE.md` §§4–5 |
