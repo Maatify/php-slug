@@ -36,6 +36,8 @@
 | Extensions | ext-intl, ext-mbstring, ext-pdo, ext-pdo_mysql |
 | الحزم المباشرة | maatify/exceptions ^1.0, maatify/shared-common ^1.0, maatify/persistence ^1.1 |
 
+تحتاج الـProfiles المدمجة إلى capabilities الخاصة بالـnormalization والـtransliteration التي يوفرها `ext-intl`، وتتحقق الحزمة منها أثناء التشغيل. لا يحتاج المستهلك إلى إصدار محدد من ICU أو Unicode.
+
 ## التثبيت
 
 عندما تصبح `v1.0.0-rc.1` قابلة للحل خارجيًا، ثبّت هذه النسخة السابقة للإصدار بالأمر المحدد:

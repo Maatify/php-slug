@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Validation;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
 use Maatify\Slug\Lifecycle\Service\Allocation\SuffixCandidateGenerator;
 use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\AsciiSlugProfile;
 use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\UnicodeSlugProfile;
@@ -72,19 +71,11 @@ final class ProfileInputValidationTest extends TestCase
 
     private function unicode(): UnicodeSlugProfile
     {
-        try {
-            return new UnicodeSlugProfile();
-        } catch (SlugRuntimeCompatibilityException $exception) {
-            self::markTestSkipped($exception->getMessage());
-        }
+        return new UnicodeSlugProfile();
     }
 
     private function ascii(): AsciiSlugProfile
     {
-        try {
-            return new AsciiSlugProfile();
-        } catch (SlugRuntimeCompatibilityException $exception) {
-            self::markTestSkipped($exception->getMessage());
-        }
+        return new AsciiSlugProfile();
     }
 }

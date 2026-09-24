@@ -6,7 +6,6 @@ namespace Maatify\Slug\Tests\Unit\Canonicalization;
 
 use Maatify\Slug\Lifecycle\Consumer\Enum\InputFormCanonicalityEnum;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
 use Maatify\Slug\Canonicalization\ValueObject\Slug;
 use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\AsciiSlugProfile;
 use Maatify\Slug\Canonicalization\Service\Profile\BuiltIn\UnicodeSlugProfile;
@@ -141,19 +140,11 @@ final class ProfileCanonicalizationTest extends TestCase
 
     private function unicode(): UnicodeSlugProfile
     {
-        try {
-            return new UnicodeSlugProfile();
-        } catch (SlugRuntimeCompatibilityException $exception) {
-            self::markTestSkipped($exception->getMessage());
-        }
+        return new UnicodeSlugProfile();
     }
 
     private function ascii(): AsciiSlugProfile
     {
-        try {
-            return new AsciiSlugProfile();
-        } catch (SlugRuntimeCompatibilityException $exception) {
-            self::markTestSkipped($exception->getMessage());
-        }
+        return new AsciiSlugProfile();
     }
 }

@@ -12,6 +12,7 @@ Use `maatify/php-slug` when the package needs slug generation, canonicalization,
 
 - PHP `^8.4`.
 - `ext-intl`, `ext-mbstring`, `ext-pdo`, and `ext-pdo_mysql`.
+- Built-in profiles require the normalization and transliteration capabilities of `ext-intl`; those capabilities are verified at runtime. No exact ICU or Unicode version is required.
 - The stateless path requires only the production Composer autoload.
 - The persisted path requires a MySQL-compatible `PDO` connection and the package schema. Local verification uses disposable MySQL through `compose.integration.yml`.
 
