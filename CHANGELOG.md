@@ -5,6 +5,8 @@ The format follows Keep a Changelog conventions and Semantic Versioning.
 
 ## [Unreleased]
 
+## [1.0.0-rc.1] - 2026-09-24
+
 ### Added
 
 - **Package Foundation:** Built-in profiles, exact claiming, generated allocation, and public API interfaces (`SlugTextServiceInterface`, `SlugProfileInterface`, `SlugLifecycleServiceInterface`, etc.).
@@ -20,5 +22,8 @@ The format follows Keep a Changelog conventions and Semantic Versioning.
 
 ### Changed
 
-- **Scope Notice:** Although fully implemented internally, no Tag, Release, Packagist publication, or Stable support claim has been published yet.
-- **Verification Notice:** Current integration and verification state is maintained in GitHub PR/CI history. This CHANGELOG is historical documentation, not a current execution-status ledger, and makes no current release-readiness claim.
+- **Release Lifecycle:** `v1.0.0-rc.1` is the first SemVer Release Candidate. It is Pre-Stable and does not create a Stable support line.
+- **Publication Truth:** A CHANGELOG entry alone is not publication proof; Published state is determined by external Composer resolvability of the matching version through the approved distribution source.
+
+[Unreleased]: https://github.com/Maatify/php-slug/compare/v1.0.0-rc.1...HEAD
+[1.0.0-rc.1]: https://github.com/Maatify/php-slug/releases/tag/v1.0.0-rc.1

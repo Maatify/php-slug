@@ -2,7 +2,7 @@
 
 > **Canonical root Package Reference** for `maatify/php-slug`.
 >
-> **Current status:** RC1 implementation is complete. This file records the implemented contract and package boundaries available in the Runtime, source schema, tests, and CI configuration. The package is not published on Packagist; no Stable release or SemVer Release Candidate is publicly available.
+> **Lifecycle:** Pre-Stable / first-Stable lifecycle. This file records the implemented contract and package boundaries available in the Runtime, source schema, tests, and CI configuration.
 
 ## 1. Package Identity and Status
 
@@ -13,11 +13,10 @@
 | Namespace | `Maatify\\Slug\\` |
 | Artifact | Standalone reusable PHP/Composer library |
 | Host model | Host-agnostic |
-| Current workflow state | Development / Unpublished |
+| Release lifecycle | Pre-Stable / first-Stable lifecycle |
+| Exact first RC identifier | `v1.0.0-rc.1` |
 | Published Stable line | None |
-| Published SemVer RC | None |
-
-This repository contains the implementation (Runtime, Tests, Schema, and CI), but no public `composer require` installation command is available before official publication.
+| Publication truth source | Approved external Composer distribution source |
 
 The durable references associated with this document are:
 
@@ -54,7 +53,13 @@ The package has no Host foreign keys, Host table joins, or Host repository depen
 
 ## 3. Supported State and Installation
 
-The package is available as source code with a complete Runtime and `composer.json`, but it is **not published**. The currently supported access path is cloning the repository and reading this reference. Do not use `composer require maatify/php-slug` from public sources before official publication.
+When `v1.0.0-rc.1` is externally resolvable through the approved Composer distribution source, the exact conditional installation command is:
+
+```bash
+composer require maatify/php-slug:1.0.0-rc.1@RC
+```
+
+Until that external resolvability exists, the available access path is a development checkout through [`CONTRIBUTING.md`](CONTRIBUTING.md). This Package Reference records the stable public/runtime/behavioral contract; it does not independently determine publication status.
 
 The Runtime provides implemented examples. The current stateless construction path is:
 
@@ -662,7 +667,7 @@ Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7
 
 Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical results do not qualify any later HEAD.
 
-Verification evidence is SHA-scoped: historical verification qualifies only the exact SHA stated and does not qualify later commits. Active integration and verification status is maintained in GitHub PR/CI history. Transient VG/PR state is not part of this public package contract, and this document makes no claim that the package is Stable, Published, or release-ready.
+Verification evidence is SHA-scoped: historical verification qualifies only the exact SHA stated and does not qualify later commits. Active integration and verification status is maintained in GitHub PR/CI history. Transient VG/PR state is not part of this public package contract. CI evidence alone does not prove Published or Stable state.
 
 The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`. That manifest is the authoritative resolver record for the applicable Standard versions.
 

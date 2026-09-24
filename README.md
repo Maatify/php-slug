@@ -26,7 +26,7 @@ An independent PHP slug lifecycle engine with clear boundaries between the slug 
 
 ## Publication State
 
-The package is **Development / Unpublished**. No Stable release or SemVer Release Candidate is currently published through a public distribution channel, so there is no public registry installation command yet.
+The package remains **Development / Unpublished** until the exact first RC identifier, `v1.0.0-rc.1`, becomes externally resolvable and installable through the approved Composer distribution source. A branch, commit, CI run, Git tag, or GitHub Release alone does not prove Published state. If published, this RC remains Pre-Stable and does not create a Stable support line.
 
 The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). Verification evidence is SHA-scoped; historical evidence is identified below, while active integration and verification state is maintained in GitHub PR and CI history rather than duplicated in this consumer-facing README.
 
@@ -49,7 +49,13 @@ The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKA
 
 ## Installation
 
-The package is not published yet. Do not present `composer require maatify/php-slug` as a currently usable public installation command. For a development checkout and local verification, see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+When `v1.0.0-rc.1` becomes externally resolvable, install that exact pre-release with:
+
+```bash
+composer require maatify/php-slug:1.0.0-rc.1@RC
+```
+
+Until then, use a development checkout and local verification through [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Quick Usage
 
@@ -107,7 +113,7 @@ The Host owns the connection, PDO configuration, entity existence, routing, HTTP
 
 Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` provides evidence for that SHA only. Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical facts qualify only their stated SHAs and do not qualify later commits.
 
-Verification evidence is SHA-scoped and does not qualify later commits. Current integration and verification state is maintained in GitHub PR and CI history and is intentionally not duplicated here. No current release-readiness claim is made.
+Verification evidence is SHA-scoped and does not qualify later commits. Current integration and verification state is maintained in GitHub PR and CI history and is intentionally not duplicated here. CI evidence alone does not prove Published or Stable state.
 
 ## Development and Testing
 

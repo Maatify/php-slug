@@ -5,15 +5,16 @@
 
 ## Current Support State
 
-This repository contains the package implementation, Runtime, and CI, but no Stable release has been published through Packagist and no Stable release line is currently supported. A branch or Draft PR is not a published release or externally consumable Release Candidate, and this policy makes no public support or SLA commitment before official publication.
+This repository contains the package implementation, Runtime, and CI. There is no Published Stable release line and no Stable support line. `v1.0.0-rc.1` is the first RC identifier; external publication of that version makes it a published pre-release, not Stable, and does not create a Stable support line. A branch, tag, CI run, or GitHub Release alone is not proof of Composer publication, and this policy makes no public support or SLA commitment for the RC.
 
 ## Supported Versions
 
 | Version | Supported |
 |---|---|
-| No published release | No |
+| Stable release line | No |
+| `1.0.0-rc.1` pre-release | No — pre-release; no Stable support line |
 
-This table changes only when the actual publication state and support policy change. Creating an unpublished branch or tag, or obtaining a successful CI run, does not change it.
+This table is support-oriented, not a mutable publication-status ledger. The RC does not create a Stable support line or SLA.
 
 ## Security Scope
 
@@ -34,6 +35,6 @@ This document does not promise a response or remediation time. Handling depends 
 
 ## Current Claim Boundaries
 
-The existence of Runtime, Tests, and CI is not a security certification or formal security audit, and this policy does not claim production or release readiness before an official Stable release is published. Any later claim about supported versions or security fixes must match a published version and the actual support policy.
+The existence of Runtime, Tests, CI, or a published RC is not a security certification or formal security audit. This policy does not claim Stable release readiness, production support, or a Stable support line from the RC. Any claim about supported versions or security fixes must match a published version and the actual support policy.
 
 For the technical contract and trust boundaries, see [Package Reference](SLUG_PACKAGE_REFERENCE.md).

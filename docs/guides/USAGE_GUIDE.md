@@ -1,6 +1,6 @@
 # Maatify Slug — Usage Guide
 
-> **Publication state:** Development / Unpublished
+> **Release lifecycle:** Pre-Stable; exact first RC identifier `v1.0.0-rc.1`
 >
 > [`SLUG_PACKAGE_REFERENCE.md`](../../SLUG_PACKAGE_REFERENCE.md) is the normative technical contract. This guide explains usage and does not create a competing contract.
 
@@ -17,7 +17,13 @@ Use `maatify/php-slug` when the package needs slug generation, canonicalization,
 
 ## Publication State
 
-The package is **Development / Unpublished**. There is currently no public distribution channel or valid public installation command; development setup is documented in [`CONTRIBUTING.md`](../../CONTRIBUTING.md). Do not present `composer require maatify/php-slug` as a current consumer installation method.
+The first RC identifier is `v1.0.0-rc.1`. When that exact version becomes externally resolvable through the approved Composer distribution source, consumers may install it with:
+
+```bash
+composer require maatify/php-slug:1.0.0-rc.1@RC
+```
+
+Until then, the available path is a development checkout and local setup documented in [`CONTRIBUTING.md`](../../CONTRIBUTING.md). This guide does not independently determine publication status.
 
 ## Non-goals / Host Boundaries
 
