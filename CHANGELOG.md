@@ -5,8 +5,6 @@ The format follows Keep a Changelog conventions and Semantic Versioning.
 
 ## [Unreleased]
 
-### Changed
-
 ## [1.0.0-rc.1] - 2026-09-24
 
 ### Added
