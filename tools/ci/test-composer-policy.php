@@ -41,6 +41,7 @@ $cases = [
 foreach ([
     ['COMPOSER_POLICY', '0'],
     ['COMPOSER_NO_BLOCKING', '1'],
+    ['COMPOSER_NO_SECURITY_BLOCKING', '1'],
     ['COMPOSER_POLICY_ADVISORIES_BLOCK', '0'],
     ['COMPOSER_POLICY_MALWARE_BLOCK', '0'],
     ['COMPOSER_NO_AUDIT', '1'],
@@ -49,6 +50,8 @@ foreach ([
 ] as [$name, $value]) {
     $cases["weakening override $name=$value"] = [false, $policy, 'Composer version 2.10.0', [$name => $value]];
 }
+
+$cases['COMPOSER_NO_SECURITY_BLOCKING=0 is allowed'] = [true, $policy, 'Composer version 2.10.0', ['COMPOSER_NO_SECURITY_BLOCKING' => '0']];
 
 if ($verifier->verifyJson('{', 'Composer version 2.10.0', []) === []) {
     fwrite(STDERR, "Failed regression case: malformed JSON\n");

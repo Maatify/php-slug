@@ -135,6 +135,7 @@ final class ComposerPolicyVerifier
         $rejected = [
             'COMPOSER_POLICY' => ['0'],
             'COMPOSER_NO_BLOCKING' => ['1'],
+            'COMPOSER_NO_SECURITY_BLOCKING' => ['1'],
             'COMPOSER_POLICY_ADVISORIES_BLOCK' => ['0'],
             'COMPOSER_POLICY_MALWARE_BLOCK' => ['0'],
             'COMPOSER_NO_AUDIT' => ['1'],
@@ -219,7 +220,7 @@ final class ComposerPolicyVerifier
     private function environment(): array
     {
         $environment = [];
-        foreach (['COMPOSER_POLICY', 'COMPOSER_NO_BLOCKING', 'COMPOSER_POLICY_ADVISORIES_BLOCK', 'COMPOSER_POLICY_MALWARE_BLOCK', 'COMPOSER_NO_AUDIT', 'COMPOSER_AUDIT_ABANDONED', 'COMPOSER_POLICY_ABANDONED_BLOCK'] as $name) {
+        foreach (['COMPOSER_POLICY', 'COMPOSER_NO_BLOCKING', 'COMPOSER_NO_SECURITY_BLOCKING', 'COMPOSER_POLICY_ADVISORIES_BLOCK', 'COMPOSER_POLICY_MALWARE_BLOCK', 'COMPOSER_NO_AUDIT', 'COMPOSER_AUDIT_ABANDONED', 'COMPOSER_POLICY_ABANDONED_BLOCK'] as $name) {
             $value = getenv($name);
             if ($value !== false) {
                 $environment[$name] = $value;
