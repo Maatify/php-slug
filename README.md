@@ -47,6 +47,8 @@ The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKA
 | Extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
 | Direct packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
 
+Built-in profiles require the normalization and transliteration capabilities provided by `ext-intl`; the package verifies those capabilities at runtime. No exact ICU or Unicode version is required from the consumer.
+
 ## Installation
 
 When `v1.0.0-rc.1` becomes externally resolvable, install that exact pre-release with:

@@ -6,7 +6,6 @@ namespace Maatify\Slug\Tests\Unit\Profile;
 
 use Maatify\Slug\Canonicalization\Exception\SlugProfileAlreadyRegisteredException;
 use Maatify\Slug\Canonicalization\Exception\SlugProfileNotFoundException;
-use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
 use Maatify\Slug\Canonicalization\Factory\SlugProfileRegistryFactory;
 use Maatify\Slug\Canonicalization\Factory\SlugTextServiceFactory;
 use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
@@ -84,10 +83,6 @@ final class RegistryAndFactoryTest extends TestCase
 
     private function builtIns(): SlugProfileRegistryInterface
     {
-        try {
-            return SlugProfileRegistryFactory::createBuiltIn();
-        } catch (SlugRuntimeCompatibilityException $exception) {
-            self::markTestSkipped($exception->getMessage());
-        }
+        return SlugProfileRegistryFactory::createBuiltIn();
     }
 }

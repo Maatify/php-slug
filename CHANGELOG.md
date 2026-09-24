@@ -5,6 +5,11 @@ The format follows Keep a Changelog conventions and Semantic Versioning.
 
 ## [Unreleased]
 
+### Changed
+
+- Removed exact ICU 74 and Unicode 15.1 host coupling for built-in profiles; runtime compatibility now uses capability and observable-behavior probes.
+- Preserved the `ascii-v1` and `unicode-v1` algorithms and removed runtime compatibility skips from verification.
+
 ## [1.0.0-rc.1] - 2026-09-24
 
 ### Added

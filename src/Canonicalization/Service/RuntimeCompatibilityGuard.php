@@ -4,65 +4,48 @@ declare(strict_types=1);
 
 namespace Maatify\Slug\Canonicalization\Service;
 
-use IntlChar;
 use Maatify\Slug\Canonicalization\Exception\SlugRuntimeCompatibilityException;
 use Normalizer;
 use Transliterator;
 
-/** Fails closed unless the ICU and Unicode tuple required by built-in profiles is available. */
+/** Fails closed unless the capabilities required by built-in profiles behave as required. */
 final class RuntimeCompatibilityGuard
 {
-    /** Validates the actual ICU runtime and its required normalization capabilities. */
+    private static bool $verified = false;
+
+    /** Validates the actual ext-intl capabilities used by built-in profiles. */
     public static function assertSupported(): void
     {
-        if (! defined('INTL_ICU_VERSION')) {
-            throw new SlugRuntimeCompatibilityException('ICU runtime version is unavailable.');
+        if (self::$verified) {
+            return;
         }
 
-        $icuVersion = explode('.', INTL_ICU_VERSION);
-        if (! class_exists(IntlChar::class)) {
-            throw new SlugRuntimeCompatibilityException('ICU Unicode data version is unavailable.');
+        if (! class_exists(Normalizer::class)) {
+            throw new SlugRuntimeCompatibilityException('ext-intl Normalizer is unavailable.');
         }
-        $unicodeVersion = IntlChar::getUnicodeVersion();
-        self::assertTupleSupported(
-            self::versionPart($icuVersion[0]),
-            self::versionPart($unicodeVersion[0]),
-            self::versionPart($unicodeVersion[1]),
-            class_exists(Normalizer::class),
-            class_exists(Transliterator::class),
-        );
-    }
 
-    /** Validates the supported ICU/Unicode tuple and required ext-intl classes. */
-    public static function assertTupleSupported(
-        int $icuMajor,
-        int $unicodeMajor,
-        int $unicodeMinor,
-        bool $normalizerAvailable = true,
-        bool $transliteratorAvailable = true,
-    ): void {
-        if (
-            $icuMajor !== 74
-            || $unicodeMajor !== 15
-            || $unicodeMinor !== 1
-            || ! $normalizerAvailable
-            || ! $transliteratorAvailable
-        ) {
-            throw new SlugRuntimeCompatibilityException('Built-in profiles require ICU 74 with Unicode data 15.1 and ext-intl normalization/transliteration.');
+        try {
+            if (Normalizer::normalize("cafe\u{0301}", Normalizer::FORM_C) !== 'café') {
+                throw new SlugRuntimeCompatibilityException('ext-intl NFC normalization probe failed.');
+            }
+
+            $lower = Transliterator::create('Any-Lower');
+            if (! $lower instanceof Transliterator || $lower->transliterate('HELLO') !== 'hello') {
+                throw new SlugRuntimeCompatibilityException('ext-intl Any-Lower probe failed.');
+            }
+
+            $ascii = Transliterator::create('Any-Latin; Latin-ASCII');
+            if (! $ascii instanceof Transliterator || $ascii->transliterate('Über Café') !== 'Uber Cafe') {
+                throw new SlugRuntimeCompatibilityException('ext-intl ASCII transliteration probe failed.');
+            }
+        } catch (SlugRuntimeCompatibilityException $exception) {
+            throw $exception;
+        } catch (\Throwable $exception) {
+            throw new SlugRuntimeCompatibilityException('ext-intl capability verification failed.', previous: $exception);
         }
+
+        self::$verified = true;
     }
 
     private function __construct() {}
-
-    /** Converts a version component into an integer, returning zero for malformed input. */
-    private static function versionPart(mixed $value): int
-    {
-        if (is_int($value)) {
-            return $value;
-        }
-        if (is_string($value) && ctype_digit($value)) {
-            return (int) $value;
-        }
-        return 0;
-    }
 }

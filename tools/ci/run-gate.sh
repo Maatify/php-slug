@@ -117,7 +117,7 @@ workflow_lint() {
         exit 1
     fi
     require_command docker
-    docker run --rm --network none -v "$repo_root:/repo:ro" -w /repo docker.io/rhysd/actionlint@sha256:887a259a5a534f3c4f36cb02dca341673c6089431057242cdc931e9f133147e9 "${workflow_files[@]}"
+    docker run --rm --network none -v "$repo_root:/repo:ro" -w /repo docker.io/rhysd/actionlint@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667 "${workflow_files[@]}"
 }
 
 whitespace() {
@@ -177,6 +177,26 @@ examples_smoke() {
     bash tools/ci/run-integration.sh examples
 }
 
+runtime_portability() {
+    latest_dependencies
+    require_command php
+    echo "PHP_VERSION=$(php -r 'echo PHP_VERSION;')"
+    echo "INTL_ICU_VERSION=$(php -r 'echo defined("INTL_ICU_VERSION") ? INTL_ICU_VERSION : "UNAVAILABLE";')"
+    php -r '
+        if (class_exists(IntlChar::class)) {
+            $version = IntlChar::getUnicodeVersion();
+            echo "UNICODE_VERSION=" . implode(".", $version) . PHP_EOL;
+        } else {
+            echo "UNICODE_VERSION=UNAVAILABLE" . PHP_EOL;
+        }
+    '
+    vendor/bin/phpunit --configuration phpunit.xml.dist --do-not-cache-result \
+        tests/Unit/Profile/RuntimeCompatibilityTest.php \
+        tests/Unit/Canonicalization/ProfileCanonicalizationTest.php \
+        tests/Unit/Validation/ProfileInputValidationTest.php
+    php examples/canonicalization.php
+}
+
 usage() {
     cat >&2 <<'USAGE'
 Usage: tools/ci/run-gate.sh <gate> [argument]
@@ -198,6 +218,7 @@ Gates:
   whitespace RANGE Git-aware whitespace check for an explicit BASE...HEAD committed range
   consumer         Consumer Verification Harness clean run x2
   examples-smoke   Stateless and persisted examples through the canonical Compose lifecycle
+  runtime-portability Latest dependencies, runtime diagnostics, focused portability tests, and stateless example
 USAGE
     exit 2
 }
@@ -220,5 +241,6 @@ case "$gate" in
     whitespace) whitespace "${2:-}" ;;
     consumer) consumer ;;
     examples-smoke) examples_smoke ;;
+    runtime-portability) runtime_portability ;;
     *) usage ;;
 esac

@@ -11,6 +11,7 @@
 
 - PHP ^8.4.
 - ext-intl وext-mbstring وext-pdo وext-pdo_mysql.
+- تحتاج الـProfiles المدمجة إلى capabilities الـnormalization والـtransliteration من `ext-intl`، وتتحقق الحزمة منها أثناء التشغيل. لا يوجد إصدار محدد مطلوب من ICU أو Unicode.
 - يحتاج المسار stateless إلى production Composer autoload فقط.
 - يحتاج المسار persisted إلى اتصال PDO متوافق مع MySQL وإلى schema الحزمة. يستخدم التحقق المحلي MySQL مؤقتًا عبر compose.integration.yml.
 

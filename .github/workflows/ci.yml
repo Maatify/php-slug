@@ -168,6 +168,28 @@ jobs:
           COMPOSER_NO_AUDIT: '0'
         run: bash tools/ci/run-gate.sh examples-smoke
 
+  runtime-portability:
+    name: Runtime portability on macOS / PHP 8.5
+    runs-on: macos-15-intel
+    timeout-minutes: 20
+    steps:
+      - name: Checkout current commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - name: Set up PHP 8.5
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.5'
+          extensions: intl, mbstring, pdo, pdo_mysql
+          coverage: none
+          tools: composer:2.10
+      - name: Run runtime portability gate
+        env:
+          COMPOSER_NO_AUDIT: '0'
+        run: bash tools/ci/run-gate.sh runtime-portability
+
   workflow-lint:
     name: Workflow lint
     runs-on: ubuntu-24.04
@@ -208,6 +230,7 @@ jobs:
       - examples-smoke
       - workflow-lint
       - whitespace
+      - runtime-portability
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -221,6 +244,7 @@ jobs:
           EXAMPLES_SMOKE: ${{ needs.examples-smoke.result }}
           WORKFLOW_LINT: ${{ needs.workflow-lint.result }}
           WHITESPACE: ${{ needs.whitespace.result }}
+          RUNTIME_PORTABILITY: ${{ needs.runtime-portability.result }}
         run: |
           set -euo pipefail
           for result in \
@@ -239,4 +263,8 @@ jobs:
               exit 1
             fi
           done
+          if [[ "$RUNTIME_PORTABILITY" != success ]]; then
+            echo "Required CI job runtime-portability ended with unexpected status: $RUNTIME_PORTABILITY" >&2
+            exit 1
+          fi
           echo 'All required upstream jobs passed.'

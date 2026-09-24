@@ -111,13 +111,13 @@ The following requirements are implemented in the repository:
 |---|---|
 | PHP | `^8.4`; the intended matrix is PHP 8.4 and 8.5 without a PHP ceiling |
 | Extensions | `ext-intl`, `ext-mbstring`, `ext-pdo`, `ext-pdo_mysql` |
-| ICU | Major `74` and Unicode data `15.1` for the built-in profiles |
+| Runtime compatibility | `ext-intl` capability and observable-behavior probes; no exact ICU or Unicode-data version pin |
 | Database adapter | PDO MySQL with MySQL-compatible semantics |
 | MySQL | Server `8.0.36` as the CI reproducibility target |
 | Runtime packages | `maatify/exceptions ^1.0`, `maatify/shared-common ^1.0`, `maatify/persistence ^1.1` |
 | Evidence tools | `phpstan/phpstan ^2.1`, `phpunit/phpunit ^11.5`, `friendsofphp/php-cs-fixer ^3.94` in `require-dev` |
 
-The implementation uses `ext-intl` for NFC and ICU lowercasing or transliteration and uses `ext-mbstring` only for code-point length. An ICU or Unicode tuple mismatch fails closed with `SlugRuntimeCompatibilityException` before any mutation; PHP `^8.4` alone does not prove support for another ICU tuple.
+The implementation uses `ext-intl` for NFC and ICU lowercasing or transliteration and uses `ext-mbstring` only for code-point length. Built-in runtime admission verifies the required normalization and transliteration behavior and fails closed with `SlugRuntimeCompatibilityException` when a capability is unavailable or incompatible. ICU and Unicode versions are diagnostics only, not consumer support boundaries.
 
 ## 5. Identity and Text
 
@@ -131,7 +131,7 @@ Slug::fromProfile(SlugProfileInterface $profile, string $canonicalValue): Slug
 
 This invokes `assertCanonicalSlug()` without conversion. There are no `fromRaw`, `fromTrusted`, or hydration bypass paths.
 
-The built-in keys are only `unicode-v1` and `ascii-v1`. Custom profiles use a versioned key matching:
+The built-in keys are only `unicode-v1` and `ascii-v1`. A profile key version fixes the algorithm and public semantic contract; it does not represent an ICU version. Custom profiles use a versioned key matching:
 
 ```text
 ^(?=.{1,63}$)[a-z][a-z0-9-]*-v[1-9][0-9]*$
@@ -152,6 +152,8 @@ Each canonicalization operation is idempotent within its scope. `hello!!!` is re
 ### 5.3 Profiles, Safety, and Length
 
 `unicode-v1` uses NFC and ICU `Any-Lower`, preserves Arabic, and permits canonical code points from `L/M/Nd` plus the ASCII hyphen. `ascii-v1` uses NFC followed by ICU `Any-Latin; Latin-ASCII` and ASCII lowercase. Locked examples are `آيفون ١٧ برو` → `آيفون-١٧-برو` and `Über Café` → `uber-cafe`.
+
+The current built-in algorithms remain unchanged by the runtime portability remediation. Incompatible profile semantic changes must not be introduced silently under the same key.
 
 Before any lossy transformation, invalid UTF-8, NUL, `Cc`, `Cs`, `Cf`, `/`, `\\`, and an empty result are rejected. Mixed scripts are allowed in `unicode-v1` when the remaining rules are satisfied.
 
