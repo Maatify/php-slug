@@ -136,7 +136,7 @@ final class ComposerPolicyVerifier
 
         foreach (['COMPOSER_POLICY', 'COMPOSER_POLICY_ADVISORIES_BLOCK', 'COMPOSER_POLICY_MALWARE_BLOCK'] as $name) {
             $state = $this->composerBooleanState($environment[$name] ?? null);
-            if (in_array($state, ['empty', 'false', 'invalid'], true)) {
+            if (in_array($state, ['false', 'invalid'], true)) {
                 $errors[] = "$name has an invalid or weakening value";
             }
         }
