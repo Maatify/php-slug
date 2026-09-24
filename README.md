@@ -28,7 +28,7 @@ An independent PHP slug lifecycle engine with clear boundaries between the slug 
 
 The package is **Development / Unpublished**. No Stable release or SemVer Release Candidate is currently published through a public distribution channel, so there is no public registry installation command yet.
 
-The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). Verification status is separate: historical evidence is identified below, `VG-001` and its associated Fresh Full Acceptance Review are complete on their historical verification SHA, and the post-upgrade `VG-003 — PENDING` gate remains open for the final remediation HEAD.
+The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). Verification evidence is SHA-scoped; historical evidence is identified below, while active integration and verification state is maintained in GitHub PR and CI history rather than duplicated in this consumer-facing README.
 
 ## Key Features
 
@@ -105,9 +105,9 @@ The Host owns the connection, PDO configuration, entity existence, routing, HTTP
 
 ## Quality Status
 
-Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` provides evidence for that SHA only. Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. None of this qualifies the post-upgrade remediation HEAD.
+Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` provides evidence for that SHA only. Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical facts qualify only their stated SHAs and do not qualify later commits.
 
-`VG-003 — Post-Upgrade Full Applicable Verification` remains **PENDING** for the final remediation HEAD, followed by the required Fresh Full Acceptance Review. There is no current release-readiness claim.
+Verification evidence is SHA-scoped and does not qualify later commits. Current integration and verification state is maintained in GitHub PR and CI history and is intentionally not duplicated here. No current release-readiness claim is made.
 
 ## Development and Testing
 
