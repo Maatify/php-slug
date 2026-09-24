@@ -15,7 +15,7 @@
 
 ## حالة النشر
 
-الحزمة في حالة **Development / Unpublished**. لا يوجد إصدار Stable أو SemVer Release Candidate منشور حاليًا عبر قناة توزيع عامة، ولذلك لا يوجد أمر تثبيت صالح من Registry عامة.
+تبقى الحزمة في حالة **Development / Unpublished** حتى يصبح المعرّف الأول المحدد للـRC، وهو `v1.0.0-rc.1`، قابلًا للحل والتثبيت خارجيًا عبر مصدر Composer المعتمد للتوزيع. لا يثبت branch أو commit أو CI أو Git tag أو GitHub Release وحده حالة Published. وإذا نُشرت هذه RC فستظل Pre-Stable ولا تنشئ Stable support line.
 
 المرجع الحالي للعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). أدلة التحقق مرتبطة بالـSHA التي شُغّلت عليها؛ وترد الأدلة التاريخية أدناه، بينما تُحفظ حالة التكامل والتحقق النشطة في سجل GitHub PR وCI بدل تكرارها في ملف README هذا الموجّه للمستهلك.
 
@@ -38,7 +38,13 @@
 
 ## التثبيت
 
-الحزمة غير منشورة بعد. لا تعرض composer require maatify/php-slug على أنه أمر تثبيت عام قابل للاستخدام حاليًا. لإعداد checkout التطويري والتحقق المحلي، راجع CONTRIBUTING.md.
+عندما تصبح `v1.0.0-rc.1` قابلة للحل خارجيًا، ثبّت هذه النسخة السابقة للإصدار بالأمر المحدد:
+
+~~~bash
+composer require maatify/php-slug:1.0.0-rc.1@RC
+~~~
+
+وحتى ذلك الحين، استخدم development checkout والتحقق المحلي عبر [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## الاستخدام السريع
 
@@ -96,7 +102,7 @@ $slug = $text->generateFromSource(
 
 يوفر GitHub Actions run #9 على SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7b` دليلًا لذلك الـSHA فقط. نجح التحقق التاريخي `VG-001` على SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` عبر Actions run `35444700308`، ثم نجحت Direct Lead Fresh Full Acceptance Review قبل integration. تخص هذه الحقائق التاريخية الـSHAs المذكورة فقط ولا تؤهل أي commits لاحقة.
 
-أدلة التحقق مرتبطة بالـSHA ولا تؤهل commits لاحقة. تُحفظ حالة التكامل والتحقق الحالية في GitHub PR وCI history ولا يتم تكرارها هنا. لا يوجد ادعاء حالي بجاهزية الإصدار.
+أدلة التحقق مرتبطة بالـSHA ولا تؤهل commits لاحقة. تُحفظ حالة التكامل والتحقق الحالية في GitHub PR وCI history ولا يتم تكرارها هنا. دليل CI وحده لا يثبت حالة Published أو Stable.
 
 ## التطوير والاختبار
 

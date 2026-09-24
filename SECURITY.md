@@ -5,15 +5,16 @@
 
 ## Current Support State
 
-This repository contains the package implementation, Runtime, and CI, but no Stable release has been published through Packagist and no Stable release line is currently supported. A branch or Draft PR is not a published release or externally consumable Release Candidate, and this policy makes no public support or SLA commitment before official publication.
+This repository contains the package implementation, Runtime, and CI. There is no Published Stable release line and no Stable support line. `v1.0.0-rc.1` is the first RC identifier; if it becomes externally published, it remains a pre-release and is not Stable. A branch, tag, CI run, or GitHub Release alone is not proof of Composer publication, and this policy makes no public support or SLA commitment for the RC.
 
 ## Supported Versions
 
 | Version | Supported |
 |---|---|
-| No published release | No |
+| Stable release line | No |
+| `1.0.0-rc.1` pre-release | No — pre-release; no Stable support line |
 
-This table changes only when the actual publication state and support policy change. Creating an unpublished branch or tag, or obtaining a successful CI run, does not change it.
+This table is support-oriented, not a mutable publication-status ledger. The RC does not create a Stable support line or SLA.
 
 ## Security Scope
 
