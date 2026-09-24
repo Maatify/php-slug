@@ -165,13 +165,17 @@ final class SlugLifecycleServiceTest extends MySqlIntegrationTestCase
             $service->retireAlias(new RetireAliasCommand($identity, 'alias-value', 3, new AuditContextDTO()));
             self::fail('Repeated alias retirement did not fail.');
         } catch (SlugAliasOperationNotPermittedException) {
-            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'alias-matrix']));
+            self::assertTrue(
+                3 === $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'alias-matrix']),
+            );
         }
         try {
             $service->promoteAliasToCurrent(new PromoteAliasToCurrentCommand($identity, 'alias-value', 3, new AuditContextDTO()));
             self::fail('Retired alias promotion did not fail.');
         } catch (SlugAliasOperationNotPermittedException) {
-            self::assertSame(3, $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'alias-matrix']));
+            self::assertTrue(
+                3 === $this->scalarInt('SELECT revision FROM maa_slug_bindings WHERE entity_key = :entity_key', ['entity_key' => 'alias-matrix']),
+            );
         }
         $reactivated = $service->reactivateAlias(new ReactivateAliasCommand($identity, 'alias-value', 3, new AuditContextDTO()));
         self::assertSame(4, $reactivated->revision);
