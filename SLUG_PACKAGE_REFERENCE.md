@@ -13,7 +13,7 @@
 | Namespace | `Maatify\\Slug\\` |
 | Artifact | Standalone reusable PHP/Composer library |
 | Host model | Host-agnostic |
-| Current workflow state | Implemented (Unpublished) |
+| Current workflow state | Development / Unpublished |
 | Published Stable line | None |
 | Published SemVer RC | None |
 
@@ -662,9 +662,9 @@ Historical GitHub Actions run #9 on SHA `7d4d67e624a3e79ddf5ab471fbf4acaaea5eeb7
 
 Historical `VG-001` verification passed on exact SHA `ff72d2e00a48eb5fbd55d81dea753a7f106187ef` through Actions run `35444700308`, followed by a passing Direct Lead Fresh Full Acceptance Review before integration. These historical results do not qualify any later HEAD.
 
-The current post-upgrade final verification is `VG-003 — Post-Upgrade Full Applicable Verification: PENDING`. It must run on the final remediation HEAD and be followed by the required Fresh Full Acceptance Review. `Direct Lead Review: PENDING` for that final post-upgrade state.
+Verification evidence is SHA-scoped: historical verification qualifies only the exact SHA stated and does not qualify later commits. Active integration and verification status is maintained in GitHub PR/CI history. Transient VG/PR state is not part of this public package contract, and this document makes no claim that the package is Stable, Published, or release-ready.
 
-The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `3de026f86f68c548c8eef1570a6aac0e3949f20a`. That manifest is the authoritative resolver record for the applicable Standard versions.
+The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`. That manifest is the authoritative resolver record for the applicable Standard versions.
 
 ## 14. Supporting Documents
 
