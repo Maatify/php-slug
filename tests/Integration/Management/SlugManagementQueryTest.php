@@ -159,18 +159,24 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
     public function testScopeSearchProvesSqlLiteralFiltersProfilesSortingIsolationAndEmptyResults(): void
     {
         $engine = $this->engineWithProfiles();
+        /** @var array<string, BindingIdentityDTO> $dimensioned */
+        $dimensioned = [];
         foreach ([
             ['scope-z', null, null, 'ascii-v1'],
             ['scope-a', 'ar', 'store', 'ascii-v1'],
+            ['scope-a', 'en', 'web', 'ascii-v1'],
             ['custom-scope', null, null, 'custom-v1'],
         ] as [$namespace, $locale, $context, $profile]) {
             $identity = $this->identityInScope((string) $namespace, $locale, $context, (string) $profile);
             $engine->assignExact(new AssignExactCommand($identity, 'scope-' . str_replace('-', '', (string) $namespace), null, new AuditContextDTO()));
+            if ($namespace === 'scope-a') {
+                $dimensioned[$locale] = $identity;
+            }
         }
 
         $profile = new SlugProfileKey('custom-v1');
         $custom = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10), null, $profile));
-        self::assertSame(3, $custom->total);
+        self::assertSame(4, $custom->total);
         self::assertSame(1, $custom->filtered);
         self::assertSame('custom-v1', $custom->data[0]->profileKey->value);
 
@@ -179,18 +185,71 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
             self::assertSame(0, $result->filtered, $literalPrefix);
         }
         $empty = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10), 'does-not-exist'));
-        self::assertSame(3, $empty->total);
+        self::assertSame(4, $empty->total);
         self::assertSame(0, $empty->filtered);
 
+        $baseline = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10, 'id', 'ASC')));
         foreach (['namespace', 'locale_key', 'context_key', 'profile_key', 'updated_at', 'id'] as $sortBy) {
-            $page = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 1, $sortBy, 'ASC')));
+            $page = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10, $sortBy, 'ASC')));
             self::assertSame($sortBy, $page->sortBy);
             self::assertSame('ASC', $page->sortDirection->value);
+            $expected = $baseline->data;
+            usort($expected, static function ($left, $right) use ($sortBy): int {
+                $leftValue = match ($sortBy) {
+                    'namespace' => $left->scope->namespace,
+                    'locale_key' => $left->scope->localeKey ?? '',
+                    'context_key' => $left->scope->contextKey ?? '',
+                    'profile_key' => $left->profileKey->value,
+                    'updated_at' => $left->updatedAt->format('Y-m-d H:i:s.u'),
+                    'id' => $left->id,
+                };
+                $rightValue = match ($sortBy) {
+                    'namespace' => $right->scope->namespace,
+                    'locale_key' => $right->scope->localeKey ?? '',
+                    'context_key' => $right->scope->contextKey ?? '',
+                    'profile_key' => $right->profileKey->value,
+                    'updated_at' => $right->updatedAt->format('Y-m-d H:i:s.u'),
+                    'id' => $right->id,
+                };
+                return $leftValue <=> $rightValue ?: $left->id <=> $right->id;
+            });
+            self::assertSame(array_map(static fn($scope): int => $scope->id, $expected), array_map(static fn($scope): int => $scope->id, $page->data), $sortBy);
         }
+        $updated = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10, 'updated_at', 'ASC')));
+        self::assertSame($updated->data[0]->updatedAt->format('Y-m-d H:i:s.u'), $updated->data[1]->updatedAt->format('Y-m-d H:i:s.u'));
+        self::assertLessThan($updated->data[1]->id, $updated->data[0]->id);
+
         $sorted = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10, 'namespace', 'ASC')));
-        self::assertSame(['custom-scope', 'scope-a', 'scope-z'], array_map(static fn($scope): string => $scope->scope->namespace, $sorted->data));
+        self::assertSame(['custom-scope', 'scope-a', 'scope-a', 'scope-z'], array_map(static fn($scope): string => $scope->scope->namespace, $sorted->data));
         self::assertSame('ar', $sorted->data[1]->scope->localeKey);
         self::assertSame('store', $sorted->data[1]->scope->contextKey);
+        self::assertSame('en', $sorted->data[2]->scope->localeKey);
+        self::assertSame('web', $sorted->data[2]->scope->contextKey);
+
+        $firstPage = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 2, 'id', 'ASC')));
+        $secondPage = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(2, 2, 'id', 'ASC')));
+        self::assertTrue($firstPage->hasNext);
+        self::assertFalse($firstPage->hasPrevious);
+        self::assertFalse($secondPage->hasNext);
+        self::assertTrue($secondPage->hasPrevious);
+        self::assertSame(2, $secondPage->page);
+        self::assertSame(
+            $sortedIds = array_map(static fn($scope): int => $scope->id, $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10, 'id', 'ASC')))->data),
+            array_merge(
+                array_map(static fn($scope): int => $scope->id, $firstPage->data),
+                array_map(static fn($scope): int => $scope->id, $secondPage->data),
+            ),
+        );
+
+        $arSummary = $engine->getScopeOperationalSummary(new ScopeCriteria($dimensioned['ar']->scopeProfile));
+        $enSummary = $engine->getScopeOperationalSummary(new ScopeCriteria($dimensioned['en']->scopeProfile));
+        self::assertNotNull($arSummary);
+        self::assertNotNull($enSummary);
+        self::assertSame(1, $arSummary->bindingsTotal);
+        self::assertSame(1, $enSummary->bindingsTotal);
+        self::assertSame(1, $arSummary->historyEventsTotal);
+        self::assertSame(1, $enSummary->historyEventsTotal);
+        self::assertNotSame($arSummary->scope->id, $enSummary->scope->id);
     }
 
     public function testOperationalHistorySupportsPackageWideWindowsAndTransitionSnapshots(): void
@@ -209,7 +268,7 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
         ));
         self::assertNotEmpty($transition->historyEvents);
 
-        $sourceHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $source->scopeProfile));
+        $sourceHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10, 'occurred_at', 'ASC'), $source->scopeProfile));
         $targetHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $targetScope));
         self::assertSame(2, $sourceHistory->filtered);
         self::assertSame(1, $targetHistory->filtered);
@@ -219,15 +278,76 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
         $packageWide = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10)));
         self::assertSame(3, $packageWide->total);
         self::assertSame(3, $packageWide->filtered);
-        $window = $engine->searchHistory(new HistorySearchCriteria(
+        $sourceBinding = $engine->getBinding(new BindingCriteria($source));
+        self::assertNotNull($sourceBinding);
+        $assign = $this->pdo->prepare("UPDATE maa_slug_history SET occurred_at = '2026-01-01 00:00:00.123456' WHERE binding_id = :binding_id AND sequence_no = 1");
+        self::assertNotFalse($assign);
+        $assign->execute(['binding_id' => $sourceBinding->id]);
+        $eventTimes = [
+            $transition->historyEvents[0]->id => '2026-01-01 00:00:00.123457',
+            $transition->historyEvents[1]->id => '2026-01-01 00:00:00.123458',
+        ];
+        $eventUpdate = $this->pdo->prepare('UPDATE maa_slug_history SET occurred_at = :occurred_at WHERE id = :id');
+        self::assertNotFalse($eventUpdate);
+        foreach ($eventTimes as $eventId => $occurredAt) {
+            $eventUpdate->execute(['id' => $eventId, 'occurred_at' => $occurredAt]);
+        }
+
+        $utcWindow = $engine->searchHistory(new HistorySearchCriteria(
+            new PageRequest(1, 10, 'occurred_at', 'ASC'),
+            null,
+            null,
+            new \DateTimeImmutable('2026-01-01T00:00:00.123457Z'),
+            new \DateTimeImmutable('2026-01-01T00:00:00.123458Z'),
+        ));
+        $equivalentTimezoneWindow = $engine->searchHistory(new HistorySearchCriteria(
+            new PageRequest(1, 10, 'occurred_at', 'ASC'),
+            null,
+            null,
+            new \DateTimeImmutable('2026-01-01T02:00:00.123457+02:00'),
+            new \DateTimeImmutable('2026-01-01T02:00:00.123458+02:00'),
+        ));
+        self::assertSame(3, $utcWindow->total);
+        self::assertSame(1, $utcWindow->filtered);
+        self::assertSame($transition->historyEvents[0]->id, $utcWindow->data[0]->id);
+        self::assertSame($utcWindow->total, $equivalentTimezoneWindow->total);
+        self::assertSame($utcWindow->filtered, $equivalentTimezoneWindow->filtered);
+        self::assertSame(
+            array_map(static fn($event): int => $event->id, $utcWindow->data),
+            array_map(static fn($event): int => $event->id, $equivalentTimezoneWindow->data),
+        );
+        self::assertSame($transition->historyEvents[1]->id, $engine->searchHistory(new HistorySearchCriteria(
             new PageRequest(1, 10),
             null,
             null,
-            new \DateTimeImmutable('2026-01-01T02:00:00.123456+02:00'),
-            new \DateTimeImmutable('2026-01-01T00:00:00.123457Z'),
-        ));
-        self::assertSame(3, $window->total);
-        self::assertSame(3, $window->filtered);
+            new \DateTimeImmutable('2026-01-01T00:00:00.123458Z'),
+            new \DateTimeImmutable('2026-01-01T00:00:00.123459Z'),
+        ))->data[0]->id);
+    }
+
+    public function testOperationalHistoryUsesPersistedSnapshotAfterCurrentBindingScopeMoves(): void
+    {
+        $engine = $this->engine();
+        $source = $this->identityInScope('snapshot-source', null, null, 'ascii-v1');
+        $relocatedScope = new ScopeProfileRequestDTO(new SlugScope('snapshot-relocated', null, null), new SlugProfileKey('ascii-v1'));
+        $engine->assignExact(new AssignExactCommand($source, 'snapshot-main', null, new AuditContextDTO()));
+        $engine->releaseAllOwnership(new ReleaseAllOwnershipCommand($source, 1, new AuditContextDTO()));
+        $sourceBinding = $engine->getBinding(new BindingCriteria($source));
+        self::assertNotNull($sourceBinding);
+        $relocated = $engine->ensureScope($relocatedScope);
+
+        $moveBinding = $this->pdo->prepare('UPDATE maa_slug_bindings SET scope_id = :scope_id WHERE id = :binding_id');
+        self::assertNotFalse($moveBinding);
+        $moveBinding->execute(['scope_id' => $relocated->id, 'binding_id' => $sourceBinding->id]);
+
+        $sourceHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $source->scopeProfile));
+        $relocatedHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $relocatedScope));
+        self::assertGreaterThan(0, $sourceHistory->filtered);
+        self::assertSame(0, $relocatedHistory->filtered);
+        self::assertSame(
+            ['ASSIGNED', 'OWNERSHIP_RELEASED_ALL'],
+            array_map(static fn($event): string => $event->eventType->value, $sourceHistory->data),
+        );
     }
 
     public function testOperationalHistoryUsesHalfOpenUtcMicrosecondWindowAndFilters(): void
