@@ -1,9 +1,12 @@
-# Slug RC1 MySQL-compatible schema
+# Slug Ordered MySQL-Compatible Package Schema
 
-`001_slug_rc1.sql` is the single package-owned schema for RC1. The Host owns
+`001_slug_rc1.sql` is the published RC1 base schema. `002_operational_reporting_indexes.sql`
+is an additive next-RC operational-read index asset. The published RC1 artifact does
+not contain `002`; it is applied only when moving an existing RC1 installation to the
+current unreleased next-RC Runtime. The Host owns
 the injected `PDO` connection and is responsible for selecting a
 MySQL-compatible server that satisfies the capability contract in the
-[Package Reference](../../SLUG_PACKAGE_REFERENCE.md#4-runtime-and-platform-contract-for-rc1).
+[Package Reference](../../SLUG_PACKAGE_REFERENCE.md#4-runtime-and-platform-contract).
 The package does not create a connection, inspect a product/version
 string, or choose a vendor-specific schema variant.
 
@@ -13,13 +16,16 @@ status, role, event, pointer, and cross-field invariants remain package-owned;
 the schema intentionally does not require generated columns, `CHECK`
 enforcement, or native JSON functions.
 
-Install the file through the Host's migration/bootstrap process before using
-the persistence primitives. Installation order is already encoded in the
-file: scopes, bindings, operations, operation participants, registry, then
-history. All foreign keys are package-local and no Host table is joined or
-referenced.
+For a fresh current installation, apply ordered assets `001_*.sql`, then
+`002_*.sql`, then any future ordered assets through the Host's
+migration/bootstrap process before using persistence primitives. For an existing
+published RC1 installation, keep the applied `001` base and apply
+`002_operational_reporting_indexes.sql` before current Runtime schema verification.
+Installation order is encoded by the asset names: scopes, bindings, operations,
+operation participants, registry, then history, followed by additive indexes. All
+foreign keys are package-local and no Host table is joined or referenced.
 
-The file is deliberately not a version-specific migration and must not be
+The schema assets are deliberately not vendor-specific migrations and must not be
 replaced with a MariaDB or MySQL variant. CI database versions are
 verification targets only; runtime acceptance is capability-based.
 

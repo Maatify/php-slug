@@ -15,8 +15,12 @@ use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
 use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
+use Maatify\Persistence\Pdo\Pagination\PageRequest;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -91,7 +95,22 @@ try {
     }
     expect($binding->state->currentSlug?->value === 'hello-world', 'Management read returned an unexpected current slug.');
 
-    echo "PERSISTED_LIFECYCLE_EXAMPLE=hello-world PASS\n";
+    $scopes = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10), 'example'));
+    expect($scopes->total === 1 && $scopes->filtered === 1, 'Scope discovery returned an unexpected page.');
+
+    $summary = $engine->getScopeOperationalSummary(new ScopeCriteria($scopeProfile));
+    expect($summary !== null && $summary->bindingsTotal === 1, 'Scope summary returned an unexpected binding count.');
+
+    $history = $engine->searchHistory(new HistorySearchCriteria(
+        new PageRequest(1, 10, 'occurred_at', 'ASC'),
+        $scopeProfile,
+        null,
+        new DateTimeImmutable('2026-01-01T00:00:00.123456Z'),
+        new DateTimeImmutable('2026-01-01T00:00:01.123456Z'),
+    ));
+    expect($history->total === 1 && $history->filtered === 1, 'History window returned an unexpected page.');
+
+    echo "PERSISTED_LIFECYCLE_EXAMPLE=hello-world SCOPE_REPORTING=PASS HISTORY_WINDOW=PASS\n";
 } finally {
     if ($pdo instanceof PDO) {
         dropPackageSchema($pdo);

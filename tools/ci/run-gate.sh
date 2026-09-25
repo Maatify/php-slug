@@ -175,6 +175,7 @@ consumer() {
 examples_smoke() {
     latest_dependencies
     php examples/canonicalization.php
+    php examples/custom-profile.php
     bash tools/ci/run-integration.sh examples
 }
 
@@ -218,7 +219,7 @@ Gates:
   workflow-lint    actionlint for every .github/workflows/*.yml|*.yaml
   whitespace RANGE Git-aware whitespace check for an explicit BASE...HEAD committed range
   consumer         Consumer Verification Harness clean run x2
-  examples-smoke   Stateless and persisted examples through the canonical Compose lifecycle
+  examples-smoke   All maintained standalone examples; persisted examples use the canonical Compose lifecycle
   runtime-portability Latest dependencies, runtime diagnostics, focused portability tests, and stateless example
 USAGE
     exit 2
