@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Maatify\Slug\Tests\Unit\Contracts;
 
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
-use Maatify\Slug\Lifecycle\DTO\ScopeOperationalSummaryDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use PHPUnit\Framework\TestCase;
 
 final class OperationalSummaryDTOTest extends TestCase

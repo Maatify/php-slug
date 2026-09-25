@@ -11,7 +11,7 @@ use Maatify\Slug\Lifecycle\DTO\CurrentSlugDTO;
 use Maatify\Slug\Canonicalization\DTO\GeneratedSlugDTO;
 use Maatify\Slug\Canonicalization\DTO\LookupCanonicalizationDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
-use Maatify\Slug\Lifecycle\DTO\ScopeOperationalSummaryDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Lifecycle\Consumer\DTO\SlugAvailabilityDTO;
 use Maatify\Slug\Lifecycle\Consumer\DTO\SlugResolutionDTO;

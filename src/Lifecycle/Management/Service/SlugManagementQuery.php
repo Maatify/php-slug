@@ -23,7 +23,7 @@ use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
-use Maatify\Slug\Lifecycle\DTO\ScopeOperationalSummaryDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\Exception\SlugScopeProfileMismatchException;
 use Maatify\Slug\Lifecycle\Repository\CapabilityGuardInterface;
 use Maatify\Slug\Lifecycle\Management\Repository\ManagementQueryRepositoryInterface;

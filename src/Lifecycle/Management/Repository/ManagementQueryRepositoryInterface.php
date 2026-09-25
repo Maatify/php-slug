@@ -17,7 +17,7 @@ use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
-use Maatify\Slug\Lifecycle\DTO\ScopeOperationalSummaryDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 
 /** Read-only repository boundary for paginated management projections. */
 interface ManagementQueryRepositoryInterface

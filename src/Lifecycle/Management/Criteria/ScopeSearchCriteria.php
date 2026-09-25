@@ -11,6 +11,10 @@ use Maatify\Slug\Exception\SlugInvalidArgumentException;
 /** Selects persisted package scopes by optional literal namespace prefix and profile. */
 final readonly class ScopeSearchCriteria
 {
+    /**
+     * Keeps pagination explicit and treats namespacePrefix as a literal SQL
+     * prefix; wildcard characters are escaped by the PDO repository.
+     */
     public function __construct(
         public PageRequest $pageRequest,
         public ?string $namespacePrefix = null,

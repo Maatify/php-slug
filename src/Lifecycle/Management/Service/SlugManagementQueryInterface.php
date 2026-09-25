@@ -21,7 +21,7 @@ use Maatify\Slug\Lifecycle\DTO\CurrentSlugDTO;
 use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
-use Maatify\Slug\Lifecycle\DTO\ScopeOperationalSummaryDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 
 /** Read-only management boundary for package-owned binding, registry, and history data. */
 interface SlugManagementQueryInterface

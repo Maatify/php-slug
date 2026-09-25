@@ -14,6 +14,10 @@ use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
 /** Selects package history by exact persisted scope snapshot, event type, and UTC time window. */
 final readonly class HistorySearchCriteria
 {
+    /**
+     * Validates the package UTC DATETIME(6) range and the half-open window
+     * `[occurredFromInclusive, occurredUntilExclusive)` when both bounds exist.
+     */
     public function __construct(
         public PageRequest $pageRequest,
         public ?ScopeProfileRequestDTO $scopeProfile = null,

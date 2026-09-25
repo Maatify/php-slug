@@ -2,14 +2,21 @@
 
 declare(strict_types=1);
 
-namespace Maatify\Slug\Lifecycle\DTO;
+namespace Maatify\Slug\Lifecycle\Management\DTO;
 
 use JsonSerializable;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
+use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
 
 /** Immutable operational counts for one persisted Scope snapshot. */
 final readonly class ScopeOperationalSummaryDTO implements JsonSerializable
 {
+    /**
+     * Validates non-negative counts and the Binding/Registry total invariants.
+     *
+     * The counts describe current package rows within the supplied Scope;
+     * History totals are based on persisted event Scope snapshots.
+     */
     public function __construct(
         public ScopeDTO $scope,
         public int $bindingsTotal,

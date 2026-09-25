@@ -61,6 +61,26 @@ final class PdoSchemaInstallTest extends MySqlIntegrationTestCase
         (new PdoSchemaVerifier($this->pdo))->assertInstalled();
     }
 
+    public function testEachRequiredOperationalIndexIsIndividuallyVerified(): void
+    {
+        $indexes = [
+            ['maa_slug_bindings', 'ix_binding_scope_status_id', '(scope_id, status, id)'],
+            ['maa_slug_history', 'ix_history_occurred_id', '(occurred_at, id)'],
+            ['maa_slug_history', 'ix_history_scope_occurred_id', '(scope_namespace_snapshot, scope_locale_snapshot, scope_context_snapshot, occurred_at, id)'],
+        ];
+        foreach ($indexes as [$table, $index, $definition]) {
+            $this->pdo->exec(sprintf('ALTER TABLE %s DROP INDEX %s', $table, $index));
+            try {
+                (new PdoSchemaVerifier($this->pdo))->assertInstalled();
+                self::fail(sprintf('Verifier accepted missing index %s.%s.', $table, $index));
+            } catch (\Maatify\Slug\Lifecycle\Exception\SlugPersistenceInvariantException) {
+                self::addToAssertionCount(1);
+            }
+            $this->pdo->exec(sprintf('ALTER TABLE %s ADD INDEX %s %s', $table, $index, $definition));
+        }
+        (new PdoSchemaVerifier($this->pdo))->assertInstalled();
+    }
+
     private function dropSchemaForUpgradeProof(): void
     {
         foreach (['maa_slug_history', 'maa_slug_registry', 'maa_slug_operation_bindings', 'maa_slug_operations', 'maa_slug_bindings', 'maa_slug_scopes'] as $table) {

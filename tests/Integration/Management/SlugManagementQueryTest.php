@@ -9,7 +9,9 @@ use Maatify\Slug\Lifecycle\Command\AddAliasCommand;
 use Maatify\Slug\Lifecycle\Command\AssignExactCommand;
 use Maatify\Slug\Lifecycle\Command\ChangeExactCommand;
 use Maatify\Slug\Lifecycle\Command\DeactivateBindingCommand;
+use Maatify\Slug\Lifecycle\Command\ReactivateBindingCommand;
 use Maatify\Slug\Lifecycle\Command\RetireAliasCommand;
+use Maatify\Slug\Lifecycle\Command\TransitionScopeCommand;
 use Maatify\Slug\Lifecycle\Command\ReleaseAllOwnershipCommand;
 use Maatify\Slug\Lifecycle\Management\Criteria\AliasCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingCriteria;
@@ -24,10 +26,13 @@ use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
 use Maatify\Slug\Lifecycle\DTO\AuditContextDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Facade\SlugEngine;
 use Maatify\Slug\Factory\SlugEngineFactory;
 use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
+use Maatify\Slug\Lifecycle\Enum\ClaimIntentModeEnum;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
+use Maatify\Slug\Lifecycle\Enum\ScopeTransitionModeEnum;
 use Maatify\Slug\Lifecycle\Exception\SlugScopeProfileMismatchException;
 use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
 use Maatify\Slug\Canonicalization\ValueObject\SlugProfileKey;
@@ -102,6 +107,9 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
         $engine->assignExact(new AssignExactCommand($primary, 'reporting-main', null, new AuditContextDTO()));
         $engine->addAlias(new AddAliasCommand($primary, 'reporting-alias', 1, new AuditContextDTO()));
         $engine->changeExact(new ChangeExactCommand($primary, 'reporting-current', 2, new AuditContextDTO()));
+        $withActiveAlias = $engine->getScopeOperationalSummary(new ScopeCriteria($primary->scopeProfile));
+        self::assertNotNull($withActiveAlias);
+        self::assertSame(1, $withActiveAlias->registryActiveAliases);
         $engine->retireAlias(new RetireAliasCommand($primary, 'reporting-alias', 3, new AuditContextDTO()));
         $engine->assignExact(new AssignExactCommand($inactive, 'reporting-inactive', null, new AuditContextDTO()));
         $engine->deactivate(new DeactivateBindingCommand($inactive, 1, new AuditContextDTO()));
@@ -126,18 +134,100 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
         self::assertSame(1, $summary->registryRetiredAliases);
         self::assertSame(9, $summary->historyEventsTotal);
 
+        $reactivated = $engine->reactivate(new ReactivateBindingCommand($inactive, 2, new AuditContextDTO()));
+        self::assertSame('ACTIVE', $reactivated->after->state->status->value);
+        $afterReactivation = $engine->getScopeOperationalSummary(new ScopeCriteria($primary->scopeProfile));
+        self::assertNotNull($afterReactivation);
+        self::assertSame(2, $afterReactivation->bindingsActive);
+        self::assertSame(0, $afterReactivation->bindingsInactive);
+        self::assertSame(1, $afterReactivation->bindingsReleased);
+
         $history = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 100), $primary->scopeProfile));
-        self::assertSame(9, $history->total);
-        self::assertSame(9, $history->filtered);
+        self::assertSame(10, $history->total);
+        self::assertSame(10, $history->filtered);
         self::assertSame('occurred_at', $history->sortBy);
         self::assertSame('DESC', $history->sortDirection->value);
-        self::assertCount(9, $history->data);
+        self::assertCount(10, $history->data);
 
         $missing = new ScopeProfileRequestDTO(new SlugScope('missing-reporting-scope', null, null), new SlugProfileKey('ascii-v1'));
         $empty = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $missing));
         self::assertSame(0, $empty->total);
         self::assertSame(0, $empty->filtered);
         self::assertNull($engine->getScopeOperationalSummary(new ScopeCriteria($missing)));
+    }
+
+    public function testScopeSearchProvesSqlLiteralFiltersProfilesSortingIsolationAndEmptyResults(): void
+    {
+        $engine = $this->engineWithProfiles();
+        foreach ([
+            ['scope-z', null, null, 'ascii-v1'],
+            ['scope-a', 'ar', 'store', 'ascii-v1'],
+            ['custom-scope', null, null, 'custom-v1'],
+        ] as [$namespace, $locale, $context, $profile]) {
+            $identity = $this->identityInScope((string) $namespace, $locale, $context, (string) $profile);
+            $engine->assignExact(new AssignExactCommand($identity, 'scope-' . str_replace('-', '', (string) $namespace), null, new AuditContextDTO()));
+        }
+
+        $profile = new SlugProfileKey('custom-v1');
+        $custom = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10), null, $profile));
+        self::assertSame(3, $custom->total);
+        self::assertSame(1, $custom->filtered);
+        self::assertSame('custom-v1', $custom->data[0]->profileKey->value);
+
+        foreach (['scope%', 'scope_', 'scope\\'] as $literalPrefix) {
+            $result = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10), $literalPrefix));
+            self::assertSame(0, $result->filtered, $literalPrefix);
+        }
+        $empty = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10), 'does-not-exist'));
+        self::assertSame(3, $empty->total);
+        self::assertSame(0, $empty->filtered);
+
+        foreach (['namespace', 'locale_key', 'context_key', 'profile_key', 'updated_at', 'id'] as $sortBy) {
+            $page = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 1, $sortBy, 'ASC')));
+            self::assertSame($sortBy, $page->sortBy);
+            self::assertSame('ASC', $page->sortDirection->value);
+        }
+        $sorted = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10, 'namespace', 'ASC')));
+        self::assertSame(['custom-scope', 'scope-a', 'scope-z'], array_map(static fn($scope): string => $scope->scope->namespace, $sorted->data));
+        self::assertSame('ar', $sorted->data[1]->scope->localeKey);
+        self::assertSame('store', $sorted->data[1]->scope->contextKey);
+    }
+
+    public function testOperationalHistorySupportsPackageWideWindowsAndTransitionSnapshots(): void
+    {
+        $engine = $this->engine();
+        $source = $this->identityInScope('history-source', null, null, 'ascii-v1');
+        $targetScope = new ScopeProfileRequestDTO(new SlugScope('history-target', null, null), new SlugProfileKey('ascii-v1'));
+        $engine->assignExact(new AssignExactCommand($source, 'history-main', null, new AuditContextDTO()));
+        $transition = $engine->transitionScope(new TransitionScopeCommand(
+            $source,
+            $targetScope,
+            ScopeTransitionModeEnum::MOVE,
+            new ScopeTransitionClaimIntentDTO(ClaimIntentModeEnum::EXACT, 'history-moved'),
+            1,
+            new AuditContextDTO(),
+        ));
+        self::assertNotEmpty($transition->historyEvents);
+
+        $sourceHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $source->scopeProfile));
+        $targetHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $targetScope));
+        self::assertSame(2, $sourceHistory->filtered);
+        self::assertSame(1, $targetHistory->filtered);
+        self::assertSame(HistoryEventTypeEnum::SCOPE_TRANSITIONED_OUT, $sourceHistory->data[0]->eventType);
+        self::assertSame(HistoryEventTypeEnum::SCOPE_TRANSITIONED_IN, $targetHistory->data[0]->eventType);
+
+        $packageWide = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10)));
+        self::assertSame(3, $packageWide->total);
+        self::assertSame(3, $packageWide->filtered);
+        $window = $engine->searchHistory(new HistorySearchCriteria(
+            new PageRequest(1, 10),
+            null,
+            null,
+            new \DateTimeImmutable('2026-01-01T02:00:00.123456+02:00'),
+            new \DateTimeImmutable('2026-01-01T00:00:00.123457Z'),
+        ));
+        self::assertSame(3, $window->total);
+        self::assertSame(3, $window->filtered);
     }
 
     public function testOperationalHistoryUsesHalfOpenUtcMicrosecondWindowAndFilters(): void
@@ -356,5 +446,21 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
             new ScopeProfileRequestDTO(new SlugScope('catalog', null, null), new SlugProfileKey('ascii-v1')),
             new EntityReference('product', $entityKey),
         );
+    }
+
+    private function identityInScope(string $namespace, ?string $locale, ?string $context, string $profile): BindingIdentityDTO
+    {
+        return new BindingIdentityDTO(
+            new ScopeProfileRequestDTO(new SlugScope($namespace, $locale, $context), new SlugProfileKey($profile)),
+            new EntityReference('product', $namespace . '-entity'),
+        );
+    }
+
+    private function engineWithProfiles(): SlugEngine
+    {
+        $profiles = new SlugProfileRegistry();
+        $profiles->register(new TestSlugProfile());
+        $profiles->register(new TestSlugProfile(new SlugProfileKey('custom-v1')));
+        return SlugEngineFactory::create($this->pdo, $profiles, new TestReservedSlugPolicy(), $this->clock());
     }
 }

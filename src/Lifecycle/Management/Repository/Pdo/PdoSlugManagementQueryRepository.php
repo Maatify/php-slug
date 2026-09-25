@@ -28,7 +28,7 @@ use Maatify\Slug\Lifecycle\DTO\BindingStateDTO;
 use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
-use Maatify\Slug\Lifecycle\DTO\ScopeOperationalSummaryDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
@@ -308,7 +308,6 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         return $this->paginator->paginate($this->pdo, $descriptor, $criteria->pageRequest, self::historySearchConfig(), fn(array $row): HistoryEventDTO => $this->historyFromRow($row));
     }
 
-    /** @return array<string, mixed> */
     /** @return array<string, string> */
     private function historyParams(HistorySearchCriteria $criteria): array
     {
