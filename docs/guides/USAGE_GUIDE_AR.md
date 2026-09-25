@@ -3,7 +3,7 @@
 > هذا الملف ترجمة عربية غير معيارية لملف [`USAGE_GUIDE.md`](USAGE_GUIDE.md).
 > النسخة الإنجليزية هي الوثيقة authoritative وcanonical، ولا ينشئ هذا الملف عقدًا تقنيًا منافسًا. عند وجود اختلاف، تكون النسخة الإنجليزية و[`SLUG_PACKAGE_REFERENCE.md`](../../SLUG_PACKAGE_REFERENCE.md) هما المرجعان.
 
-> **دورة الإصدار:** `v1.0.0-rc.1` هي baseline المنشورة؛ أما Runtime الحالي في هذا المستودع فيتضمن تطوير next-RC غير منشور بعد. لا تعني هذه الإضافات أن `searchScopes()` أو `getScopeOperationalSummary()` أو `searchHistory()` منشورة ضمن RC1.
+> **دورة الإصدار:** `v1.0.0-rc.2` هي Published Release Candidate الحالية. أصبحت `searchScopes()` و`getScopeOperationalSummary()` و`searchHistory()` ضمن RC2 المنشورة، وتبقى الحزمة Pre-Stable دون Stable support line.
 
 ## الملاءمة ومتى تستخدم الحزمة
 
@@ -19,10 +19,10 @@
 
 ## حالة النشر
 
-إن `v1.0.0-rc.1` هي Published Release Candidate وقابلة للحل خارجيًا عبر مصدر Composer المعتمد للتوزيع. وتبقى دورة الحياة Pre-Stable ولا تنشئ Stable support line. يمكن للمستهلك تثبيتها بالأمر:
+إن `v1.0.0-rc.2` هي Published Release Candidate الحالية وقابلة للحل خارجيًا عبر مصدر Composer المعتمد للتوزيع. وتبقى دورة الحياة Pre-Stable ولا تنشئ Stable support line. يمكن للمستهلك تثبيتها بالأمر:
 
 ~~~bash
-composer require maatify/php-slug:1.0.0-rc.1@RC
+composer require maatify/php-slug:1.0.0-rc.2@RC
 ~~~
 
 لا ينشئ هذا الدليل مصدرًا مستقلًا لتحديد حالة النشر.

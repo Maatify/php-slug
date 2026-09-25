@@ -5,7 +5,7 @@
 ![Maatify.dev](https://www.maatify.dev/assets/img/img/maatify_logo_white.svg)
 
 [![Status](https://img.shields.io/badge/Status-Release%20Candidate-orange.svg)](#publication-state)
-[![Version](https://img.shields.io/badge/Version-v1.0.0--rc.1-blue.svg)](https://packagist.org/packages/maatify/php-slug)
+[![Version](https://img.shields.io/badge/Version-v1.0.0--rc.2-blue.svg)](https://packagist.org/packages/maatify/php-slug)
 [![PHP](https://img.shields.io/badge/PHP-^8.4-777bb4.svg?logo=php&logoColor=white)](#requirements)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![PHPStan](https://img.shields.io/badge/PHPStan-Max-brightgreen.svg)](#quality-status)
@@ -14,7 +14,7 @@
 [![Monthly Downloads](https://img.shields.io/packagist/dm/maatify/php-slug.svg)](https://packagist.org/packages/maatify/php-slug)
 [![Total Downloads](https://img.shields.io/packagist/dt/maatify/php-slug.svg)](https://packagist.org/packages/maatify/php-slug)
 [![Maatify Ecosystem](https://img.shields.io/badge/Maatify-Ecosystem-blueviolet)](https://github.com/Maatify)
-[![Install](https://img.shields.io/badge/Install-1.0.0--rc.1%40RC-blue.svg)](#installation)
+[![Install](https://img.shields.io/badge/Install-1.0.0--rc.2%40RC-blue.svg)](#installation)
 
 [![Usage Guide](https://img.shields.io/badge/Usage-Guide-blue.svg)](docs/guides/USAGE_GUIDE.md)
 [![Examples](https://img.shields.io/badge/Examples-View-blue.svg)](examples/)
@@ -31,7 +31,7 @@ An independent PHP slug lifecycle engine with clear boundaries between the slug 
 
 ## Publication State
 
-`v1.0.0-rc.1` is a Published Release Candidate available through Packagist. It remains Pre-Stable, does not create a Stable support line, and there is no Published Stable release. Publication does not imply Stable readiness.
+`v1.0.0-rc.2` is the current Published Release Candidate available through Packagist. It remains Pre-Stable, does not create a Stable support line, and there is no Published Stable release. Publication does not imply Stable readiness.
 
 The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). Execution evidence is maintained in GitHub PR and CI history rather than duplicated in this consumer-facing README.
 
@@ -64,7 +64,7 @@ Built-in profiles require the normalization and transliteration capabilities pro
 Install the published Release Candidate with:
 
 ```bash
-composer require maatify/php-slug:1.0.0-rc.1@RC
+composer require maatify/php-slug:1.0.0-rc.2@RC
 ```
 
 ## Quick Usage
@@ -90,7 +90,7 @@ The public Runtime provides actual paths for:
 - canonicalization through `SlugTextServiceInterface`, `generateFromSource`, `canonicalizeClaim`, and `canonicalizeLookup`;
 - lifecycle ownership through `SlugEngine` and `SlugLifecycleServiceInterface`, including `assignExact`;
 - consumer reads through `checkAvailability`, `getCurrent`, and `resolve`; and
-- management reads through `SlugManagementQueryInterface`, including `searchScopes`, `getScopeOperationalSummary`, and `searchHistory` in the current unreleased next-RC Runtime.
+- management reads through `SlugManagementQueryInterface`, including `searchScopes`, `getScopeOperationalSummary`, and `searchHistory` in the published RC2 Runtime.
 
 This overview does not replace the complete inventory and contracts in [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
 

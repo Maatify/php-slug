@@ -5,14 +5,14 @@
 
 ## Current Support State
 
-This repository contains the package implementation, Runtime, and CI. `v1.0.0-rc.1` is published through Packagist as a Release Candidate / pre-release, not Stable. There is no Published Stable release and no Stable support line. The RC does not create a public Stable support or SLA commitment.
+This repository contains the package implementation, Runtime, and CI. `v1.0.0-rc.2` is the current published Packagist Release Candidate / pre-release, not Stable. There is no Published Stable release and no Stable support line. The RC does not create a public Stable support or SLA commitment.
 
 ## Supported Versions
 
 | Version | Supported |
 |---|---|
 | Stable release line | No |
-| `1.0.0-rc.1` pre-release | No — pre-release; no Stable support line |
+| `1.0.0-rc.2` pre-release | No — pre-release; no Stable support line |
 
 This table is support-oriented, not a mutable publication-status ledger. The RC does not create a Stable support line or SLA.
 
