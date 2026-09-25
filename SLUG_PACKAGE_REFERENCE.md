@@ -383,8 +383,8 @@ An ordinary change preserves the previous canonical as historical and does not r
 
 ### 7.2 Composite Operations
 
-- `transitionScope` creates a new target Binding after target-profile canonicalization. `MOVE` makes the source `INACTIVE`, while `PARALLEL` leaves the source unchanged; it does not rewrite `scope_id`.
-- `atomicTransfer` is same-Scope only and requires a target Binding that exists before the operation. It moves a claim in one transaction; transferring a current claim requires a different replacement, and the target preserves the original role exactly. RC1 does not support cross-scope transfer.
+- `transitionScope` creates a new target Binding after target-profile canonicalization. `MOVE` makes the source `INACTIVE`, while `PARALLEL` leaves the source unchanged; it does not rewrite `scope_id`. Cross-scope transfer remains unsupported in the current Runtime.
+- `atomicTransfer` is same-Scope only and requires a target Binding that exists before the operation. It moves a claim in one transaction; transferring a current claim requires a different replacement, and the target preserves the original role exactly.
 - `adoptCurrent` permits an absent or `RELEASED` Binding according to `expectedRevision`, while `adoptHistorical` and `adoptAlias` require an `ACTIVE` or `INACTIVE` Binding with a current claim.
 - `originalOccurredAt` in adoption is a `DateTimeImmutable` in any timezone, converted to UTC with six microseconds preserved. It is rejected only outside the MySQL `DATETIME(6)` range; it is not compared with the Clock for future or past validation.
 

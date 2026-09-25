@@ -1,4 +1,4 @@
-# Slug RC1 MySQL-compatible schema
+# Slug Ordered MySQL-Compatible Package Schema
 
 `001_slug_rc1.sql` is the published RC1 base schema. `002_operational_reporting_indexes.sql`
 is an additive next-RC operational-read index asset. The published RC1 artifact does

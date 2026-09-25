@@ -3,6 +3,8 @@
 > هذا الملف ترجمة عربية غير معيارية لملف [`USAGE_GUIDE.md`](USAGE_GUIDE.md).
 > النسخة الإنجليزية هي الوثيقة authoritative وcanonical، ولا ينشئ هذا الملف عقدًا تقنيًا منافسًا. عند وجود اختلاف، تكون النسخة الإنجليزية و[`SLUG_PACKAGE_REFERENCE.md`](../../SLUG_PACKAGE_REFERENCE.md) هما المرجعان.
 
+> **دورة الإصدار:** `v1.0.0-rc.1` هي baseline المنشورة؛ أما Runtime الحالي في هذا المستودع فيتضمن تطوير next-RC غير منشور بعد. لا تعني هذه الإضافات أن `searchScopes()` أو `getScopeOperationalSummary()` أو `searchHistory()` منشورة ضمن RC1.
+
 ## الملاءمة ومتى تستخدم الحزمة
 
 استخدم maatify/php-slug عندما تحتاج إلى توليد Slug أو canonicalization أو ملكية scoped مستمرة مع resolution وHistory. يناسب المسار stateless النصوص التي لا تحتاج إلى Persistence، بينما يناسب المسار persisted الحالات التي تملك فيها الحزمة lifecycle والـclaims.
@@ -131,6 +133,26 @@ SlugEngine::resolve(new ResolutionCriteria(...))، ويمكن استخدام che
 
 هذه reads لا تمنح claim. checkAvailability advisory، بينما claim الفعلية يحسمها مسار mutation وunique Registry constraint.
 
+## Management operational reads
+
+**Input**
+
+هوية Binding بعد assignment.
+
+**Public Call**
+
+SlugEngine::getBinding(new BindingCriteria($bindingIdentity)).
+
+يمكن استخدام بقية عمليات الإدارة مع Criteria الخاصة بها عند الحاجة: getCurrent وlistAliases وgetHistory وinspectRegistry وinspectScope وsearchBindings وsearchRegistry.
+
+**Result**
+
+يعيد getBinding كائن BindingDTO، ويعرض المثال persisted current slug بالقيمة hello-world.
+
+**Boundary**
+
+هذه operational reads موجهة إلى Host أو أدوات الإدارة ولا تعيد تعريف public lifecycle contract. تعتمد pagination على الأنواع المشتركة التي يحددها Package Reference.
+
 ## اكتشاف Scopes
 
 **Input**
@@ -187,7 +209,7 @@ SlugEngine::resolve(new ResolutionCriteria(...))، ويمكن استخدام che
 
 لا يحتاج Host إلى تعداد Bindings أو SQL لبناء History التشغيلي.
 
-## Custom profile extension
+## Custom Profile Extension
 
 **Input**
 
@@ -204,26 +226,6 @@ SlugEngine::resolve(new ResolutionCriteria(...))، ويمكن استخدام che
 **Boundary**
 
 يبقى Package Reference المرجع المعياري للتوافق والتسجيل المكرر وثبات profile المحفوظ وحدود الامتداد.
-
-## Management operational reads
-
-**Input**
-
-هوية Binding بعد assignment.
-
-**Public Call**
-
-SlugEngine::getBinding(new BindingCriteria($bindingIdentity)).
-
-يمكن استخدام بقية عمليات الإدارة مع Criteria الخاصة بها عند الحاجة: getCurrent وlistAliases وgetHistory وinspectRegistry وinspectScope وsearchBindings وsearchRegistry.
-
-**Result**
-
-يعيد getBinding كائن BindingDTO، ويعرض المثال persisted current slug بالقيمة hello-world.
-
-**Boundary**
-
-هذه operational reads موجهة إلى Host أو أدوات الإدارة ولا تعيد تعريف public lifecycle contract. تعتمد pagination على الأنواع المشتركة التي يحددها Package Reference.
 
 ## حدود Transactions والتزامن
 
