@@ -228,16 +228,16 @@ if (($argv[1] ?? '') === '--consumer-race-worker') {
 
 $configuration = databaseConfiguration();
 $run = getenv('SLUG_HARNESS_RUN');
-$schemaFile = installedPackageSchema();
+$schemaDirectory = installedPackageSchema();
 if (! is_string($run) || $run === '') {
     throw new RuntimeException('Consumer Harness runtime configuration is incomplete.');
 }
-echo sprintf("CONSUMER_SCHEMA_PATH=%s PASS\n", $schemaFile);
+echo sprintf("CONSUMER_SCHEMA_PATH=%s PASS\n", $schemaDirectory);
 
 $pdo = null;
 try {
     $pdo = connectToDatabase($configuration);
-    installPackageSchema($pdo, $schemaFile);
+    installPackageSchema($pdo, $schemaDirectory);
 
     $profileKey = new SlugProfileKey('ascii-v1');
     $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -327,11 +327,11 @@ function installedPackageSchema(): string
     if (! is_string($packagePath) || $packagePath === '') {
         throw new RuntimeException('Composer did not report the maatify/php-slug installation path.');
     }
-    $schemaFile = $packagePath . '/schema/mysql/001_slug_rc1.sql';
-    if (! is_file($schemaFile)) {
-        throw new RuntimeException('The installed maatify/php-slug dependency does not contain its MySQL schema.');
+    $schemaDirectory = $packagePath . '/schema/mysql';
+    if (! is_file($schemaDirectory . '/001_slug_rc1.sql') || ! is_file($schemaDirectory . '/002_operational_reporting_indexes.sql')) {
+        throw new RuntimeException('The installed maatify/php-slug dependency does not contain the ordered MySQL schema assets.');
     }
-    return $schemaFile;
+    return $schemaDirectory;
 }
 
 function connectToDatabase(array $configuration): PDO
@@ -346,26 +346,28 @@ function connectToDatabase(array $configuration): PDO
     return $pdo;
 }
 
-function installPackageSchema(PDO $pdo, string $schemaFile): void
+function installPackageSchema(PDO $pdo, string $schemaDirectory): void
 {
-    $sql = file_get_contents($schemaFile);
-    if ($sql === false) {
-        throw new RuntimeException('The package-owned schema could not be read.');
+    $assets = glob($schemaDirectory . '/[0-9][0-9][0-9]_*.sql');
+    if ($assets === false || $assets === []) {
+        throw new RuntimeException('The package-owned schema assets could not be found.');
     }
-    $statements = preg_split('/;\s*(?:\r?\n|\z)/', $sql);
-    if ($statements === false) {
-        throw new RuntimeException('The package-owned schema could not be split.');
-    }
-    $executed = 0;
-    foreach ($statements as $statement) {
-        $statement = trim($statement);
-        if ($statement === '') {
-            continue;
+    sort($assets, SORT_STRING);
+    foreach ($assets as $asset) {
+        $sql = file_get_contents($asset);
+        if ($sql === false) {
+            throw new RuntimeException('The package-owned schema asset could not be read.');
         }
-        $pdo->exec($statement);
-        $executed++;
+        $statements = preg_split('/;\s*(?:\r?\n|\z)/', $sql);
+        if ($statements === false) {
+            throw new RuntimeException('The package-owned schema could not be split.');
+        }
+        foreach ($statements as $statement) {
+            if (trim($statement) !== '') {
+                $pdo->exec(trim($statement));
+            }
+        }
     }
-    expect($executed === 6, 'The package schema did not execute its six expected statements.');
 }
 
 /** @param array{SLUG_TEST_DB_HOST: string, SLUG_TEST_DB_PORT: string, SLUG_TEST_DB_NAME: string, SLUG_TEST_DB_USER: string, SLUG_TEST_DB_PASSWORD: string} $configuration */

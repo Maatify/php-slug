@@ -39,6 +39,7 @@ use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Canonicalization\DTO\LookupCanonicalizationDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionResultDTO;
@@ -56,6 +57,8 @@ use Maatify\Slug\Lifecycle\Management\Criteria\RegistryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
 use Maatify\Slug\Lifecycle\Consumer\Criteria\ResolutionCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\ScopeCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
@@ -87,7 +90,7 @@ final class PublicContractsTest extends TestCase
         $classes = [
             AliasCriteria::class, AvailabilityCriteria::class, BindingCriteria::class, BindingSearchCriteria::class,
             CurrentSlugCriteria::class, HistoryCriteria::class, RegistryCriteria::class, RegistrySearchCriteria::class,
-            ResolutionCriteria::class, ScopeCriteria::class,
+            ResolutionCriteria::class, ScopeCriteria::class, ScopeSearchCriteria::class, HistorySearchCriteria::class,
         ];
 
         foreach ($classes as $class) {
@@ -105,7 +108,7 @@ final class PublicContractsTest extends TestCase
             BindingDTO::class, BindingIdentityDTO::class, BindingStateDTO::class, BindingStateResultDTO::class,
             CanonicalSlugDTO::class, CurrentSlugDTO::class, GeneratedSlugDTO::class, HistoryEventDTO::class,
             LookupCanonicalizationDTO::class, RegistryClaimDTO::class, ScopeDTO::class, ScopeProfileRequestDTO::class,
-            ScopeTransitionClaimIntentDTO::class, ScopeTransitionResultDTO::class, SlugAvailabilityDTO::class,
+            ScopeTransitionClaimIntentDTO::class, ScopeTransitionResultDTO::class, ScopeOperationalSummaryDTO::class, SlugAvailabilityDTO::class,
             SlugMutationResultDTO::class, SlugResolutionDTO::class, TransferReplacementIntentDTO::class,
         ];
 

@@ -19,6 +19,7 @@ use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Canonicalization\DTO\LookupCanonicalizationDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionResultDTO;
@@ -102,6 +103,9 @@ final class PublicDTOConstructorContractTest extends TestCase
             ],
             ScopeDTO::class => [
                 ['id', 'int', false], ['scope', SlugScope::class, false], ['profileKey', SlugProfileKey::class, false], ['createdAt', \DateTimeImmutable::class, false], ['updatedAt', \DateTimeImmutable::class, false],
+            ],
+            ScopeOperationalSummaryDTO::class => [
+                ['scope', ScopeDTO::class, false], ['bindingsTotal', 'int', false], ['bindingsActive', 'int', false], ['bindingsInactive', 'int', false], ['bindingsReleased', 'int', false], ['registryClaimsTotal', 'int', false], ['registryCurrentCanonical', 'int', false], ['registryHistoricalCanonical', 'int', false], ['registryActiveAliases', 'int', false], ['registryRetiredAliases', 'int', false], ['historyEventsTotal', 'int', false],
             ],
             BindingStateDTO::class => [
                 ['status', BindingStatusEnum::class, false], ['currentSlug', Slug::class, true], ['revision', 'int', false], ['historySequence', 'int', false],

@@ -56,11 +56,11 @@ final readonly class PdoSchemaVerifier
     {
         $required = [
             'maa_slug_scopes' => ['PRIMARY', 'uk_scope_identity', 'ix_scope_profile'],
-            'maa_slug_bindings' => ['PRIMARY', 'uk_binding_identity', 'uk_binding_id_scope', 'ix_binding_current_registry', 'ix_binding_status'],
+            'maa_slug_bindings' => ['PRIMARY', 'uk_binding_identity', 'uk_binding_id_scope', 'ix_binding_current_registry', 'ix_binding_status', 'ix_binding_scope_status_id'],
             'maa_slug_operations' => ['PRIMARY', 'uk_operation_key', 'ix_operation_type_created_id'],
             'maa_slug_operation_bindings' => ['PRIMARY', 'uk_operation_binding_idempotency', 'uk_operation_binding_pair', 'uk_operation_binding_role', 'ix_operation_binding_role'],
             'maa_slug_registry' => ['PRIMARY', 'uk_registry_scope_slug', 'uk_registry_binding_slug', 'ix_registry_binding_role', 'ix_registry_scope_role_id'],
-            'maa_slug_history' => ['PRIMARY', 'uk_history_binding_sequence', 'ix_history_binding_occurred_id', 'ix_history_event_occurred_id'],
+            'maa_slug_history' => ['PRIMARY', 'uk_history_binding_sequence', 'ix_history_binding_occurred_id', 'ix_history_event_occurred_id', 'ix_history_occurred_id', 'ix_history_scope_occurred_id'],
         ];
         $statement = $this->pdo->query(
             "SELECT TABLE_NAME, INDEX_NAME FROM information_schema.STATISTICS "

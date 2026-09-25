@@ -7,6 +7,8 @@ namespace Maatify\Slug\Tests\Unit\Contracts;
 use Maatify\Persistence\Pdo\Pagination\PageRequest;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingSearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
 use Maatify\Slug\Exception\SlugInvalidArgumentException;
 use PHPUnit\Framework\TestCase;
 
@@ -58,5 +60,21 @@ final class CriteriaValidationTest extends TestCase
         $tooLong = str_repeat('a', 192);
         $this->expectException(SlugInvalidArgumentException::class);
         new BindingSearchCriteria($scope, $page, 'product', $tooLong);
+    }
+
+    public function testScopeNamespacePrefixRetainsLiteralWildcardCharacters(): void
+    {
+        $criteria = new ScopeSearchCriteria(new PageRequest(1, 25), 'catalog%_\\');
+        self::assertSame('catalog%_\\', $criteria->namespacePrefix);
+    }
+
+    public function testHistorySearchRequiresAStrictlyIncreasingUtcWindow(): void
+    {
+        $page = new PageRequest(1, 25);
+        $from = new \DateTimeImmutable('2026-01-01T01:00:00.000000+01:00');
+        $until = new \DateTimeImmutable('2026-01-01T00:00:00.000000Z');
+
+        $this->expectException(SlugInvalidArgumentException::class);
+        new HistorySearchCriteria($page, null, null, $from, $until);
     }
 }

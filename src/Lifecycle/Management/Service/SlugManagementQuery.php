@@ -14,6 +14,8 @@ use Maatify\Slug\Lifecycle\Management\Criteria\HistoryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\ScopeCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
 use Maatify\Slug\Lifecycle\DTO\AliasDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Lifecycle\DTO\CurrentSlugDTO;
@@ -21,6 +23,7 @@ use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\Exception\SlugScopeProfileMismatchException;
 use Maatify\Slug\Lifecycle\Repository\CapabilityGuardInterface;
 use Maatify\Slug\Lifecycle\Management\Repository\ManagementQueryRepositoryInterface;
@@ -103,6 +106,40 @@ final readonly class SlugManagementQuery implements SlugManagementQueryInterface
     {
         $this->capabilities->assertInstalledSchemaSupported();
         return $this->registry->findScope($criteria->scopeProfile->scope, $criteria->scopeProfile->expectedProfileKey);
+    }
+
+    /**
+     * Returns persisted package Scopes matching the optional search filters.
+     *
+     * @return PageResult<ScopeDTO>
+     */
+    public function searchScopes(ScopeSearchCriteria $criteria): PageResult
+    {
+        $this->capabilities->assertInstalledSchemaSupported();
+        return $this->queries->searchScopes($criteria);
+    }
+
+    /** Returns Scope-local operational counts, or null when the Scope is absent. */
+    public function getScopeOperationalSummary(ScopeCriteria $criteria): ?ScopeOperationalSummaryDTO
+    {
+        $this->capabilities->assertInstalledSchemaSupported();
+        $scope = $this->registry->findScope($criteria->scopeProfile->scope, $criteria->scopeProfile->expectedProfileKey);
+        return $scope === null ? null : $this->queries->getScopeOperationalSummary($scope);
+    }
+
+    /**
+     * Returns operational History using the event's persisted Scope snapshot.
+     *
+     * @return PageResult<HistoryEventDTO>
+     */
+    public function searchHistory(HistorySearchCriteria $criteria): PageResult
+    {
+        $this->capabilities->assertInstalledSchemaSupported();
+        if ($criteria->scopeProfile !== null) {
+            $this->registry->findScope($criteria->scopeProfile->scope, $criteria->scopeProfile->expectedProfileKey);
+        }
+
+        return $this->queries->searchHistory($criteria);
     }
 
     /**
