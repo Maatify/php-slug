@@ -2,7 +2,7 @@
 
 > **Canonical root Package Reference** for `maatify/php-slug`.
 >
-> **Lifecycle:** Pre-Stable / first-Stable lifecycle. This file records the implemented contract and package boundaries available in the Runtime, source schema, tests, and CI configuration.
+> **Lifecycle:** Pre-Stable. `v1.0.0-rc.1` is the published baseline; the current repository Runtime includes unreleased next-RC development after that baseline. This file records the implemented contract and package boundaries available in the current Runtime.
 
 ## 1. Package Identity and Status
 
@@ -27,7 +27,7 @@ The durable references associated with this document are:
 
 ## 2. Purpose and Ownership Boundaries
 
-RC1 is an **Authoritative Slug Lifecycle Engine**, not only a text-generation helper. The package owns generation, canonicalization, scoped ownership, allocation, lifecycle, aliases, history, resolution, adoption, and package-owned persistence, with defined concurrency, transaction, result, and exception contracts.
+The current Runtime is an **Authoritative Slug Lifecycle Engine**, not only a text-generation helper. The package owns generation, canonicalization, scoped ownership, allocation, lifecycle, aliases, history, resolution, adoption, and package-owned persistence, with defined concurrency, transaction, result, and exception contracts.
 
 The package owns:
 
@@ -104,7 +104,7 @@ Package-wide responsibilities:
 
 Consumer and Management use cases remain inside `Lifecycle`; Persistence is not a separate Capability or architecture root.
 
-## 4. Runtime and Platform Contract for RC1
+## 4. Runtime and Platform Contract
 
 The following requirements are implemented in the repository:
 
@@ -225,6 +225,9 @@ SlugManagementQueryInterface
   getHistory(HistoryCriteria): PageResult<HistoryEventDTO>
   inspectRegistry(RegistryCriteria): PageResult<RegistryClaimDTO>
   inspectScope(ScopeCriteria): ?ScopeDTO
+  searchScopes(ScopeSearchCriteria): PageResult<ScopeDTO>
+  getScopeOperationalSummary(ScopeCriteria): ?ScopeOperationalSummaryDTO
+  searchHistory(HistorySearchCriteria): PageResult<HistoryEventDTO>
   searchBindings(BindingSearchCriteria): PageResult<BindingDTO>
   searchRegistry(RegistrySearchCriteria): PageResult<RegistryClaimDTO>
 ```
@@ -296,6 +299,8 @@ AliasCriteria(BindingIdentityDTO, PageRequest pageRequest)
 HistoryCriteria(BindingIdentityDTO, PageRequest pageRequest, ?HistoryEventTypeEnum eventType = null)
 RegistryCriteria(ScopeProfileRequestDTO, PageRequest pageRequest, ?BindingIdentityDTO binding = null, ?RegistryRoleEnum role = null)
 ScopeCriteria(ScopeProfileRequestDTO)
+ScopeSearchCriteria(PageRequest pageRequest, ?string namespacePrefix = null, ?SlugProfileKey profileKey = null)
+HistorySearchCriteria(PageRequest pageRequest, ?ScopeProfileRequestDTO scopeProfile = null, ?HistoryEventTypeEnum eventType = null, ?DateTimeImmutable occurredFromInclusive = null, ?DateTimeImmutable occurredUntilExclusive = null)
 BindingSearchCriteria(ScopeProfileRequestDTO, PageRequest pageRequest, ?string entityType = null, ?string entityKeyPrefix = null, ?BindingStatusEnum status = null)
 RegistrySearchCriteria(ScopeProfileRequestDTO, PageRequest pageRequest, ?string slugPrefix = null, ?RegistryRoleEnum role = null, ?BindingStatusEnum bindingStatus = null)
 ```
@@ -312,6 +317,7 @@ ScopeProfileRequestDTO, BindingIdentityDTO,
 ScopeTransitionClaimIntentDTO, TransferReplacementIntentDTO,
 ScopeDTO, BindingStateDTO, BindingDTO, RegistryClaimDTO, CurrentSlugDTO,
 AliasDTO, HistoryEventDTO, AuditContextDTO,
+ScopeOperationalSummaryDTO,
 SlugAvailabilityDTO, SlugResolutionDTO, SlugMutationResultDTO,
 BindingStateResultDTO, ScopeTransitionResultDTO,
 AtomicTransferResultDTO, AdoptionResultDTO
@@ -471,6 +477,25 @@ inspectRegistry(RegistryCriteria)
 inspectScope(ScopeCriteria)
 → Scope matching ScopeProfileRequestDTO; returns ScopeDTO or null
 
+searchScopes(ScopeSearchCriteria)
+→ all persisted package Scopes with `total` equal to all Scopes and `filtered` equal to the literal `namespacePrefix` and/or exact `profileKey` filter result. Namespace prefixes are literal prefixes, not SQL wildcard syntax. Pagination uses the shared paginator; supported sort fields are `id`, `namespace`, `locale_key`, `context_key`, `profile_key`, and `updated_at`, with deterministic `id ASC` as the default.
+
+getScopeOperationalSummary(ScopeCriteria)
+→ one exact Scope snapshot or `null` when the Scope is missing. The DTO contains exactly:
+
+```text
+ScopeDTO scope
+int bindingsTotal, bindingsActive, bindingsInactive, bindingsReleased
+int registryClaimsTotal, registryCurrentCanonical, registryHistoricalCanonical,
+    registryActiveAliases, registryRetiredAliases
+int historyEventsTotal
+```
+
+All counts are non-negative. `bindingsTotal = bindingsActive + bindingsInactive + bindingsReleased`; `registryClaimsTotal = registryCurrentCanonical + registryHistoricalCanonical + registryActiveAliases + registryRetiredAliases`. Binding counts describe current Binding rows, Registry counts describe live Registry rows, and History counts use each event's persisted Scope snapshot.
+
+searchHistory(HistorySearchCriteria)
+→ package-wide History when `scopeProfile` is null, or History attributed to the exact persisted Scope snapshot when it is supplied. A missing Scope produces an empty page. `eventType` and the half-open UTC window `[occurredFromInclusive, occurredUntilExclusive)` are optional filters; when both bounds exist, `from < until` is required. Inputs are normalized to UTC and compared at the package's six-microsecond persistence precision. Filtering uses `occurredAt`, not `originalOccurredAt`. `total` is the unfiltered base boundary; `filtered` is the result after event-type and time-window filters. The deterministic default sort is `occurred_at DESC`, then `id DESC`; callers may use the supported paginator sort fields.
+
 searchBindings(BindingSearchCriteria)
 → Scope with optional entityType, entityKeyPrefix, BindingStatusEnum, and pagination
 
@@ -480,22 +505,53 @@ searchRegistry(RegistrySearchCriteria)
 
 These Management APIs do not mutate state and are not an alternate mutation path. The package owns the meanings of Slug scopes, Bindings, claims, History, status, and revision; the Host owns presentation, permissions, HTTP, exports, entity meaning and names, and cross-package aggregation.
 
-RC1 does not currently expose public reporting contracts for:
+The current Runtime intentionally supports:
 
 ```text
-generic dashboard
-aggregate/count/grouped metrics
-time-window reporting filters
+Scope discovery and filtering
+Scope-local operational totals
+Package-wide or exact-Scope History reads
+Event-type and half-open UTC time-window filtering
+```
+
+It intentionally does not expose public reporting contracts for:
+
+```text
+generic Dashboard
+generic global metrics API
+chart/day/week/month buckets
+presentation timezone aggregation
+separate grouped-History API
 CSV/PDF/Excel exports
 Host actor/name resolution
-cross-package reporting
+Host joins
+cross-package analytics
+public reporting for internal operations or idempotency tables
 ```
 
 The package does not add APIs for these dimensions merely to satisfy a Reporting standard. Internal operation or idempotency rows, although persisted, are not public reporting contracts.
 
+### 10.2 Extension Guide
+
+#### Custom Slug Profiles
+
+Implement `SlugProfileInterface` when the Host needs a canonicalization contract not supplied by the built-in `unicode-v1` or `ascii-v1` profiles. The implementation owns `key()`, source generation, exact-claim canonicalization, lookup classification, and `assertCanonicalSlug()`.
+
+Register the implementation through `SlugProfileRegistryInterface::register()` on the supported registry path, normally the registry returned by `SlugProfileRegistryFactory::createBuiltIn()`, before creating or using the text service or persisted engine. Custom keys must use the actual versioned format `^[a-z][a-z0-9-]*-v[1-9][0-9]*$`. The same profile key is a stable semantic contract: incompatible canonicalization changes require a new versioned key rather than silently changing the old one.
+
+Built-in keys cannot be replaced, and duplicate registration is rejected. Persisted Scope profile configuration is immutable. A read or lifecycle operation whose expected profile differs from the persisted Scope profile fails with the documented profile-mismatch behavior; it does not reinterpret stored data under another profile. Use `assertCanonicalSlug()` as the profile's validation gate and `Slug::fromProfile(...)` as the only public value-object construction path.
+
+#### Reserved policy
+
+`ReservedSlugPolicyInterface` is a Host-owned extension point. The Host owns its reserved vocabulary and policy, while the Package invokes it through the Public contract during lifecycle operations. The Package must not be documented as owning Host-specific reservation data.
+
+#### Extension boundaries
+
+The following are not Public extension surfaces: internal repositories; direct package SQL; Host table joins; framework adapters or providers as a requirement; HTTP controllers, middleware, or routes; Host persistence; and UI/Admin layers. Extend through the public profile registry, text service, lifecycle/management contracts, and injected Host policy collaborators only.
+
 ## 11. Technical Consumer Workflow
 
-The normative RC1 consumer workflow is one connected path:
+The normative current-Runtime consumer workflow is one connected path:
 
 ```text
 Host Input
@@ -661,7 +717,7 @@ The package uses the published hierarchy from `maatify/exceptions ^1.0`. It does
 
 ## 13. Current Release State
 
-`v1.0.0-rc.1` is the published Release Candidate for `maatify/php-slug`, externally resolvable through Packagist. The package lifecycle remains Pre-Stable, with no Published Stable release and no Stable support line. CI and review execution evidence is maintained in GitHub PR/CI history rather than duplicated in this current-state contract.
+`v1.0.0-rc.1` is the published baseline for `maatify/php-slug`, externally resolvable through Packagist. The current repository Runtime contains unreleased next-RC development after that baseline. The package lifecycle remains Pre-Stable, with no Published Stable release and no Stable support line. CI and review execution evidence is maintained in GitHub PR/CI history rather than duplicated in this current-state contract.
 
 The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`. That manifest is the authoritative resolver record for the applicable Standard versions.
 

@@ -29,7 +29,8 @@
 - **الملكية ودورة الحياة:** Exact claiming وgenerated allocation وrelease وscope transition وatomic transfer وadoption.
 - **Aliases وHistory:** Aliases نشطة ومتقاعدة مع History غير قابلة للتغيير لدورة الحياة.
 - **Persistence والتزامن:** Persistence عبر PDO ومتطلبات MySQL-compatible، مع transactions وCAS وضمانات التزامن.
-- **Resolution والإدارة:** Resolution وavailability وقراءات الإدارة مع pagination مشتركة.
+- **Resolution والإدارة:** Resolution وavailability واكتشاف Scopes وملخصات Scope وHistory التشغيلي وقراءات الإدارة مع pagination مشتركة.
+- **الامتداد العام:** Custom Slug profiles بإصدارات ثابتة عبر Public registry path، مع ReservedSlugPolicy يملكه Host.
 
 ## المتطلبات
 
@@ -73,13 +74,14 @@ $slug = $text->generateFromSource(
 - canonicalization عبر SlugTextServiceInterface وgenerateFromSource وcanonicalizeClaim وcanonicalizeLookup.
 - lifecycle ownership عبر SlugEngine وSlugLifecycleServiceInterface، بما في ذلك assignExact.
 - consumer reads عبر checkAvailability وgetCurrent وresolve.
-- management reads عبر SlugManagementQueryInterface.
+- management reads عبر SlugManagementQueryInterface، ومنها `searchScopes` و`getScopeOperationalSummary` و`searchHistory` في Runtime الحالي غير المنشور للـnext RC.
 
 لا يحل هذا الملخص محل الفهرس والعقود الكاملة في SLUG_PACKAGE_REFERENCE.md.
 
 ## الأمثلة
 
 - examples/canonicalization.php: مثال stateless للتوليد والـcanonicalization.
+- examples/custom-profile.php: مثال تسجيل واستخدام custom profile عبر Public API.
 - examples/persisted-lifecycle.php: مثال persisted لدورة MySQL باستخدام Compose lifecycle canonical.
 
 يعمل المثال الأول دون Docker. أما الثاني فيحتاج إلى بيئة Integration التي يوفرها tools/ci/run-gate.sh.

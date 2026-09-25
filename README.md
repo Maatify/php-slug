@@ -45,7 +45,8 @@ The current public contract is owned by [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKA
 - **Ownership & Lifecycle:** Exact claiming, generated allocation, release, scope transition, atomic transfer, and adoption.
 - **Aliases & History:** Active and retired aliases with immutable lifecycle history.
 - **Persistence & Concurrency:** PDO MySQL-compatible persistence with transactions, CAS, and concurrency guarantees.
-- **Resolution & Management:** Resolution, availability, and management reads with shared pagination.
+- **Resolution & Management:** Resolution, availability, Scope discovery, Scope operational summaries, operational History windows, and management reads with shared pagination.
+- **Public Extension:** Versioned custom Slug profiles through the public registry path, plus Host-owned reserved-slug policy injection.
 
 ## Requirements
 
@@ -89,13 +90,14 @@ The public Runtime provides actual paths for:
 - canonicalization through `SlugTextServiceInterface`, `generateFromSource`, `canonicalizeClaim`, and `canonicalizeLookup`;
 - lifecycle ownership through `SlugEngine` and `SlugLifecycleServiceInterface`, including `assignExact`;
 - consumer reads through `checkAvailability`, `getCurrent`, and `resolve`; and
-- management reads through `SlugManagementQueryInterface`.
+- management reads through `SlugManagementQueryInterface`, including `searchScopes`, `getScopeOperationalSummary`, and `searchHistory` in the current unreleased next-RC Runtime.
 
 This overview does not replace the complete inventory and contracts in [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md).
 
 ## Examples
 
 - [`examples/canonicalization.php`](examples/canonicalization.php): a stateless generation and canonicalization example.
+- [`examples/custom-profile.php`](examples/custom-profile.php): a stateless custom profile registration and usage example.
 - [`examples/persisted-lifecycle.php`](examples/persisted-lifecycle.php): a persisted MySQL lifecycle example using the canonical Compose flow.
 
 The first example runs without Docker. The second requires the Integration environment provided by [`tools/ci/run-gate.sh`](tools/ci/run-gate.sh).

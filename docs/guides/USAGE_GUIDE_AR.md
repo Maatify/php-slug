@@ -67,7 +67,11 @@ $engine = SlugEngineFactory::create(
 | Canonicalization / generation | SlugTextServiceInterface — generateFromSource, canonicalizeClaim, canonicalizeLookup | مسار canonicalization | examples/canonicalization.php |
 | Lifecycle ownership / mutation | SlugEngine وSlugLifecycleServiceInterface — assignExact ومسار lifecycle persisted | مسار lifecycle persisted | examples/persisted-lifecycle.php |
 | Consumer reads | checkAvailability, getCurrent, resolve | Consumer reads / resolution | examples/persisted-lifecycle.php |
-| Management / Operational Read | SlugManagementQueryInterface — getBinding, getCurrent, listAliases, getHistory, inspectRegistry, inspectScope, searchBindings, searchRegistry | Management operational reads | examples/persisted-lifecycle.php عبر getBinding |
+| اكتشاف Scopes | `searchScopes(ScopeSearchCriteria)` | مسار اكتشاف Scopes | examples/persisted-lifecycle.php |
+| ملخص Scope التشغيلي | `getScopeOperationalSummary(ScopeCriteria)` | مسار ملخص Scope | examples/persisted-lifecycle.php |
+| History التشغيلي والنوافذ الزمنية | `searchHistory(HistorySearchCriteria)` | مسار History التشغيلي | examples/persisted-lifecycle.php |
+| Public profile extension | `SlugProfileInterface` و`SlugProfileRegistryInterface::register()` | مسار profile مخصص | examples/custom-profile.php |
+| Management / Operational Read | SlugManagementQueryInterface — عمليات الإدارة العامة | Management operational reads | examples/persisted-lifecycle.php |
 
 توجه هذه الخريطة القارئ إلى الاستخدام، ولا تكرر الفهرس الكامل في Package Reference.
 
@@ -126,6 +130,58 @@ SlugEngine::resolve(new ResolutionCriteria(...))، ويمكن استخدام che
 **Boundary**
 
 هذه reads لا تمنح claim. checkAvailability advisory، بينما claim الفعلية يحسمها مسار mutation وunique Registry constraint.
+
+## اكتشاف Scopes وملخصها وHistory التشغيلي
+
+**Input**
+
+يستخدم Host `ScopeSearchCriteria` لاكتشاف Scopes مع `PageRequest` ومرشحات literal اختيارية، أو `ScopeCriteria` للحصول على Scope واحد.
+
+**Public Call**
+
+`SlugEngine::searchScopes(...)` و`SlugEngine::getScopeOperationalSummary(...)`.
+
+**Result**
+
+يعيد الاكتشاف `PageResult<ScopeDTO>` حيث `total` لكل Scopes و`filtered` بعد المرشحات. ويعيد الملخص `ScopeOperationalSummaryDTO` أو `null` عند غياب Scope، مع invariants الخاصة بتقسيم Binding وRegistry.
+
+**Boundary**
+
+هذه قراءات package-owned ولا تنضم إلى Host tables أو metadata.
+
+**Input**
+
+يمكن إنشاء `HistorySearchCriteria` package-wide أو لـScope دقيق، مع event type ونافذة UTC نصف مفتوحة `[fromInclusive, untilExclusive)`.
+
+**Public Call**
+
+`SlugEngine::searchHistory(...)`.
+
+**Result**
+
+يمثل `total` الحد الأساسي و`filtered` بعد المرشحات. يستخدم `occurredAt` بدقة ست خانات، لا `originalOccurredAt`، وتنسب الأحداث إلى persisted Scope snapshot. Scope المفقود يعيد صفحة فارغة.
+
+**Boundary**
+
+لا يحتاج Host إلى تعداد Bindings أو SQL لبناء History التشغيلي.
+
+## Custom profile extension
+
+**Input**
+
+تطبيق `SlugProfileInterface` بمفتاح versioned مثل `lowercase-words-v1`.
+
+**Public Call**
+
+يسجل عبر `SlugProfileRegistryInterface::register()` على registry المدمج، ثم يستخدم عبر `SlugTextServiceFactory` أو `SlugEngineFactory`. راجع `examples/custom-profile.php`.
+
+**Result**
+
+تعيد الخدمة DTOs و`Slug` العامة المعتادة.
+
+**Boundary**
+
+يبقى Package Reference المرجع المعياري للتوافق والتسجيل المكرر وثبات profile المحفوظ وحدود الامتداد.
 
 ## Management operational reads
 

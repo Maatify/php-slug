@@ -1,6 +1,6 @@
 # Maatify Slug — Usage Guide
 
-> **Release lifecycle:** Pre-Stable; exact first RC identifier `v1.0.0-rc.1`
+> **Release lifecycle:** Pre-Stable. `v1.0.0-rc.1` is the published baseline; the current repository Runtime contains unreleased next-RC development.
 >
 > [`SLUG_PACKAGE_REFERENCE.md`](../../SLUG_PACKAGE_REFERENCE.md) is the normative technical contract. This guide explains usage and does not create a competing contract.
 
@@ -68,7 +68,11 @@ The Host creates the `PDO` connection and applies the package schema in its envi
 | Canonicalization / generation | `SlugTextServiceInterface` — `generateFromSource`, `canonicalizeClaim`, `canonicalizeLookup` | [Canonicalization walkthrough](#canonicalization-walkthrough) | [`examples/canonicalization.php`](../../examples/canonicalization.php) |
 | Lifecycle ownership / mutation | `SlugEngine` and `SlugLifecycleServiceInterface` — `assignExact` and the persisted lifecycle path | [Persisted lifecycle walkthrough](#persisted-lifecycle-walkthrough) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
 | Consumer reads | `checkAvailability`, `getCurrent`, `resolve` | [Consumer reads / resolution](#consumer-reads--resolution) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
-| Management / Operational Read | `SlugManagementQueryInterface` — `getBinding`, `getCurrent`, `listAliases`, `getHistory`, `inspectRegistry`, `inspectScope`, `searchBindings`, `searchRegistry` | [Management operational reads](#management-operational-reads) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) through `getBinding` |
+| Scope discovery | `searchScopes(ScopeSearchCriteria)` | [Scope discovery](#scope-discovery) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
+| Scope operational summary | `getScopeOperationalSummary(ScopeCriteria)` | [Scope operational summary](#scope-operational-summary) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
+| Operational History / time windows | `searchHistory(HistorySearchCriteria)` | [Operational History](#operational-history) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
+| Management / Operational Read | `SlugManagementQueryInterface` — management reads plus the reporting calls above | [Management operational reads](#management-operational-reads) | [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) |
+| Custom profile extension | `SlugProfileInterface`, `SlugProfileRegistryInterface::register()` | [Custom profile extension](#custom-profile-extension) | [`examples/custom-profile.php`](../../examples/custom-profile.php) |
 
 This map directs readers to usage; it does not repeat the complete inventory in the Package Reference.
 
@@ -148,6 +152,78 @@ Use the other management operations with their respective criteria when needed: 
 
 These operational reads are intended for the Host or management tooling and do not redefine the public lifecycle contract. Pagination uses the shared types defined by the Package Reference.
 
+## Scope Discovery
+
+**Input**
+
+`ScopeSearchCriteria` with a `PageRequest`, optionally a literal `namespacePrefix`, and optionally an exact `SlugProfileKey`.
+
+**Public Call**
+
+`SlugEngine::searchScopes(new ScopeSearchCriteria(...))`.
+
+**Result**
+
+The `PageResult<ScopeDTO>` reports `total` for all persisted package Scopes and `filtered` after the optional filters. Namespace prefixes are literal prefixes, not SQL wildcard syntax. Pagination and deterministic sorting are defined by the Package Reference.
+
+**Boundary**
+
+The result contains package-owned `ScopeDTO` snapshots only; the Package does not resolve Host metadata or join Host tables.
+
+## Scope Operational Summary
+
+**Input**
+
+An exact `ScopeProfileRequestDTO` wrapped in `ScopeCriteria`.
+
+**Public Call**
+
+`SlugEngine::getScopeOperationalSummary(new ScopeCriteria($scopeProfile))`.
+
+**Result**
+
+The call returns `ScopeOperationalSummaryDTO` or `null` for a missing Scope. Its Binding and Registry totals obey their documented breakdown invariants, while History is counted from persisted Scope snapshots.
+
+**Boundary**
+
+This is a Slug-domain Scope snapshot, not a generic dashboard or cross-package metrics API.
+
+## Operational History
+
+**Input**
+
+`HistorySearchCriteria` can be package-wide or narrowed to an exact Scope snapshot, with an optional event type and a UTC-normalized half-open window `[fromInclusive, untilExclusive)`.
+
+**Public Call**
+
+`SlugEngine::searchHistory(new HistorySearchCriteria(...))`.
+
+**Result**
+
+The `PageResult<HistoryEventDTO>` uses `total` for the unfiltered package-wide or exact-Scope boundary and `filtered` after event-type/time-window filters. Filtering uses `occurredAt` at six-microsecond persistence precision, not `originalOccurredAt`; default ordering is deterministic by `occurred_at DESC`, then `id DESC`.
+
+**Boundary**
+
+Exact-Scope attribution uses the persisted History Scope snapshot. A missing requested Scope returns an empty page. The Host does not enumerate Bindings or read package SQL to reconstruct reporting semantics.
+
+## Custom Profile Extension
+
+**Input**
+
+An application-owned `SlugProfileInterface` with a stable versioned key such as `lowercase-words-v1`.
+
+**Public Call**
+
+Register it with `SlugProfileRegistryInterface::register()` on the built-in registry, then pass that registry to `SlugTextServiceFactory::create()` or `SlugEngineFactory::create()` and call the public text/lifecycle API. See [`examples/custom-profile.php`](../../examples/custom-profile.php).
+
+**Result**
+
+The service returns the normal public DTOs and `Slug` values produced by the custom semantic contract.
+
+**Boundary**
+
+The Package Reference is normative for compatibility, duplicate registration, immutable persisted Scope profile configuration, and non-public extension boundaries. This guide intentionally does not duplicate that full contract.
+
 ## Transactions / Concurrency Boundary
 
 When the Host has no outer transaction, the package owns the operation transaction and commits or rolls it back according to the contract. When the Host supplies an outer transaction, the package participates in it and uses a savepoint where the capability is required and supported; it does not commit or roll back the outer transaction.
@@ -163,6 +239,7 @@ The package uses `SlugExceptionInterface` and the domain exception families, wit
 ## Examples Navigation
 
 - [`examples/canonicalization.php`](../../examples/canonicalization.php) — stateless generation.
+- [`examples/custom-profile.php`](../../examples/custom-profile.php) — custom Public profile registration and use.
 - [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) — assignment, resolution, and management reads on disposable MySQL.
 
 Run both examples locally through one gate:

@@ -5,6 +5,12 @@ The format follows Keep a Changelog conventions and Semantic Versioning.
 
 ## [Unreleased]
 
+### Added
+
+- Scope discovery, Scope operational summaries, and operational History/time-window reads.
+- Additive operational-reporting indexes with an ordered fresh-install and published-RC1 upgrade path.
+- Documentation, Extension Guide, and maintained custom-profile/persisted-lifecycle example closure.
+
 ## [1.0.0-rc.1] - 2026-09-24
 
 ### Added

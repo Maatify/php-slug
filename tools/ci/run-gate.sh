@@ -175,6 +175,7 @@ consumer() {
 examples_smoke() {
     latest_dependencies
     php examples/canonicalization.php
+    php examples/custom-profile.php
     bash tools/ci/run-integration.sh examples
 }
 
