@@ -131,23 +131,45 @@ SlugEngine::resolve(new ResolutionCriteria(...))، ويمكن استخدام che
 
 هذه reads لا تمنح claim. checkAvailability advisory، بينما claim الفعلية يحسمها مسار mutation وunique Registry constraint.
 
-## اكتشاف Scopes وملخصها وHistory التشغيلي
+## اكتشاف Scopes
 
 **Input**
 
-يستخدم Host `ScopeSearchCriteria` لاكتشاف Scopes مع `PageRequest` ومرشحات literal اختيارية، أو `ScopeCriteria` للحصول على Scope واحد.
+يستخدم Host `ScopeSearchCriteria` لاكتشاف Scopes مع `PageRequest` ومرشحات literal اختيارية.
 
 **Public Call**
 
-`SlugEngine::searchScopes(...)` و`SlugEngine::getScopeOperationalSummary(...)`.
+`SlugEngine::searchScopes(...)`.
 
 **Result**
 
-يعيد الاكتشاف `PageResult<ScopeDTO>` حيث `total` لكل Scopes و`filtered` بعد المرشحات. ويعيد الملخص `ScopeOperationalSummaryDTO` أو `null` عند غياب Scope، مع invariants الخاصة بتقسيم Binding وRegistry.
+يعيد `PageResult<ScopeDTO>` حيث `total` لكل Scopes و`filtered` بعد المرشحات.
 
 **Boundary**
 
-هذه قراءات package-owned ولا تنضم إلى Host tables أو metadata.
+هذه قراءة package-owned لا تنضم إلى Host tables أو metadata.
+
+## ملخص Scope التشغيلي
+
+**Input**
+
+يستخدم Host `ScopeCriteria` مع `ScopeProfileRequestDTO` دقيق.
+
+**Public Call**
+
+`SlugEngine::getScopeOperationalSummary(...)`.
+
+**Result**
+
+يعيد `ScopeOperationalSummaryDTO` أو `null` عند غياب Scope، مع invariants الخاصة بتقسيم Binding وRegistry، وتُحسب History من persisted Scope snapshots.
+
+**Boundary**
+
+هذا ملخص نطاق Slug، وليس Dashboard أو metrics عامة عبر الحزم.
+
+## History التشغيلي
+
+**Input**
 
 **Input**
 
@@ -218,15 +240,16 @@ SlugEngine::getBinding(new BindingCriteria($bindingIdentity)).
 ## التنقل بين الأمثلة
 
 - examples/canonicalization.php — توليد stateless.
+- examples/custom-profile.php — تسجيل واستخدام profile مخصص عبر Public API.
 - examples/persisted-lifecycle.php — assignment وresolution وmanagement reads على MySQL مؤقت.
 
-لتشغيل المثالين محليًا عبر gate واحدة:
+لتشغيل الأمثلة الثلاثة المحلية عبر gate واحدة:
 
 ~~~bash
 bash tools/ci/run-gate.sh examples-smoke
 ~~~
 
-تشغل هذه الـgate المثال stateless ثم المثال persisted عبر Compose lifecycle canonical. لا يعمل المثال persisted كعملية standalone خارج هذه البيئة لأنه يحتاج إلى SLUG_TEST_DB_*.
+تشغل هذه الـgate `canonicalization.php` و`custom-profile.php` مباشرة، ثم تشغل `persisted-lifecycle.php` عبر Compose lifecycle canonical. لا يعمل المثال persisted كعملية standalone خارج هذه البيئة لأنه يحتاج إلى SLUG_TEST_DB_*.
 
 ## وثائق إضافية
 

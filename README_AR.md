@@ -84,7 +84,7 @@ $slug = $text->generateFromSource(
 - examples/custom-profile.php: مثال تسجيل واستخدام custom profile عبر Public API.
 - examples/persisted-lifecycle.php: مثال persisted لدورة MySQL باستخدام Compose lifecycle canonical.
 
-يعمل المثال الأول دون Docker. أما الثاني فيحتاج إلى بيئة Integration التي يوفرها tools/ci/run-gate.sh.
+يعمل مثالا canonicalization وcustom-profile دون Docker. أما مثال persisted فيحتاج إلى بيئة Integration التي يوفرها tools/ci/run-gate.sh.
 
 ## الوثائق
 

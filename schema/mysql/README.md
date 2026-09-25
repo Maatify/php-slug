@@ -6,7 +6,7 @@ not contain `002`; it is applied only when moving an existing RC1 installation t
 current unreleased next-RC Runtime. The Host owns
 the injected `PDO` connection and is responsible for selecting a
 MySQL-compatible server that satisfies the capability contract in the
-[Package Reference](../../SLUG_PACKAGE_REFERENCE.md#4-runtime-and-platform-contract-for-rc1).
+[Package Reference](../../SLUG_PACKAGE_REFERENCE.md#4-runtime-and-platform-contract).
 The package does not create a connection, inspect a product/version
 string, or choose a vendor-specific schema variant.
 
@@ -25,7 +25,7 @@ Installation order is encoded by the asset names: scopes, bindings, operations,
 operation participants, registry, then history, followed by additive indexes. All
 foreign keys are package-local and no Host table is joined or referenced.
 
-The file is deliberately not a version-specific migration and must not be
+The schema assets are deliberately not vendor-specific migrations and must not be
 replaced with a MariaDB or MySQL variant. CI database versions are
 verification targets only; runtime acceptance is capability-based.
 

@@ -242,13 +242,13 @@ The package uses `SlugExceptionInterface` and the domain exception families, wit
 - [`examples/custom-profile.php`](../../examples/custom-profile.php) — custom Public profile registration and use.
 - [`examples/persisted-lifecycle.php`](../../examples/persisted-lifecycle.php) — assignment, resolution, and management reads on disposable MySQL.
 
-Run both examples locally through one gate:
+Run all three maintained standalone examples locally through one gate:
 
 ```bash
 bash tools/ci/run-gate.sh examples-smoke
 ```
 
-The gate runs the stateless example and then the persisted example through the canonical Compose lifecycle. The persisted example does not run as a standalone process outside this environment because it requires `SLUG_TEST_DB_*`.
+The gate runs `canonicalization.php` and `custom-profile.php` directly, then runs `persisted-lifecycle.php` through the canonical Compose lifecycle. The persisted example does not run as a standalone process outside this environment because it requires `SLUG_TEST_DB_*`.
 
 ## Further Documentation
 

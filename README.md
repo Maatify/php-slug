@@ -100,7 +100,7 @@ This overview does not replace the complete inventory and contracts in [`SLUG_PA
 - [`examples/custom-profile.php`](examples/custom-profile.php): a stateless custom profile registration and usage example.
 - [`examples/persisted-lifecycle.php`](examples/persisted-lifecycle.php): a persisted MySQL lifecycle example using the canonical Compose flow.
 
-The first example runs without Docker. The second requires the Integration environment provided by [`tools/ci/run-gate.sh`](tools/ci/run-gate.sh).
+The canonicalization and custom-profile examples run without Docker. The persisted example requires the Integration environment provided by [`tools/ci/run-gate.sh`](tools/ci/run-gate.sh).
 
 ## Documentation
 

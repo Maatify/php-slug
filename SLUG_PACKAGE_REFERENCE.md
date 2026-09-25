@@ -347,6 +347,7 @@ GeneratedSlugDTO: SlugProfileKey $profileKey, string $source, Slug $slug
 CanonicalSlugDTO: SlugProfileKey $profileKey, string $input, Slug $slug
 LookupCanonicalizationDTO: SlugProfileKey $profileKey, string $decodedSegment, InputFormCanonicalityEnum $canonicality, ?Slug $canonicalSlug
 ScopeDTO: int $id, SlugScope $scope, SlugProfileKey $profileKey, DateTimeImmutable $createdAt, DateTimeImmutable $updatedAt
+ScopeOperationalSummaryDTO: ScopeDTO $scope, int $bindingsTotal, int $bindingsActive, int $bindingsInactive, int $bindingsReleased, int $registryClaimsTotal, int $registryCurrentCanonical, int $registryHistoricalCanonical, int $registryActiveAliases, int $registryRetiredAliases, int $historyEventsTotal
 BindingStateDTO: BindingStatusEnum $status, ?Slug $currentSlug, int $revision, int $historySequence
 BindingDTO: int $id, BindingIdentityDTO $identity, BindingStateDTO $state, ?RegistryClaimDTO $currentClaim, DateTimeImmutable $createdAt, DateTimeImmutable $updatedAt
 RegistryClaimDTO: int $id, BindingIdentityDTO $binding, Slug $slug, RegistryRoleEnum $role, DateTimeImmutable $claimedAt, DateTimeImmutable $updatedAt
@@ -531,7 +532,13 @@ public reporting for internal operations or idempotency tables
 
 The package does not add APIs for these dimensions merely to satisfy a Reporting standard. Internal operation or idempotency rows, although persisted, are not public reporting contracts.
 
-### 10.2 Extension Guide
+### 10.2 Ordered Schema Assets and RC1 Upgrade
+
+The published `v1.0.0-rc.1` baseline is represented by `schema/mysql/001_slug_rc1.sql`. The current unreleased next-RC Runtime adds `schema/mysql/002_operational_reporting_indexes.sql` as an additive operational-read index asset; the published RC1 artifact does not contain `002`.
+
+For a fresh current installation, the Host applies ordered assets `001_*.sql`, then `002_*.sql`, then any future ordered assets. For an existing published RC1 installation, the Host keeps the existing `001` schema, applies `002_operational_reporting_indexes.sql`, and then runs current Runtime schema verification. This ordered upgrade path is required before the current Runtime is considered schema-compatible.
+
+### 10.3 Extension Guide
 
 #### Custom Slug Profiles
 
