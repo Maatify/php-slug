@@ -37,6 +37,8 @@ use Maatify\Slug\Lifecycle\Management\Criteria\HistoryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\ScopeCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
 use Maatify\Slug\Lifecycle\Consumer\Criteria\AvailabilityCriteria;
 use Maatify\Slug\Lifecycle\Consumer\Criteria\ResolutionCriteria;
 use Maatify\Slug\Lifecycle\DTO\AdoptionResultDTO;
@@ -49,6 +51,7 @@ use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Canonicalization\DTO\LookupCanonicalizationDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\Consumer\DTO\SlugAvailabilityDTO;
 use Maatify\Slug\Lifecycle\Consumer\DTO\SlugResolutionDTO;
@@ -262,6 +265,29 @@ final class SlugEngine implements SlugTextServiceInterface, SlugProfileRegistryI
     public function inspectScope(ScopeCriteria $criteria): ?ScopeDTO
     {
         return $this->management->inspectScope($criteria);
+    }
+    /**
+     * Returns persisted package Scopes matching optional literal filters.
+     *
+     * @return PageResult<ScopeDTO>
+     */
+    public function searchScopes(ScopeSearchCriteria $criteria): PageResult
+    {
+        return $this->management->searchScopes($criteria);
+    }
+    /** Returns Scope-local operational counts, or null when the Scope is absent. */
+    public function getScopeOperationalSummary(ScopeCriteria $criteria): ?ScopeOperationalSummaryDTO
+    {
+        return $this->management->getScopeOperationalSummary($criteria);
+    }
+    /**
+     * Returns package History using persisted event Scope snapshots and optional windows.
+     *
+     * @return PageResult<HistoryEventDTO>
+     */
+    public function searchHistory(HistorySearchCriteria $criteria): PageResult
+    {
+        return $this->management->searchHistory($criteria);
     }
     /**
      * Returns paginated bindings matching the requested scope and search filters.

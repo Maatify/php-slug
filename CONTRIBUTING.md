@@ -96,7 +96,7 @@ the Integration and System suites.
 
 ### 4. Examples smoke verification
 
-Run the stateless example and the persisted example through the canonical Compose lifecycle:
+Run all maintained standalone examples, with persisted examples using the canonical Compose lifecycle:
 ```bash
 bash tools/ci/run-gate.sh examples-smoke
 ```

@@ -16,8 +16,10 @@ use Maatify\Persistence\Pdo\Pagination\SortDirectionEnum;
 use Maatify\Persistence\Pdo\Pagination\SortWhitelist;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingSearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\HistoryCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistryCriteria;
 use Maatify\Slug\Lifecycle\Management\Criteria\RegistrySearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
 use Maatify\Slug\Lifecycle\Management\Repository\ManagementQueryRepositoryInterface;
 use Maatify\Slug\Lifecycle\DTO\AliasDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingDTO;
@@ -25,6 +27,8 @@ use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingStateDTO;
 use Maatify\Slug\Lifecycle\DTO\HistoryEventDTO;
 use Maatify\Slug\Lifecycle\DTO\RegistryClaimDTO;
+use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\Enum\BindingStatusEnum;
 use Maatify\Slug\Lifecycle\Enum\HistoryEventTypeEnum;
 use Maatify\Slug\Lifecycle\Enum\RegistryRoleEnum;
@@ -179,6 +183,207 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
         );
 
         return $this->paginator->paginate($this->pdo, $descriptor, $criteria->pageRequest, self::registryConfig(), fn(array $row): RegistryClaimDTO => $this->claimFromRow($row));
+    }
+
+    /**
+     * Returns all persisted Scopes with literal-prefix/profile filtering.
+     *
+     * @return PageResult<ScopeDTO>
+     */
+    public function searchScopes(ScopeSearchCriteria $criteria): PageResult
+    {
+        $predicate = '1 = 1';
+        $params = [];
+        if ($criteria->namespacePrefix !== null) {
+            $predicate .= " AND s.namespace LIKE :namespace_prefix ESCAPE '\\\\'";
+            $params['namespace_prefix'] = $this->likePrefix($criteria->namespacePrefix);
+        }
+        if ($criteria->profileKey !== null) {
+            $predicate .= ' AND s.profile_key = :profile_key';
+            $params['profile_key'] = $criteria->profileKey->value;
+        }
+        $descriptor = new PdoPaginationQueryDescriptor(
+            'SELECT COUNT(*) FROM maa_slug_scopes s',
+            [],
+            'SELECT COUNT(*) FROM maa_slug_scopes s WHERE ' . $predicate,
+            $params,
+            $this->scopeSelectSql() . ' WHERE ' . $predicate,
+            $params,
+        );
+
+        return $this->paginator->paginate($this->pdo, $descriptor, $criteria->pageRequest, self::scopeConfig(), fn(array $row): ScopeDTO => $this->scopeFromRow($row));
+    }
+
+    /** Counts current Binding, Registry, and persisted-snapshot History rows for a Scope. */
+    public function getScopeOperationalSummary(ScopeDTO $scope): ScopeOperationalSummaryDTO
+    {
+        $bindings = $this->singleRow(
+            'SELECT COUNT(*) AS total, '
+            . "SUM(CASE WHEN status = 'ACTIVE' THEN 1 ELSE 0 END) AS active, "
+            . "SUM(CASE WHEN status = 'INACTIVE' THEN 1 ELSE 0 END) AS inactive, "
+            . "SUM(CASE WHEN status = 'RELEASED' THEN 1 ELSE 0 END) AS released "
+            . 'FROM maa_slug_bindings WHERE scope_id = :scope_id',
+            ['scope_id' => $scope->id],
+        );
+        $registry = $this->singleRow(
+            'SELECT COUNT(*) AS total, '
+            . "SUM(CASE WHEN claim_role = 'CURRENT_CANONICAL' THEN 1 ELSE 0 END) AS current_canonical, "
+            . "SUM(CASE WHEN claim_role = 'HISTORICAL_CANONICAL' THEN 1 ELSE 0 END) AS historical_canonical, "
+            . "SUM(CASE WHEN claim_role = 'ACTIVE_ALIAS' THEN 1 ELSE 0 END) AS active_aliases, "
+            . "SUM(CASE WHEN claim_role = 'RETIRED_ALIAS' THEN 1 ELSE 0 END) AS retired_aliases "
+            . 'FROM maa_slug_registry WHERE scope_id = :scope_id',
+            ['scope_id' => $scope->id],
+        );
+        $history = $this->singleRow(
+            'SELECT COUNT(*) AS total FROM maa_slug_history '
+            . 'WHERE scope_namespace_snapshot = :namespace '
+            . 'AND scope_locale_snapshot = :locale AND scope_context_snapshot = :context',
+            ['namespace' => $scope->scope->namespace, 'locale' => $scope->scope->localeKey ?? '', 'context' => $scope->scope->contextKey ?? ''],
+        );
+
+        return new ScopeOperationalSummaryDTO(
+            $scope,
+            $this->count($bindings, 'total'),
+            $this->count($bindings, 'active'),
+            $this->count($bindings, 'inactive'),
+            $this->count($bindings, 'released'),
+            $this->count($registry, 'total'),
+            $this->count($registry, 'current_canonical'),
+            $this->count($registry, 'historical_canonical'),
+            $this->count($registry, 'active_aliases'),
+            $this->count($registry, 'retired_aliases'),
+            $this->count($history, 'total'),
+        );
+    }
+
+    /**
+     * Returns operational History by exact persisted Scope snapshot and occurred-at window.
+     *
+     * @return PageResult<HistoryEventDTO>
+     */
+    public function searchHistory(HistorySearchCriteria $criteria): PageResult
+    {
+        $base = '1 = 1';
+        $filtered = $base;
+        $params = [];
+        if ($criteria->scopeProfile !== null) {
+            $base .= ' AND h.scope_namespace_snapshot = :scope_namespace '
+                . 'AND h.scope_locale_snapshot = :scope_locale '
+                . 'AND h.scope_context_snapshot = :scope_context '
+                . 'AND s.profile_key = :scope_profile_key';
+            $params += [
+                'scope_namespace' => $criteria->scopeProfile->scope->namespace,
+                'scope_locale' => $criteria->scopeProfile->scope->localeKey ?? '',
+                'scope_context' => $criteria->scopeProfile->scope->contextKey ?? '',
+                'scope_profile_key' => $criteria->scopeProfile->expectedProfileKey->value,
+            ];
+        }
+        $filtered = $base;
+        if ($criteria->eventType !== null) {
+            $filtered .= ' AND h.event_type = :history_event_type';
+            $params['history_event_type'] = $criteria->eventType->value;
+        }
+        if ($criteria->occurredFromInclusive !== null) {
+            $filtered .= ' AND h.occurred_at >= :occurred_from';
+            $params['occurred_from'] = $this->timestamp($criteria->occurredFromInclusive);
+        }
+        if ($criteria->occurredUntilExclusive !== null) {
+            $filtered .= ' AND h.occurred_at < :occurred_until';
+            $params['occurred_until'] = $this->timestamp($criteria->occurredUntilExclusive);
+        }
+        $select = $this->historySearchSelectSql();
+        $descriptor = new PdoPaginationQueryDescriptor(
+            'SELECT COUNT(*) FROM maa_slug_history h INNER JOIN maa_slug_scopes s '
+                . 'ON s.namespace = h.scope_namespace_snapshot AND s.locale_key = h.scope_locale_snapshot AND s.context_key = h.scope_context_snapshot '
+                . 'WHERE ' . $base,
+            $this->historyParams($criteria),
+            'SELECT COUNT(*) FROM maa_slug_history h INNER JOIN maa_slug_scopes s '
+                . 'ON s.namespace = h.scope_namespace_snapshot AND s.locale_key = h.scope_locale_snapshot AND s.context_key = h.scope_context_snapshot '
+                . 'WHERE ' . $filtered,
+            $params,
+            $select . ' WHERE ' . $filtered,
+            $params,
+        );
+
+        return $this->paginator->paginate($this->pdo, $descriptor, $criteria->pageRequest, self::historySearchConfig(), fn(array $row): HistoryEventDTO => $this->historyFromRow($row));
+    }
+
+    /** @return array<string, string> */
+    private function historyParams(HistorySearchCriteria $criteria): array
+    {
+        if ($criteria->scopeProfile === null) {
+            return [];
+        }
+        return [
+            'scope_namespace' => $criteria->scopeProfile->scope->namespace,
+            'scope_locale' => $criteria->scopeProfile->scope->localeKey ?? '',
+            'scope_context' => $criteria->scopeProfile->scope->contextKey ?? '',
+            'scope_profile_key' => $criteria->scopeProfile->expectedProfileKey->value,
+        ];
+    }
+
+    /** Returns the Scope projection used by both listing and History attribution. */
+    private function scopeSelectSql(): string
+    {
+        return 'SELECT s.id, s.namespace, s.locale_key, s.context_key, s.profile_key, s.created_at, s.updated_at FROM maa_slug_scopes s';
+    }
+
+    /** @param array<string, mixed> $row */
+    private function scopeFromRow(array $row): ScopeDTO
+    {
+        $profileKey = new SlugProfileKey(PdoRowHydrator::string($row, 'profile_key'));
+        return new ScopeDTO(
+            PdoRowHydrator::nonNegativeInt($row, 'id'),
+            new SlugScope(
+                PdoRowHydrator::string($row, 'namespace'),
+                $this->dimension($row, 'locale_key'),
+                $this->dimension($row, 'context_key'),
+            ),
+            $profileKey,
+            $this->date(PdoRowHydrator::string($row, 'created_at'), 'scope.created_at'),
+            $this->date(PdoRowHydrator::string($row, 'updated_at'), 'scope.updated_at'),
+        );
+    }
+
+    /** @param array<string, string|int|bool|null> $params
+     *  @return array<string, mixed>
+     */
+    private function singleRow(string $sql, array $params): array
+    {
+        $statement = $this->pdo->prepare($sql);
+        if ($statement === false) {
+            throw new SlugPersistenceInvariantException('Unable to prepare the operational summary query.');
+        }
+        $statement->execute($params);
+        $row = PdoRowHydrator::one($statement->fetch(PDO::FETCH_ASSOC));
+        if ($row === null) {
+            throw new SlugPersistenceInvariantException('Operational summary query returned no aggregate row.');
+        }
+        return $row;
+    }
+
+    /** @param array<string, mixed> $row */
+    private function count(array $row, string $field): int
+    {
+        return $row[$field] === null ? 0 : PdoRowHydrator::nonNegativeInt($row, $field);
+    }
+
+    /** Formats DateTime inputs into the package's UTC DATETIME(6) comparison value. */
+    private function timestamp(DateTimeImmutable $value): string
+    {
+        return $value->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s.u');
+    }
+
+    /** Returns History projection joined to the Scope represented by its persisted snapshot. */
+    private function historySearchSelectSql(): string
+    {
+        return 'SELECT h.id, h.binding_id, h.sequence_no, h.event_type, h.scope_namespace_snapshot, '
+            . 'h.scope_locale_snapshot, h.scope_context_snapshot, h.entity_type_snapshot, h.entity_key_snapshot, '
+            . 'h.slug_snapshot, h.previous_slug_snapshot, h.claim_role_snapshot, h.previous_claim_role_snapshot, '
+            . 'h.related_namespace, h.related_locale, h.related_context, h.related_entity_type, h.related_entity_key, '
+            . 'h.operation_key, h.actor_key, h.reason, h.correlation_key, h.occurred_at, h.original_occurred_at, '
+            . 's.profile_key FROM maa_slug_history h INNER JOIN maa_slug_scopes s '
+            . 'ON s.namespace = h.scope_namespace_snapshot AND s.locale_key = h.scope_locale_snapshot AND s.context_key = h.scope_context_snapshot';
     }
 
     /** Returns the shared claim query projection and joins. */
@@ -426,6 +631,25 @@ final readonly class PdoSlugManagementQueryRepository implements ManagementQuery
     private static function historyConfig(): PaginationConfig
     {
         return new PaginationConfig(new SortWhitelist(['occurred_at' => 'h.occurred_at', 'id' => 'h.id']), 'occurred_at', SortDirectionEnum::ASC, 'id', SortDirectionEnum::ASC, 25, 1, 100);
+    }
+
+    /** Defines operational History sorting with newest events first. */
+    private static function historySearchConfig(): PaginationConfig
+    {
+        return new PaginationConfig(new SortWhitelist(['occurred_at' => 'h.occurred_at', 'id' => 'h.id']), 'occurred_at', SortDirectionEnum::DESC, 'id', SortDirectionEnum::DESC, 25, 1, 100);
+    }
+
+    /** Defines Scope listing sorting and the required deterministic id tie-breaker. */
+    private static function scopeConfig(): PaginationConfig
+    {
+        return new PaginationConfig(new SortWhitelist([
+            'id' => 's.id',
+            'namespace' => 's.namespace',
+            'locale_key' => 's.locale_key',
+            'context_key' => 's.context_key',
+            'profile_key' => 's.profile_key',
+            'updated_at' => 's.updated_at',
+        ]), 'id', SortDirectionEnum::ASC, 'id', SortDirectionEnum::ASC, 25, 1, 100);
     }
 
     /** Defines stable sorting and limits for registry pages. */

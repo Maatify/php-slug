@@ -3,6 +3,8 @@
 > هذا الملف ترجمة عربية غير معيارية لملف [`USAGE_GUIDE.md`](USAGE_GUIDE.md).
 > النسخة الإنجليزية هي الوثيقة authoritative وcanonical، ولا ينشئ هذا الملف عقدًا تقنيًا منافسًا. عند وجود اختلاف، تكون النسخة الإنجليزية و[`SLUG_PACKAGE_REFERENCE.md`](../../SLUG_PACKAGE_REFERENCE.md) هما المرجعان.
 
+> **دورة الإصدار:** `v1.0.0-rc.1` هي baseline المنشورة؛ أما Runtime الحالي في هذا المستودع فيتضمن تطوير next-RC غير منشور بعد. لا تعني هذه الإضافات أن `searchScopes()` أو `getScopeOperationalSummary()` أو `searchHistory()` منشورة ضمن RC1.
+
 ## الملاءمة ومتى تستخدم الحزمة
 
 استخدم maatify/php-slug عندما تحتاج إلى توليد Slug أو canonicalization أو ملكية scoped مستمرة مع resolution وHistory. يناسب المسار stateless النصوص التي لا تحتاج إلى Persistence، بينما يناسب المسار persisted الحالات التي تملك فيها الحزمة lifecycle والـclaims.
@@ -67,7 +69,11 @@ $engine = SlugEngineFactory::create(
 | Canonicalization / generation | SlugTextServiceInterface — generateFromSource, canonicalizeClaim, canonicalizeLookup | مسار canonicalization | examples/canonicalization.php |
 | Lifecycle ownership / mutation | SlugEngine وSlugLifecycleServiceInterface — assignExact ومسار lifecycle persisted | مسار lifecycle persisted | examples/persisted-lifecycle.php |
 | Consumer reads | checkAvailability, getCurrent, resolve | Consumer reads / resolution | examples/persisted-lifecycle.php |
-| Management / Operational Read | SlugManagementQueryInterface — getBinding, getCurrent, listAliases, getHistory, inspectRegistry, inspectScope, searchBindings, searchRegistry | Management operational reads | examples/persisted-lifecycle.php عبر getBinding |
+| اكتشاف Scopes | `searchScopes(ScopeSearchCriteria)` | مسار اكتشاف Scopes | examples/persisted-lifecycle.php |
+| ملخص Scope التشغيلي | `getScopeOperationalSummary(ScopeCriteria)` | مسار ملخص Scope | examples/persisted-lifecycle.php |
+| History التشغيلي والنوافذ الزمنية | `searchHistory(HistorySearchCriteria)` | مسار History التشغيلي | examples/persisted-lifecycle.php |
+| Public profile extension | `SlugProfileInterface` و`SlugProfileRegistryInterface::register()` | مسار profile مخصص | examples/custom-profile.php |
+| Management / Operational Read | SlugManagementQueryInterface — عمليات الإدارة العامة | Management operational reads | examples/persisted-lifecycle.php |
 
 توجه هذه الخريطة القارئ إلى الاستخدام، ولا تكرر الفهرس الكامل في Package Reference.
 
@@ -147,6 +153,80 @@ SlugEngine::getBinding(new BindingCriteria($bindingIdentity)).
 
 هذه operational reads موجهة إلى Host أو أدوات الإدارة ولا تعيد تعريف public lifecycle contract. تعتمد pagination على الأنواع المشتركة التي يحددها Package Reference.
 
+## اكتشاف Scopes
+
+**Input**
+
+يستخدم Host `ScopeSearchCriteria` لاكتشاف Scopes مع `PageRequest` ومرشحات literal اختيارية.
+
+**Public Call**
+
+`SlugEngine::searchScopes(...)`.
+
+**Result**
+
+يعيد `PageResult<ScopeDTO>` حيث `total` لكل Scopes و`filtered` بعد المرشحات.
+
+**Boundary**
+
+هذه قراءة package-owned لا تنضم إلى Host tables أو metadata.
+
+## ملخص Scope التشغيلي
+
+**Input**
+
+يستخدم Host `ScopeCriteria` مع `ScopeProfileRequestDTO` دقيق.
+
+**Public Call**
+
+`SlugEngine::getScopeOperationalSummary(...)`.
+
+**Result**
+
+يعيد `ScopeOperationalSummaryDTO` أو `null` عند غياب Scope، مع invariants الخاصة بتقسيم Binding وRegistry، وتُحسب History من persisted Scope snapshots.
+
+**Boundary**
+
+هذا ملخص نطاق Slug، وليس Dashboard أو metrics عامة عبر الحزم.
+
+## History التشغيلي
+
+**Input**
+
+**Input**
+
+يمكن إنشاء `HistorySearchCriteria` package-wide أو لـScope دقيق، مع event type ونافذة UTC نصف مفتوحة `[fromInclusive, untilExclusive)`.
+
+**Public Call**
+
+`SlugEngine::searchHistory(...)`.
+
+**Result**
+
+يمثل `total` الحد الأساسي و`filtered` بعد المرشحات. يستخدم `occurredAt` بدقة ست خانات، لا `originalOccurredAt`، وتنسب الأحداث إلى persisted Scope snapshot. Scope المفقود يعيد صفحة فارغة.
+
+**Boundary**
+
+لا يحتاج Host إلى تعداد Bindings أو SQL لبناء History التشغيلي.
+
+## Custom Profile Extension
+
+**Input**
+
+تطبيق `SlugProfileInterface` بمفتاح versioned مثل `lowercase-words-v1`.
+
+**Public Call**
+
+يسجل عبر `SlugProfileRegistryInterface::register()` على registry المدمج، ثم يستخدم عبر `SlugTextServiceFactory` أو `SlugEngineFactory`. راجع `examples/custom-profile.php`.
+
+**Result**
+
+تعيد الخدمة DTOs و`Slug` العامة المعتادة.
+
+**Boundary**
+
+يبقى Package Reference المرجع المعياري للتوافق والتسجيل المكرر وثبات profile المحفوظ وحدود الامتداد.
+
 ## حدود Transactions والتزامن
 
 عندما لا يملك Host outer transaction، تملك الحزمة transaction الخاصة بالعملية وتنفذ commit أو rollback وفق العقد. وعندما يمرر Host outer transaction، تشارك الحزمة فيه وتستخدم savepoint إذا كانت capability مطلوبة ومدعومة، ولا تنفذ commit أو rollback للـouter transaction.
@@ -162,15 +242,16 @@ SlugEngine::getBinding(new BindingCriteria($bindingIdentity)).
 ## التنقل بين الأمثلة
 
 - examples/canonicalization.php — توليد stateless.
+- examples/custom-profile.php — تسجيل واستخدام profile مخصص عبر Public API.
 - examples/persisted-lifecycle.php — assignment وresolution وmanagement reads على MySQL مؤقت.
 
-لتشغيل المثالين محليًا عبر gate واحدة:
+لتشغيل الأمثلة الثلاثة المحلية عبر gate واحدة:
 
 ~~~bash
 bash tools/ci/run-gate.sh examples-smoke
 ~~~
 
-تشغل هذه الـgate المثال stateless ثم المثال persisted عبر Compose lifecycle canonical. لا يعمل المثال persisted كعملية standalone خارج هذه البيئة لأنه يحتاج إلى SLUG_TEST_DB_*.
+تشغل هذه الـgate `canonicalization.php` و`custom-profile.php` مباشرة، ثم تشغل `persisted-lifecycle.php` عبر Compose lifecycle canonical. لا يعمل المثال persisted كعملية standalone خارج هذه البيئة لأنه يحتاج إلى SLUG_TEST_DB_*.
 
 ## وثائق إضافية
 

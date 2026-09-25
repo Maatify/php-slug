@@ -15,8 +15,12 @@ use Maatify\Slug\Lifecycle\DTO\BindingDTO;
 use Maatify\Slug\Lifecycle\DTO\BindingIdentityDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeProfileRequestDTO;
 use Maatify\Slug\Lifecycle\Management\Criteria\BindingCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\HistorySearchCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeCriteria;
+use Maatify\Slug\Lifecycle\Management\Criteria\ScopeSearchCriteria;
 use Maatify\Slug\Lifecycle\ValueObject\EntityReference;
 use Maatify\Slug\Lifecycle\ValueObject\SlugScope;
+use Maatify\Persistence\Pdo\Pagination\PageRequest;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -50,13 +54,13 @@ $pdo = null;
 
 try {
     $configuration = databaseConfiguration();
-    $schemaFile = dirname(__DIR__) . '/schema/mysql/001_slug_rc1.sql';
-    if (! is_file($schemaFile)) {
-        throw new RuntimeException('The package schema asset is missing.');
+    $schemaDirectory = dirname(__DIR__) . '/schema/mysql';
+    if (! is_file($schemaDirectory . '/001_slug_rc1.sql') || ! is_file($schemaDirectory . '/002_operational_reporting_indexes.sql')) {
+        throw new RuntimeException('The ordered package schema assets are incomplete.');
     }
 
     $pdo = connectToDatabase($configuration);
-    installPackageSchema($pdo, $schemaFile);
+    installPackageSchema($pdo, $schemaDirectory);
 
     $profileKey = new SlugProfileKey('ascii-v1');
     $profiles = SlugProfileRegistryFactory::createBuiltIn();
@@ -91,7 +95,22 @@ try {
     }
     expect($binding->state->currentSlug?->value === 'hello-world', 'Management read returned an unexpected current slug.');
 
-    echo "PERSISTED_LIFECYCLE_EXAMPLE=hello-world PASS\n";
+    $scopes = $engine->searchScopes(new ScopeSearchCriteria(new PageRequest(1, 10), 'example'));
+    expect($scopes->total === 1 && $scopes->filtered === 1, 'Scope discovery returned an unexpected page.');
+
+    $summary = $engine->getScopeOperationalSummary(new ScopeCriteria($scopeProfile));
+    expect($summary !== null && $summary->bindingsTotal === 1, 'Scope summary returned an unexpected binding count.');
+
+    $history = $engine->searchHistory(new HistorySearchCriteria(
+        new PageRequest(1, 10, 'occurred_at', 'ASC'),
+        $scopeProfile,
+        null,
+        new DateTimeImmutable('2026-01-01T00:00:00.123456Z'),
+        new DateTimeImmutable('2026-01-01T00:00:01.123456Z'),
+    ));
+    expect($history->total === 1 && $history->filtered === 1, 'History window returned an unexpected page.');
+
+    echo "PERSISTED_LIFECYCLE_EXAMPLE=hello-world SCOPE_REPORTING=PASS HISTORY_WINDOW=PASS\n";
 } finally {
     if ($pdo instanceof PDO) {
         dropPackageSchema($pdo);
@@ -132,29 +151,28 @@ function connectToDatabase(array $configuration): PDO
     return $pdo;
 }
 
-/** Installs the six package-owned schema statements used by the example. */
-function installPackageSchema(PDO $pdo, string $schemaFile): void
+/** Installs the ordered package-owned schema assets used by the example. */
+function installPackageSchema(PDO $pdo, string $schemaDirectory): void
 {
-    $sql = file_get_contents($schemaFile);
-    if ($sql === false) {
-        throw new RuntimeException('The package-owned schema could not be read.');
+    $assets = glob($schemaDirectory . '/[0-9][0-9][0-9]_*.sql');
+    if ($assets === false || $assets === []) {
+        throw new RuntimeException('The package-owned schema assets could not be found.');
     }
-    $statements = preg_split('/;\s*(?:\r?\n|\z)/', $sql);
-    if ($statements === false) {
-        throw new RuntimeException('The package-owned schema could not be split.');
-    }
-
-    $executed = 0;
-    foreach ($statements as $statement) {
-        $statement = trim($statement);
-        if ($statement === '') {
-            continue;
+    sort($assets, SORT_STRING);
+    foreach ($assets as $asset) {
+        $sql = file_get_contents($asset);
+        if ($sql === false) {
+            throw new RuntimeException('The package-owned schema asset could not be read.');
         }
-        $pdo->exec($statement);
-        $executed++;
-    }
-    if ($executed !== 6) {
-        throw new RuntimeException(sprintf('Expected six schema statements, executed %d.', $executed));
+        $statements = preg_split('/;\s*(?:\r?\n|\z)/', $sql);
+        if ($statements === false) {
+            throw new RuntimeException('The package-owned schema could not be split.');
+        }
+        foreach ($statements as $statement) {
+            if (trim($statement) !== '') {
+                $pdo->exec(trim($statement));
+            }
+        }
     }
 }
 

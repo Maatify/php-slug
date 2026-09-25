@@ -11,6 +11,7 @@ use Maatify\Slug\Lifecycle\DTO\CurrentSlugDTO;
 use Maatify\Slug\Canonicalization\DTO\GeneratedSlugDTO;
 use Maatify\Slug\Canonicalization\DTO\LookupCanonicalizationDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeDTO;
+use Maatify\Slug\Lifecycle\Management\DTO\ScopeOperationalSummaryDTO;
 use Maatify\Slug\Lifecycle\DTO\ScopeTransitionClaimIntentDTO;
 use Maatify\Slug\Lifecycle\Consumer\DTO\SlugAvailabilityDTO;
 use Maatify\Slug\Lifecycle\Consumer\DTO\SlugResolutionDTO;
@@ -40,6 +41,7 @@ final class DTOJsonSerializationTest extends TestCase
         yield 'canonical' => [new CanonicalSlugDTO($scope->expectedProfileKey, 'hello', $slug), ['profile_key', 'input', 'slug']];
         yield 'lookup' => [new LookupCanonicalizationDTO($scope->expectedProfileKey, 'hello', InputFormCanonicalityEnum::CANONICAL, $slug), ['profile_key', 'decoded_segment', 'canonicality', 'canonical_slug']];
         yield 'scope' => [new ScopeDTO(1, $scope->scope, $scope->expectedProfileKey, ContractFixtures::date(), ContractFixtures::date()), ['id', 'scope', 'profile_key', 'created_at', 'updated_at']];
+        yield 'scope operational summary' => [new ScopeOperationalSummaryDTO(new ScopeDTO(1, $scope->scope, $scope->expectedProfileKey, ContractFixtures::date(), ContractFixtures::date()), 3, 1, 1, 1, 4, 1, 1, 1, 1, 2), ['scope', 'bindings_total', 'bindings_active', 'bindings_inactive', 'bindings_released', 'registry_claims_total', 'registry_current_canonical', 'registry_historical_canonical', 'registry_active_aliases', 'registry_retired_aliases', 'history_events_total']];
         yield 'current' => [new CurrentSlugDTO($binding, $claim, 1), ['binding', 'claim', 'revision']];
         yield 'alias' => [new AliasDTO($claim, true, 1), ['claim', 'resolvable_as_alias', 'binding_revision']];
         yield 'availability' => [new SlugAvailabilityDTO($scope, 'hello', $slug, AvailabilityStatusEnum::AVAILABLE, $binding, true), ['scope_profile', 'requested_input', 'canonical_slug', 'status', 'owner', 'advisory']];

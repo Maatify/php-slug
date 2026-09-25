@@ -101,8 +101,9 @@ audit() {
 }
 
 schema_contract() {
-    if [[ ! -f schema/mysql/001_slug_rc1.sql ]]; then
-        echo 'The required package schema is missing: schema/mysql/001_slug_rc1.sql' >&2
+    local schema_assets=(schema/mysql/[0-9][0-9][0-9]_*.sql)
+    if ((${#schema_assets[@]} < 2)); then
+        echo 'The ordered package schema assets are incomplete.' >&2
         exit 1
     fi
 }
@@ -174,6 +175,7 @@ consumer() {
 examples_smoke() {
     latest_dependencies
     php examples/canonicalization.php
+    php examples/custom-profile.php
     bash tools/ci/run-integration.sh examples
 }
 
@@ -217,7 +219,7 @@ Gates:
   workflow-lint    actionlint for every .github/workflows/*.yml|*.yaml
   whitespace RANGE Git-aware whitespace check for an explicit BASE...HEAD committed range
   consumer         Consumer Verification Harness clean run x2
-  examples-smoke   Stateless and persisted examples through the canonical Compose lifecycle
+  examples-smoke   All maintained standalone examples; persisted examples use the canonical Compose lifecycle
   runtime-portability Latest dependencies, runtime diagnostics, focused portability tests, and stateless example
 USAGE
     exit 2
