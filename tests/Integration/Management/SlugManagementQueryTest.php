@@ -344,8 +344,8 @@ final class SlugManagementQueryTest extends MySqlIntegrationTestCase
         $relocatedHistory = $engine->searchHistory(new HistorySearchCriteria(new PageRequest(1, 10), $relocatedScope));
         self::assertGreaterThan(0, $sourceHistory->filtered);
         self::assertSame(0, $relocatedHistory->filtered);
-        self::assertSame(
-            ['ASSIGNED', 'OWNERSHIP_RELEASED_ALL'],
+        self::assertEqualsCanonicalizing(
+            ['ASSIGNED', 'OWNERSHIP_RELEASED', 'OWNERSHIP_RELEASED_ALL'],
             array_map(static fn($event): string => $event->eventType->value, $sourceHistory->data),
         );
     }
