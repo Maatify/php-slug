@@ -15,7 +15,7 @@
 
 ## حالة النشر
 
-إن `v1.0.0-rc.1` هي Published Release Candidate متاحة عبر Packagist. وتبقى Pre-Stable، ولا تنشئ Stable support line، ولا يوجد Published Stable release. النشر الفعلي لا يعني الجاهزية للإصدار Stable.
+إن `v1.0.0-rc.2` هي Published Release Candidate الحالية والمتاحة عبر Packagist. وتبقى Pre-Stable، ولا تنشئ Stable support line، ولا يوجد Published Stable release. النشر الفعلي لا يعني الجاهزية للإصدار Stable.
 
 المرجع الحالي للعقد العام هو [`SLUG_PACKAGE_REFERENCE.md`](SLUG_PACKAGE_REFERENCE.md). تُحفظ أدلة التنفيذ في سجل GitHub PR وCI بدل تكرارها في ملف README هذا الموجّه للمستهلك.
 
@@ -48,7 +48,7 @@
 ثبّت Published Release Candidate بالأمر المحدد:
 
 ~~~bash
-composer require maatify/php-slug:1.0.0-rc.1@RC
+composer require maatify/php-slug:1.0.0-rc.2@RC
 ~~~
 
 ## الاستخدام السريع
@@ -74,7 +74,7 @@ $slug = $text->generateFromSource(
 - canonicalization عبر SlugTextServiceInterface وgenerateFromSource وcanonicalizeClaim وcanonicalizeLookup.
 - lifecycle ownership عبر SlugEngine وSlugLifecycleServiceInterface، بما في ذلك assignExact.
 - consumer reads عبر checkAvailability وgetCurrent وresolve.
-- management reads عبر SlugManagementQueryInterface، ومنها `searchScopes` و`getScopeOperationalSummary` و`searchHistory` في Runtime الحالي غير المنشور للـnext RC.
+- management reads عبر SlugManagementQueryInterface، ومنها `searchScopes` و`getScopeOperationalSummary` و`searchHistory` في Runtime RC2 المنشور.
 
 لا يحل هذا الملخص محل الفهرس والعقود الكاملة في SLUG_PACKAGE_REFERENCE.md.
 

@@ -1,9 +1,9 @@
 # Slug Ordered MySQL-Compatible Package Schema
 
 `001_slug_rc1.sql` is the published RC1 base schema. `002_operational_reporting_indexes.sql`
-is an additive next-RC operational-read index asset. The published RC1 artifact does
-not contain `002`; it is applied only when moving an existing RC1 installation to the
-current unreleased next-RC Runtime. The Host owns
+is the additive operational-reporting index asset published with v1.0.0-rc.2. The
+published RC1 artifact does not contain `002`; it is applied when moving an existing
+RC1 installation to the RC2 Runtime. The Host owns
 the injected `PDO` connection and is responsible for selecting a
 MySQL-compatible server that satisfies the capability contract in the
 [Package Reference](../../SLUG_PACKAGE_REFERENCE.md#4-runtime-and-platform-contract).

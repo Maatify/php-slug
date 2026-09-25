@@ -1,6 +1,6 @@
 # Maatify Slug — Usage Guide
 
-> **Release lifecycle:** Pre-Stable. `v1.0.0-rc.1` is the published baseline; the current repository Runtime contains unreleased next-RC development.
+> **Release lifecycle:** Pre-Stable. `v1.0.0-rc.2` is the current published Release Candidate, externally resolvable through the approved Composer distribution source. There is no Stable support line.
 >
 > [`SLUG_PACKAGE_REFERENCE.md`](../../SLUG_PACKAGE_REFERENCE.md) is the normative technical contract. This guide explains usage and does not create a competing contract.
 
@@ -18,10 +18,10 @@ Use `maatify/php-slug` when the package needs slug generation, canonicalization,
 
 ## Publication State
 
-`v1.0.0-rc.1` is the published Release Candidate and is externally resolvable through the approved Composer distribution source. It remains Pre-Stable and does not create a Stable support line. Install it with:
+`v1.0.0-rc.2` is the published Release Candidate and is externally resolvable through the approved Composer distribution source. It remains Pre-Stable and does not create a Stable support line. Install it with:
 
 ```bash
-composer require maatify/php-slug:1.0.0-rc.1@RC
+composer require maatify/php-slug:1.0.0-rc.2@RC
 ```
 
 This guide does not independently determine publication status.

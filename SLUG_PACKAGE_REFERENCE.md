@@ -2,7 +2,7 @@
 
 > **Canonical root Package Reference** for `maatify/php-slug`.
 >
-> **Lifecycle:** Pre-Stable. `v1.0.0-rc.1` is the published baseline; the current repository Runtime includes unreleased next-RC development after that baseline. This file records the implemented contract and package boundaries available in the current Runtime.
+> **Lifecycle:** Pre-Stable. `v1.0.0-rc.2` is the current published Release Candidate. This file records the implemented contract and package boundaries available in the current Runtime.
 
 ## 1. Package Identity and Status
 
@@ -15,6 +15,7 @@
 | Host model | Host-agnostic |
 | Release lifecycle | Published Release Candidate / Pre-Stable |
 | Exact first RC identifier | `v1.0.0-rc.1` |
+| Current published RC identifier | `v1.0.0-rc.2` |
 | Published Stable line | None |
 | Publication state | Published and externally resolvable through Packagist |
 | Publication truth source | Packagist / approved external Composer distribution source |
@@ -54,10 +55,10 @@ The package has no Host foreign keys, Host table joins, or Host repository depen
 
 ## 3. Supported State and Installation
 
-The published Release Candidate is `v1.0.0-rc.1`. It is externally resolvable through Packagist and remains Pre-Stable without a Stable support line. Install this exact version with:
+The current published Release Candidate is `v1.0.0-rc.2`. It is externally resolvable through Packagist and remains Pre-Stable without a Stable support line. Install this exact version with:
 
 ```bash
-composer require maatify/php-slug:1.0.0-rc.1@RC
+composer require maatify/php-slug:1.0.0-rc.2@RC
 ```
 
 This Package Reference records the stable public/runtime/behavioral contract; it does not independently determine publication status.
@@ -534,7 +535,7 @@ The package does not add APIs for these dimensions merely to satisfy a Reporting
 
 ### 10.2 Ordered Schema Assets and RC1 Upgrade
 
-The published `v1.0.0-rc.1` baseline is represented by `schema/mysql/001_slug_rc1.sql`. The current unreleased next-RC Runtime adds `schema/mysql/002_operational_reporting_indexes.sql` as an additive operational-read index asset; the published RC1 artifact does not contain `002`.
+The published `v1.0.0-rc.1` baseline is represented by `schema/mysql/001_slug_rc1.sql`. `schema/mysql/002_operational_reporting_indexes.sql` is the additive operational-reporting asset published with `v1.0.0-rc.2`; the published RC1 artifact does not contain `002`.
 
 For a fresh current installation, the Host applies ordered assets `001_*.sql`, then `002_*.sql`, then any future ordered assets. For an existing published RC1 installation, the Host keeps the existing `001` schema, applies `002_operational_reporting_indexes.sql`, and then runs current Runtime schema verification. This ordered upgrade path is required before the current Runtime is considered schema-compatible.
 
@@ -724,7 +725,7 @@ The package uses the published hierarchy from `maatify/exceptions ^1.0`. It does
 
 ## 13. Current Release State
 
-`v1.0.0-rc.1` is the published baseline for `maatify/php-slug`, externally resolvable through Packagist. The current repository Runtime contains unreleased next-RC development after that baseline. The package lifecycle remains Pre-Stable, with no Published Stable release and no Stable support line. CI and review execution evidence is maintained in GitHub PR/CI history rather than duplicated in this current-state contract.
+`v1.0.0-rc.2` is the current published Release Candidate for `maatify/php-slug`, externally resolvable through Packagist. The package lifecycle remains Pre-Stable, with no Published Stable release and no Stable support line. CI and review execution evidence is maintained in GitHub PR/CI history rather than duplicated in this current-state contract.
 
 The current adopted Standards baseline is recorded by [`STANDARDS_MANIFEST.md`](docs/php-engineering-standards/STANDARDS_MANIFEST.md) at Adoption Commit `7dd9d1d02b53013da0906c729dab4f667afeefb4`. That manifest is the authoritative resolver record for the applicable Standard versions.
 
